@@ -2,6 +2,7 @@
 
 % Public API
 -export([get_users/1,
+         get_user_by_name/1,
          create_users/1,
          delete_users/1,
          get_usp/1]).
@@ -16,9 +17,12 @@ get_users(all) ->
     ct:get_config(escalus_users);
 get_users({by_name, Names}) ->
     All = get_users(all),
-    [{Name, _} = proplists:lookup(Name, All) || Name <- Names];
+    [get_user_by_name(Name, All) || Name <- Names];
 get_users(Users) ->
     Users.
+
+get_user_by_name(Name) ->
+    get_user_by_name(Name, get_users(all)).
 
 create_users(Users) ->
     lists:map(fun create_user/1, get_users(Users)).
@@ -35,6 +39,9 @@ get_usp(UserSpec) ->
 %%--------------------------------------------------------------------
 %% Helpers
 %%--------------------------------------------------------------------
+
+get_user_by_name(Name, Users) ->
+    {Name, _} = proplists:lookup(Name, Users).
 
 create_user({_Name, UserSpec} = FullSpec) ->
     Session = escalus_client:start_session(UserSpec),
