@@ -18,12 +18,12 @@
 
 get_jid(Name) ->
     {Name, Spec} = get_user_by_name(Name),
-    [U, S] = get_usp(Spec),
+    [U, S, _] = get_usp(Spec),
     U ++ "@" ++ S.
 
 get_username(Name) ->
     {Name, Spec} = get_user_by_name(Name),
-    [U, _] = get_usp(Spec),
+    [U, _, _] = get_usp(Spec),
     U.
 
 get_users(all) ->
