@@ -1,4 +1,5 @@
 deps
 ebin
 logs
+tags
 *.beam
