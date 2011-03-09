@@ -7,7 +7,8 @@
          get_user_by_name/1,
          create_users/1,
          delete_users/1,
-         get_usp/1]).
+         get_usp/1,
+         make_everyone_friends/1]).
 
 -include_lib("exmpp/include/exmpp_client.hrl").
 
@@ -47,6 +48,21 @@ get_usp(UserSpec) ->
     {server, Server} = proplists:lookup(server, UserSpec),
     {password, Password} = proplists:lookup(password, UserSpec),
     [Username, Server, Password].
+
+make_everyone_friends(Users) ->
+    Config = escalus_cleaner:start([]),
+    NamesNJids = [{Name, get_jid(Name)} || {Name, _Spec} <- Users],
+    lists:foreach(fun ({Name, UserSpec}) ->
+        Client = escalus_client:start_wait(Config, UserSpec, "friendly"),
+        lists:foreach(
+            fun ({OtherName, Jid}) when OtherName =/= Name ->
+                    Stanza = exmpp_client_roster:set_item(Jid, "friends", Jid),
+                    escalus_client:send_wait(Client, Stanza);
+                (_) -> ok
+            end, NamesNJids)
+    end, Users),
+    escalus_cleaner:stop(Config).
+
 
 %%--------------------------------------------------------------------
 %% Helpers

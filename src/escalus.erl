@@ -9,6 +9,7 @@
          delete_users/1,
          init_per_testcase/2,
          end_per_testcase/2,
+         make_everyone_friends/1,
          story/3]).
 
 %%--------------------------------------------------------------------
@@ -41,6 +42,11 @@ init_per_testcase(_CaseName, Config) ->
 
 end_per_testcase(_CaseName, Config) ->
     escalus_cleaner:stop(Config).
+
+make_everyone_friends(Config) ->
+    {escalus_users, Users} = proplists:lookup(escalus_users, Config),
+    escalus_users:make_everyone_friends(Users),
+    Config.
 
 story(Config, ResourceCount, Test) ->
     escalus_story:story(Config, ResourceCount, Test).
