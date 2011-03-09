@@ -152,7 +152,9 @@ client_loop(Session, Acc) ->
             exmpp_session:send_packet(Session, Packet),
             client_loop(Session, Acc);
         #received_packet{raw_packet=Packet} ->
-            client_loop(Session, [Packet | Acc])
+            client_loop(Session, [Packet | Acc]);
+        Other ->
+            error_logger:error_msg("bad message: ~p~n", [Other])
     end.
 
 %%--------------------------------------------------------------------
