@@ -1,7 +1,9 @@
 -module(escalus_users).
 
 % Public API
--export([get_users/1,
+-export([get_jid/1,
+         get_username/1,
+         get_users/1,
          get_user_by_name/1,
          create_users/1,
          delete_users/1,
@@ -12,6 +14,16 @@
 %%--------------------------------------------------------------------
 %% Public API
 %%--------------------------------------------------------------------
+
+get_jid(Name) ->
+    {Name, Spec} = get_user_by_name(Name),
+    [U, S] = get_usp(Spec),
+    U ++ "@" ++ S.
+
+get_username(Name) ->
+    {Name, Spec} = get_user_by_name(Name),
+    [U, _] = get_usp(Spec),
+    U.
 
 get_users(all) ->
     ct:get_config(escalus_users);
