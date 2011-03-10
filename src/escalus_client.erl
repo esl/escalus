@@ -62,7 +62,9 @@ start(Config, UserSpec, Resource) ->
     {ok, JID} = login(Config, Session, UserSpec),
     ClientPid = spawn(?MODULE, client_loop, [Session, []]),
     exmpp_session:set_controlling_process(Session, ClientPid),
-    #client{jid=JID#jid.raw, pid=ClientPid}.
+    Client = #client{jid=JID#jid.raw, pid=ClientPid},
+    escalus_cleaner:add_client(Config, Client),
+    Client.
 
 start_wait(Config, UserSpec) ->
     start_wait(Config, UserSpec, random).
