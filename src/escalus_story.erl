@@ -27,8 +27,9 @@ start_clients(Config, UserSpec, ResourceCount) ->
      ResNo <- lists:seq(1, ResourceCount)].
 
 start_client(Config, UserSpec, ResNo) ->
-    escalus_client:start_wait(Config, UserSpec,
-                              "res" ++ integer_to_list(ResNo)).
+    RandPart = base64:encode_to_string(crypto:rand_bytes(10)),
+    Res = "res" ++ integer_to_list(ResNo) ++ "-" ++ RandPart,
+    escalus_client:start_wait(Config, UserSpec, Res).
 
 prepare_clients(Config, ClientList) ->
     case proplists:get_bool(escalus_save_initial_history, Config) of
