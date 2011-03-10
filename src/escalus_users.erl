@@ -76,7 +76,7 @@ get_user_by_name(Name, Users) ->
     {Name, _} = proplists:lookup(Name, Users).
 
 create_user({_Name, UserSpec} = FullSpec) ->
-    Session = escalus_client:start_session(UserSpec),
+    Session = escalus_client:start_session([], UserSpec, random),
     GetFields = exmpp_client_register:get_registration_fields(),
     exmpp_session:send_packet(Session, GetFields),
     wait_for_result("create user"),
@@ -89,8 +89,8 @@ create_user({_Name, UserSpec} = FullSpec) ->
     FullSpec.
 
 delete_user({_Name, UserSpec}) ->
-    Session = escalus_client:start_session(UserSpec),
-    {ok, _JID} = escalus_client:login(Session, UserSpec),
+    Session = escalus_client:start_session([], UserSpec, random),
+    {ok, _JID} = escalus_client:login([], Session, UserSpec),
     Packet = exmpp_client_register:remove_account(),
     exmpp_session:send_packet(Session, Packet),
     wait_for_result("delete user"),

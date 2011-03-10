@@ -1,11 +1,9 @@
 -module(escalus_client).
 
 % Public API
--export([start_session/1, start_session/3,
-         login/2, login/3,
-         start_for/2, start_for_wait/2,
+-export([start_session/3,
+         login/3,
          start_for/3, start_for_wait/3,
-         start/2, start_wait/2,
          start/3, start_wait/3,
          send/2, send_wait/2,
          stop/1, stop_wait/1,
@@ -30,9 +28,6 @@
 %% Public API
 %%--------------------------------------------------------------------
 
-start_session(UserSpec) ->
-    start_session([], UserSpec, random).
-
 start_session(Config, UserSpec, Resource) ->
     {server, Server} = proplists:lookup(server, UserSpec),
     Host = get_config(host, UserSpec, escalus_host, Config, Server),
@@ -45,17 +40,11 @@ start_session(Config, UserSpec, Resource) ->
     {ok, _, _} = exmpp_session:connect_TCP(Session, Host, Port),
     Session.
 
-login(Session, UserSpec) ->
-    login([], Session, UserSpec).
-
 login(Config, Session, UserSpec) ->
     AuthMethod = get_config(auth_method, UserSpec,
                             escalus_auth_method, Config,
                             "PLAIN"),
     {ok, _RealJid} = exmpp_session:login(Session, AuthMethod).
-
-start(Config, UserSpec) ->
-    start(Config, UserSpec, random).
 
 start(Config, UserSpec, Resource) ->
     Session = start_session(Config, UserSpec, Resource),
@@ -67,23 +56,14 @@ start(Config, UserSpec, Resource) ->
     send_initial_presence(Config, UserSpec, Client),
     Client.
 
-start_wait(Config, UserSpec) ->
-    start_wait(Config, UserSpec, random).
-
 start_wait(Config, UserSpec, Resource) ->
     Client = start(Config, UserSpec, Resource),
     wait(),
     Client.
 
-start_for(Config, Username) ->
-    start_for(Config, Username, random).
-
 start_for(Config, Username, Resource) ->
     {Username, UserSpec} = escalus_users:get_user_by_name(Username),
     start(Config, UserSpec, Resource).
-
-start_for_wait(Config, Username) ->
-    start_for_wait(Config, Username, random).
 
 start_for_wait(Config, Username, Resource) ->
     Client = start_for(Config, Username, Resource),
