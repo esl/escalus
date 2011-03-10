@@ -27,7 +27,7 @@ start_clients(Config, UserSpec, ResourceCount) ->
      ResNo <- lists:seq(1, ResourceCount)].
 
 start_client(Config, UserSpec, ResNo) ->
-    RandPart = base64:encode_to_string(crypto:rand_bytes(10)),
+    RandPart = binary_to_hex_list(crypto:rand_bytes(10)),
     Res = "res" ++ integer_to_list(ResNo) ++ "-" ++ RandPart,
     escalus_client:start_wait(Config, UserSpec, Res).
 
@@ -38,3 +38,12 @@ prepare_clients(Config, ClientList) ->
         false ->
             lists:foreach(fun escalus_client:drop_history/1, ClientList)
     end.
+
+hex(N) when N < 10 ->
+    $0 + N;
+hex(N) when N < 16 ->
+    $a + N - 10.
+
+binary_to_hex_list(Binary) ->
+    HexBinary = << <<(hex(X bsr 4)), (hex(X band 16#0F))>> || <<X>> <= Binary>>,
+    binary_to_list(HexBinary).
