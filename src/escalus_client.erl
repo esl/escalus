@@ -64,6 +64,7 @@ start(Config, UserSpec, Resource) ->
     exmpp_session:set_controlling_process(Session, ClientPid),
     Client = #client{jid=JID#jid.raw, pid=ClientPid},
     escalus_cleaner:add_client(Config, Client),
+    send_initial_presence(Config, UserSpec, Client),
     Client.
 
 start_wait(Config, UserSpec) ->
@@ -138,7 +139,10 @@ is_client(#client{}) ->
 is_client(_) ->
     false.
 
-%Main loop
+%%--------------------------------------------------------------------
+%% spawn export
+%%--------------------------------------------------------------------
+
 client_loop(Session, Acc) ->
     receive
         stop ->
@@ -157,6 +161,20 @@ client_loop(Session, Acc) ->
             client_loop(Session, [Packet | Acc]);
         Other ->
             error_logger:error_msg("bad message: ~p~n", [Other])
+    end.
+
+%%--------------------------------------------------------------------
+%% helpers
+%%--------------------------------------------------------------------
+
+send_initial_presence(Config, UserSpec, Client) ->
+    case get_config(initial_presence, Config,
+                    initial_presence, UserSpec,
+                    exmpp_presence:available()) of
+        none ->
+            ok;
+        Presence ->
+            send_wait(Client, Presence)
     end.
 
 %%--------------------------------------------------------------------
