@@ -1,4 +1,6 @@
 -record(client, {
+        session :: any(),
         jid :: binary(),
-        pid :: pid()
+        pid :: pid(),
+        ref :: reference()
 }).

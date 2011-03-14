@@ -9,8 +9,9 @@
          stop/1, stop_wait/1,
          kill/1, kill_wait/1,
          drop_history/1,
-         peek_stanzas/1,
          get_stanzas/1,
+         wait_for_stanzas/2, wait_for_stanzas/3,
+         wait_for_stanza/1, wait_for_stanza/2,
          only_stanza/1,
          is_client/1]).
 
@@ -18,7 +19,7 @@
 -export([client_loop/2]).
 
 -define(WAIT_TIME, 100).
--define(PEEK_DATA_TIMEOUT, 10000).
+-define(WAIT_FOR_STANZA_TIMOUT, 1000).
 
 -include("escalus.hrl").
 -include_lib("exmpp/include/exmpp_jid.hrl").
@@ -49,10 +50,14 @@ login(Config, Session, UserSpec) ->
 start(Config, UserSpec, Resource) ->
     Session = start_session(Config, UserSpec, Resource),
     {ok, JID} = login(Config, Session, UserSpec),
-    ClientPid = spawn(?MODULE, client_loop, [Session, []]),
+    ClientRef = make_ref(),
+    ClientPid = spawn(?MODULE, client_loop, [ClientRef, self()]),
     exmpp_session:set_controlling_process(Session, ClientPid),
     copy_packet_messages(ClientPid),
-    Client = #client{jid=JID#jid.raw, pid=ClientPid},
+    Client = #client{session=Session,
+                     jid=JID#jid.raw,
+                     pid=ClientPid,
+                     ref=ClientRef},
     escalus_cleaner:add_client(Config, Client),
     send_initial_presence(Config, UserSpec, Client),
     Client.
@@ -71,42 +76,65 @@ start_for_wait(Config, Username, Resource) ->
     wait(),
     Client.
 
-stop(#client{pid=Pid}) ->
-    Pid ! stop.
+stop(#client{session=Session}) ->
+    exmpp_session:stop(Session).
 
 stop_wait(Client) ->
     stop(Client),
     wait().
 
-kill(#client{pid=Pid}) ->
-    Pid ! kill.
+kill(#client{session=Session}) ->
+    erlang:exit(Session, kill).
 
 kill_wait(Client) ->
     Client ! kill.
 
-drop_history(#client{pid=Pid}) ->
-    Pid ! drop_history.
-
-peek_stanzas(#client{pid=Pid}) ->
-    Pid ! {peek_stanzas, Ref=make_ref(), self()},
-    receive
-        {data, Ref, Data} ->
-            Data
-    after ?PEEK_DATA_TIMEOUT ->
-            erlang:error(no_connection)
-    end.
+drop_history(Client) ->
+    get_stanzas(Client).
 
 get_stanzas(Client) ->
-    Stanzas = peek_stanzas(Client),
-    drop_history(Client),
-    Stanzas.
+    get_stanzas(Client, []).
+
+get_stanzas(#client{ref=Ref} = Client, Acc) ->
+    receive
+        {got_stanza, Ref, Stanza} ->
+            get_stanzas(Client, [Stanza|Acc])
+    after 0 ->
+            lists:reverse(Acc)
+    end.
+
+wait_for_stanzas(Client, Count) ->
+    wait_for_stanzas(Client, Count, ?WAIT_FOR_STANZA_TIMOUT).
+
+wait_for_stanzas(Client, Count, Timeout) ->
+    {ok, Tref} = timer:send_after(Timeout, self(), TimeoutMsg={timeout, make_ref()}),
+    Result = do_wait_for_stanzas(Client, Count, TimeoutMsg, []),
+    timer:cancel(Tref),
+    Result.
+
+do_wait_for_stanzas(_Client, 0, _TimeoutMsg, Acc) ->
+    lists:reverse(Acc);
+do_wait_for_stanzas(#client{ref=Ref}=Client, Count, TimeoutMsg, Acc) ->
+    receive
+        {got_stanza, Ref, Stanza} ->
+            do_wait_for_stanzas(Client, Count - 1, TimeoutMsg, [Stanza|Acc]);
+        TimeoutMsg ->
+            do_wait_for_stanzas(Client, 0, TimeoutMsg, Acc)
+    end.
 
 only_stanza(Client) ->
     [Stanza] = get_stanzas(Client),
     Stanza.
 
-send(#client{pid=Pid}, Packet) ->
-    Pid ! {send, Packet}.
+wait_for_stanza(Client) ->
+    wait_for_stanza(Client, ?WAIT_FOR_STANZA_TIMOUT).
+
+wait_for_stanza(Client, Timeout) ->
+    [Stanza] = wait_for_stanzas(Client, 1, Timeout),
+    Stanza.
+
+send(#client{session=Session}, Packet) ->
+    exmpp_session:send_packet(Session, Packet).
 
 send_wait(Client, Packet) ->
     send(Client, Packet),
@@ -124,24 +152,14 @@ is_client(_) ->
 %% spawn export
 %%--------------------------------------------------------------------
 
-client_loop(Session, Acc) ->
+client_loop(ClientRef, Master) ->
     receive
-        stop ->
-            exmpp_session:stop(Session);
-        kill ->
-            erlang:exit(Session, kill);
-        drop_history ->
-            client_loop(Session, []);
-        {peek_stanzas, Ref, Pid} ->
-            Pid ! {data, Ref, lists:reverse(Acc)},
-            client_loop(Session, Acc);
-        {send, Packet} ->
-            exmpp_session:send_packet(Session, Packet),
-            client_loop(Session, Acc);
         #received_packet{raw_packet=Packet} ->
-            client_loop(Session, [Packet | Acc]);
+            Master ! {got_stanza, ClientRef, Packet},
+            client_loop(ClientRef, Master);
         Other ->
-            error_logger:error_msg("bad message: ~p~n", [Other])
+            error_logger:error_msg("bad message: ~p~n", [Other]),
+            client_loop(ClientRef, Master)
     end.
 
 %%--------------------------------------------------------------------
