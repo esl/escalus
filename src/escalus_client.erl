@@ -79,7 +79,7 @@ start_for(Config, Username) ->
     start_for(Config, Username, random).
 
 start_for(Config, Username, Resource) ->
-    [UserSpec] = escalus_users:get_user_by_name(Username),
+    {Username, UserSpec} = escalus_users:get_user_by_name(Username),
     start(Config, UserSpec, Resource).
 
 start_for_wait(Config, Username) ->
