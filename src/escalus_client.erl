@@ -10,6 +10,7 @@
          kill/1, kill_wait/1,
          drop_history/1,
          get_stanzas/1,
+         has_stanzas/1,
          wait_for_stanzas/2, wait_for_stanzas/3,
          wait_for_stanza/1, wait_for_stanza/2,
          only_stanza/1,
@@ -102,6 +103,14 @@ get_stanzas(#client{ref=Ref} = Client, Acc) ->
     after 0 ->
             lists:reverse(Acc)
     end.
+
+has_stanzas(#client{ref=Ref}) ->
+    {messages, Msgs} = process_info(self(), messages),
+    lists:any(fun ({got_stanza, MRef, _}) when MRef == Ref ->
+                      true;
+                  (_) ->
+                      false
+              end, Msgs).
 
 wait_for_stanzas(Client, Count) ->
     wait_for_stanzas(Client, Count, ?WAIT_FOR_STANZA_TIMOUT).
