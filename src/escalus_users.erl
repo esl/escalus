@@ -100,8 +100,18 @@ wait_for_result(Action) ->
             ok;
         #received_packet{packet_type=iq, type_attr="error", raw_packet=Raw} ->
             RawStr = exmpp_xml:document_to_iolist(Raw),
-            error_logger:error_msg("error when trying to ~s: ~s~n", [Action, RawStr]),
-            exit(failed_to_register)
+            case is_conflict_stanza(Raw) of
+                true ->
+                    error_logger:info_msg("~s - skipping conflict stanza: ~s~n", [Action, RawStr]),
+                    conflict;
+                false ->
+                    error_logger:error_msg("error when trying to ~s: ~s~n", [Action, RawStr]),
+                    exit(failed_to_register)
+            end
         after 1000 ->
             exit(timeout)
     end.
+
+is_conflict_stanza(Stanza) ->
+    exmpp_xml:get_attribute(Stanza, <<"type">>, x) == <<"error">> andalso
+    exmpp_xml:get_path(Stanza, [{element, "error"}, {attribute, <<"code">>}]) == <<"409">>.
