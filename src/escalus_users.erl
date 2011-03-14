@@ -50,13 +50,17 @@ get_usp(UserSpec) ->
     [Username, Server, Password].
 
 make_everyone_friends(Users) ->
+    send_to_everyone(Users, exmpp_presence:subscribe()),
+    send_to_everyone(Users, exmpp_presence:subscribed()).
+
+send_to_everyone(Users, BaseStanza) ->
     Config = escalus_cleaner:start([]),
     NamesNJids = [{Name, get_jid(Name)} || {Name, _Spec} <- Users],
     lists:foreach(fun ({Name, UserSpec}) ->
         Client = escalus_client:start_wait(Config, UserSpec, "friendly"),
         lists:foreach(
             fun ({OtherName, Jid}) when OtherName =/= Name ->
-                    Stanza = exmpp_client_roster:set_item(Jid, "friends", Jid),
+                    Stanza = exmpp_stanza:set_recipient(BaseStanza, Jid),
                     escalus_client:send_wait(Client, Stanza);
                 (_) -> ok
             end, NamesNJids)
