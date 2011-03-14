@@ -12,8 +12,8 @@
 story(Config, ResourceCounts, Test) ->
     UserSpecs = escalus_users:get_users(all),
     Clients = [start_clients(Config, UserSpec, ResCount) ||
-               {{_, UserSpec}, ResCount} <- lists:zip(UserSpecs,
-                                                 ResourceCounts)],
+               {{_, UserSpec}, ResCount} <- zip_shortest(UserSpecs,
+                                                         ResourceCounts)],
     ClientList = lists:flatten(Clients),
     prepare_clients(Config, ClientList),
     apply(Test, ClientList).
@@ -47,3 +47,8 @@ hex(N) when N < 16 ->
 binary_to_hex_list(Binary) ->
     HexBinary = << <<(hex(X bsr 4)), (hex(X band 16#0F))>> || <<X>> <= Binary>>,
     binary_to_list(HexBinary).
+
+zip_shortest([H1|T1], [H2|T2]) ->
+    [{H1,H2}|zip_shortest(T1, T2)];
+zip_shortest(_, _) ->
+    [].
