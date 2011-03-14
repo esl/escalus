@@ -51,6 +51,7 @@ start(Config, UserSpec, Resource) ->
     {ok, JID} = login(Config, Session, UserSpec),
     ClientPid = spawn(?MODULE, client_loop, [Session, []]),
     exmpp_session:set_controlling_process(Session, ClientPid),
+    copy_packet_messages(ClientPid),
     Client = #client{jid=JID#jid.raw, pid=ClientPid},
     escalus_cleaner:add_client(Config, Client),
     send_initial_presence(Config, UserSpec, Client),
@@ -156,6 +157,16 @@ send_initial_presence(Config, UserSpec, Client) ->
         Presence ->
             send_wait(Client, Presence)
     end.
+
+copy_packet_messages(TargetPid) ->
+    receive
+        #received_packet{} = Packet ->
+            error_logger:info_msg("got packet: ~p~n", [Packet]),
+            TargetPid ! Packet,
+            copy_packet_messages(TargetPid)
+    after 0 ->
+        done
+end.
 
 %%--------------------------------------------------------------------
 %% utilities
