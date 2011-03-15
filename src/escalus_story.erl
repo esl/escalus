@@ -10,7 +10,7 @@
 %%--------------------------------------------------------------------
 
 story(Config, ResourceCounts, Story) ->
-    UserSpecs = escalus_users:get_users(all),
+    {escalus_users, UserSpecs} = proplists:lookup(escalus_users, Config),
     Clients = [start_clients(Config, UserSpec, ResCount) ||
                {{_, UserSpec}, ResCount} <- zip_shortest(UserSpecs,
                                                          ResourceCounts)],
