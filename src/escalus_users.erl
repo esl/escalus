@@ -4,6 +4,7 @@
 -export([get_jid/1,
          get_username/1,
          get_users/1,
+         get_userspec/2,
          get_user_by_name/1,
          create_users/1,
          delete_users/1,
@@ -36,6 +37,11 @@ get_users(Users) ->
 
 get_user_by_name(Name) ->
     get_user_by_name(Name, get_users(all)).
+
+get_userspec(Config, Username) ->
+    {escalus_users, Users} = proplists:lookup(escalus_users, Config),
+    {Username, UserSpec} = proplists:lookup(Username, Users),
+    UserSpec.
 
 create_users(Users) ->
     lists:map(fun create_user/1, get_users(Users)).
