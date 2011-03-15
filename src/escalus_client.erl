@@ -107,10 +107,10 @@ get_stanzas(#client{ref=Ref} = Client, Acc) ->
 
 peek_stanzas(#client{ref=Ref}) ->
     {messages, Msgs} = process_info(self(), messages),
-    lists:filter(fun ({got_stanza, MRef, _}) when MRef == Ref ->
-                         true;
+    lists:flatmap(fun ({got_stanza, MRef, Stanza}) when MRef == Ref ->
+                         [Stanza];
                      (_) ->
-                         false
+                         []
                  end, Msgs).
 
 has_stanzas(Client) ->
