@@ -40,7 +40,10 @@ start_session(Config, UserSpec, Resource) ->
 
     Session = exmpp_session:start({1,0}),
     exmpp_session:auth_info(Session, JID, Password),
-    {ok, _, _} = exmpp_session:connect_TCP(Session, Host, Port),
+    case exmpp_session:connect_TCP(Session, Host, Port) of
+        {ok, _, _} -> ok;
+        {ok, _} -> ok
+    end,
     Session.
 
 login(Config, Session, UserSpec) ->
