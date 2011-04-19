@@ -85,9 +85,10 @@ create_user({_Name, UserSpec} = FullSpec) ->
     Session = escalus_client:start_session([], UserSpec, random),
     GetFields = exmpp_client_register:get_registration_fields(),
     exmpp_session:send_packet(Session, GetFields),
-    wait_for_result("create user"),
+    {ok, RegisterInstrs} = wait_for_result("create user"),
     Id = exmpp_stanza:get_id(GetFields),
-    Fields = [proplists:lookup(Key, UserSpec) || Key <- [username, password]],
+    FieldKeys = get_registration_questions(RegisterInstrs),
+    Fields = [proplists:lookup(Key, UserSpec) || Key <- FieldKeys],
     Register = exmpp_client_register:register_account(Id, Fields),
     exmpp_session:send_packet(Session, Register),
     wait_for_result("create user"),
@@ -104,10 +105,10 @@ delete_user({_Name, UserSpec}) ->
 
 wait_for_result(Action) ->
     receive
-        #received_packet{packet_type=iq, type_attr="result", raw_packet=_Raw} ->
-            % RawStr = exmpp_xml:document_to_iolist(_Raw),
+        #received_packet{packet_type=iq, type_attr="result", raw_packet=Raw} ->
+            % RawStr = exmpp_xml:document_to_iolist(Raw),
             % error_logger:info_msg("success when trying to ~s: ~s~n", [Action, RawStr]),
-            ok;
+            {ok, Raw};
         #received_packet{packet_type=iq, type_attr="error", raw_packet=Raw} ->
             RawStr = exmpp_xml:document_to_iolist(Raw),
             case is_conflict_stanza(Raw) of
@@ -125,3 +126,9 @@ wait_for_result(Action) ->
 is_conflict_stanza(Stanza) ->
     exmpp_xml:get_attribute(Stanza, <<"type">>, x) == <<"error">> andalso
     exmpp_xml:get_path(Stanza, [{element, "error"}, {attribute, <<"code">>}]) == <<"409">>.
+
+get_registration_questions(Stanza) ->
+    Query = exmpp_xml:get_element(Stanza, "query"),
+    Children = exmpp_xml:get_child_elements(Query),
+    ChildrenNames = lists:map(fun exmpp_xml:get_name_as_atom/1, Children),
+    ChildrenNames -- [instructions].
