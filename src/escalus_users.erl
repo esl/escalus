@@ -120,6 +120,7 @@ wait_for_result(Action) ->
                     exit(failed_to_register)
             end
         after 1000 ->
+            error_logger:error_msg("TIMEOUT~n", []),
             exit(timeout)
     end.
 
