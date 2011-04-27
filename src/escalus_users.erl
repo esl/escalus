@@ -123,7 +123,7 @@ wait_for_result(Action) ->
                     {error, failed_to_register, Raw}
             end
         after 1000 ->
-            {error, timeout, exmpp:cdata("timeout")}
+            {error, timeout, exmpp_xml:cdata("timeout")}
     end.
 
 is_conflict_stanza(Stanza) ->
