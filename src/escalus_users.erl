@@ -6,8 +6,9 @@
          get_users/1,
          get_userspec/2,
          get_user_by_name/1,
-         create_users/1,
-         delete_users/1,
+         create_user/1,
+         verify_creation/1,
+         delete_user/1,
          get_usp/1,
          make_everyone_friends/1]).
 
@@ -43,11 +44,38 @@ get_userspec(Config, Username) ->
     {Username, UserSpec} = proplists:lookup(Username, Users),
     UserSpec.
 
-create_users(Users) ->
-    lists:map(fun create_user/1, get_users(Users)).
+create_user({_Name, UserSpec}) ->
+    Session = escalus_client:start_session([], UserSpec, random),
+    GetFields = exmpp_client_register:get_registration_fields(),
+    exmpp_session:send_packet(Session, GetFields),
+    {ok, result, RegisterInstrs} = wait_for_result("create user"),
+    Id = exmpp_stanza:get_id(GetFields),
+    FieldKeys = get_registration_questions(RegisterInstrs),
+    Fields = [proplists:lookup(Key, UserSpec) || Key <- FieldKeys],
+    Register = exmpp_client_register:register_account(Id, Fields),
+    exmpp_session:send_packet(Session, Register),
+    Result = wait_for_result("create user"),
+    exmpp_session:stop(Session),
+    Result.
 
-delete_users(Users) ->
-    lists:foreach(fun delete_user/1, get_users(Users)).
+verify_creation({ok, result, _}) ->
+    ok;
+verify_creation({ok, conflict, Raw}) ->
+    RawStr = exmpp_xml:document_to_iolist(Raw),
+    error_logger:info_msg("user already existed: ~s~n", [RawStr]);
+verify_creation({error, Error, Raw}) ->
+    RawStr = exmpp_xml:document_to_iolist(Raw),
+    error_logger:error_msg("error when trying to register user: ~s~n", [RawStr]),
+    exit(Error).
+
+delete_user({_Name, UserSpec}) ->
+    Session = escalus_client:start_session([], UserSpec, random),
+    {ok, _JID} = escalus_client:login([], Session, UserSpec),
+    Packet = exmpp_client_register:remove_account(),
+    exmpp_session:send_packet(Session, Packet),
+    Result = wait_for_result("delete user"),
+    exmpp_session:stop(Session),
+    Result.
 
 get_usp(UserSpec) ->
     {username, Username} = proplists:lookup(username, UserSpec),
@@ -81,47 +109,21 @@ send_to_everyone(Users, BaseStanza) ->
 get_user_by_name(Name, Users) ->
     {Name, _} = proplists:lookup(Name, Users).
 
-create_user({_Name, UserSpec} = FullSpec) ->
-    Session = escalus_client:start_session([], UserSpec, random),
-    GetFields = exmpp_client_register:get_registration_fields(),
-    exmpp_session:send_packet(Session, GetFields),
-    {ok, RegisterInstrs} = wait_for_result("create user"),
-    Id = exmpp_stanza:get_id(GetFields),
-    FieldKeys = get_registration_questions(RegisterInstrs),
-    Fields = [proplists:lookup(Key, UserSpec) || Key <- FieldKeys],
-    Register = exmpp_client_register:register_account(Id, Fields),
-    exmpp_session:send_packet(Session, Register),
-    wait_for_result("create user"),
-    exmpp_session:stop(Session),
-    FullSpec.
-
-delete_user({_Name, UserSpec}) ->
-    Session = escalus_client:start_session([], UserSpec, random),
-    {ok, _JID} = escalus_client:login([], Session, UserSpec),
-    Packet = exmpp_client_register:remove_account(),
-    exmpp_session:send_packet(Session, Packet),
-    wait_for_result("delete user"),
-    exmpp_session:stop(Session).
-
 wait_for_result(Action) ->
     receive
         #received_packet{packet_type=iq, type_attr="result", raw_packet=Raw} ->
             % RawStr = exmpp_xml:document_to_iolist(Raw),
             % error_logger:info_msg("success when trying to ~s: ~s~n", [Action, RawStr]),
-            {ok, Raw};
+            {ok, result, Raw};
         #received_packet{packet_type=iq, type_attr="error", raw_packet=Raw} ->
-            RawStr = exmpp_xml:document_to_iolist(Raw),
             case is_conflict_stanza(Raw) of
                 true ->
-                    error_logger:info_msg("~s - skipping conflict stanza: ~s~n", [Action, RawStr]),
-                    conflict;
+                    {ok, conflict, Raw};
                 false ->
-                    error_logger:error_msg("error when trying to ~s: ~s~n", [Action, RawStr]),
-                    exit(failed_to_register)
+                    {error, failed_to_register, Raw}
             end
         after 1000 ->
-            error_logger:error_msg("TIMEOUT~n", []),
-            exit(timeout)
+            {error, timeout, exmpp:cdata("timeout")}
     end.
 
 is_conflict_stanza(Stanza) ->

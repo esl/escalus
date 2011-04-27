@@ -27,7 +27,9 @@ end_per_suite(_Config) ->
     ok.
 
 create_users(Config, NamesSpec) ->
-    Users = escalus_users:create_users(NamesSpec),
+    Users = escalus_users:get_users(NamesSpec),
+    CreationResults = lists:map(fun escalus_users:create_user/1, Users),
+    lists:foreach(fun escalus_users:verify_creation/1, CreationResults),
     [{escalus_users, Users}] ++ Config.
 
 create_users(Config) ->
@@ -35,7 +37,7 @@ create_users(Config) ->
 
 delete_users(Config) ->
     {escalus_users, Users} = proplists:lookup(escalus_users, Config),
-    escalus_users:delete_users(Users).
+    lists:foreach(fun escalus_users:delete_user/1, Users).
 
 init_per_testcase(_CaseName, Config) ->
     escalus_cleaner:start(Config).
