@@ -51,7 +51,8 @@ create_user({_Name, UserSpec}) ->
     {ok, result, RegisterInstrs} = wait_for_result("create user"),
     Id = exmpp_stanza:get_id(GetFields),
     FieldKeys = get_registration_questions(RegisterInstrs),
-    Fields = [proplists:lookup(Key, UserSpec) || Key <- FieldKeys],
+    Fields = [Field || Key <- FieldKeys,
+                       none /= (Field = proplists:lookup(Key, UserSpec))],
     Register = exmpp_client_register:register_account(Id, Fields),
     exmpp_session:send_packet(Session, Register),
     Result = wait_for_result("create user"),
@@ -109,7 +110,7 @@ send_to_everyone(Users, BaseStanza) ->
 get_user_by_name(Name, Users) ->
     {Name, _} = proplists:lookup(Name, Users).
 
-wait_for_result(Action) ->
+wait_for_result(_Action) ->
     receive
         #received_packet{packet_type=iq, type_attr="result", raw_packet=Raw} ->
             % RawStr = exmpp_xml:document_to_iolist(Raw),
