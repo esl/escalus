@@ -26,8 +26,8 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
-create_users(Config, NamesSpec) ->
-    Users = escalus_users:get_users(NamesSpec),
+create_users(Config, Who) ->
+    Users = escalus_users:get_users(Who),
     CreationResults = lists:map(fun escalus_users:create_user/1, Users),
     lists:foreach(fun escalus_users:verify_creation/1, CreationResults),
     [{escalus_users, Users}] ++ Config.
