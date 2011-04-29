@@ -1,0 +1,3 @@
+[submodule "deps/exmpp"]
+	path = deps/exmpp
+	url = https://github.com/processone/exmpp.git
