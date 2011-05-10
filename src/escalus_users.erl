@@ -123,7 +123,7 @@ wait_for_result(_Action) ->
                 false ->
                     {error, failed_to_register, Raw}
             end
-        after 1000 ->
+        after 3000 ->
             {error, timeout, exmpp_xml:cdata("timeout")}
     end.
 
