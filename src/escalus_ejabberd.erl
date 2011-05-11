@@ -9,7 +9,8 @@
          remote_format/2,
          create_users/1,
          create_users/2,
-         delete_users/1]).
+         delete_users/1,
+         with_local_option/3]).
 
 rpc(M, F, A) ->
     Node = ct:get_config(ejabberd_node),
@@ -47,6 +48,20 @@ delete_users(Config) ->
     lists:foreach(fun({_Name, UserSpec}) ->
         unregister_user(UserSpec)
     end, AllUsers).
+
+-spec with_local_option(atom(), any(), fun(() -> Type)) -> Type.
+with_local_option(Option, Value, Fun) ->
+    Hosts = escalus_ejabberd:rpc(ejabberd_config, get_global_option, [hosts]),
+    OldValues = lists:map(fun(Host) ->
+        OldValue = escalus_ejabberd:rpc(ejabberd_config, get_local_option, [{Option, Host}]),
+        escalus_ejabberd:rpc(ejabberd_config, add_local_option, [{Option, Host}, Value]),
+        OldValue
+    end, Hosts),
+    Result = Fun(),
+    lists:foreach(fun({Host, OldValue}) ->
+        escalus_ejabberd:rpc(ejabberd_config, add_local_option, [{Option, Host}, OldValue])
+    end, lists:zip(Hosts, OldValues)),
+    Result.
 
 %%--------------------------------------------------------------------
 %% Helpers
