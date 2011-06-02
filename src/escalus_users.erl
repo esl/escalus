@@ -89,17 +89,25 @@ make_everyone_friends(Users) ->
     send_to_everyone(Users, exmpp_presence:subscribed()).
 
 send_to_everyone(Users, BaseStanza) ->
+    % start the clients
     Config = escalus_cleaner:start([]),
-    NamesNJids = [{Name, get_jid(Name)} || {Name, _Spec} <- Users],
-    lists:foreach(fun ({Name, UserSpec}) ->
-        Client = escalus_client:start_wait(Config, UserSpec, "friendly"),
-        lists:foreach(
-            fun ({OtherName, Jid}) when OtherName =/= Name ->
-                    Stanza = exmpp_stanza:set_recipient(BaseStanza, Jid),
-                    escalus_client:send_wait(Client, Stanza);
-                (_) -> ok
-            end, NamesNJids)
-    end, Users),
+    Clients = [escalus_client:start(Config, UserSpec, "friendly") ||
+                     {_Name, UserSpec} <- Users],
+    Jids = [get_jid(Name) || {Name, _Spec} <- Users],
+
+    % send BaseStanza to everyone
+    all_to_all(fun(Client, Jid) ->
+        Stanza = exmpp_stanza:set_recipient(BaseStanza, Jid),
+        escalus_client:send_wait(Client, Stanza)
+    end, Clients, Jids),
+
+    % wait for everyone to receive it
+    StanzaCount = length(Users), % N-1 (from others) + 1 (initial presence)
+    lists:foreach(fun(Client) ->
+        escalus_client:wait_for_stanzas(Client, StanzaCount)
+    end, Clients),
+
+    % stop the clients
     escalus_cleaner:stop(Config).
 
 
@@ -136,3 +144,19 @@ get_registration_questions(Stanza) ->
     Children = exmpp_xml:get_child_elements(Query),
     ChildrenNames = lists:map(fun exmpp_xml:get_name_as_atom/1, Children),
     ChildrenNames -- [instructions].
+
+%% As and Bs are lists of equal length
+%% calls Fun(A, B) on all but corresponding elements
+%% of that list
+all_to_all(Fun, As, Bs) ->
+    lists:foldl(fun(A, N) ->
+        lists:foldl(fun(B, M) ->
+            if N =/= M ->
+                    Fun(A, B);
+               true ->
+                   skip
+           end,
+           M + 1
+        end, 1, Bs),
+        N + 1
+    end, 1, As).
