@@ -2,3 +2,4 @@ ebin
 logs
 tags
 *.beam
+*~

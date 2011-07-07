@@ -16,7 +16,10 @@
 
 -module(escalus_assert).
 
--export([is_chat_message/2, has_no_stanzas/1, is_iq/2]).
+-export([is_chat_message/2, 
+         has_no_stanzas/1, 
+         is_iq/2,
+         is_presence_stanza/1]).
 
 is_chat_message(Msg, Stanza) when is_list(Msg) ->
     is_chat_message(list_to_binary(Msg), Stanza);
@@ -29,3 +32,7 @@ is_iq(Type, Stanza) ->
 
 has_no_stanzas(Client) ->
     false = escalus_client:has_stanzas(Client).
+
+is_presence_stanza(Stanza) ->
+    "presence" = exmpp_xml:get_name_as_list(Stanza).
+
