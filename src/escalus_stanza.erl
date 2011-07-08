@@ -17,7 +17,11 @@
 -module(escalus_stanza).
 
 -export([chat_to/2,
-         presence/1]).
+         presence/1,
+         presence_direct/2,
+         presence_show/2,
+         presence_status/2,
+         presence_priority/2]).
 
 -include("include/escalus.hrl").
 -include_lib("exmpp/include/exmpp.hrl").
@@ -40,3 +44,16 @@ presence(unsubscribed) ->
     exmpp_presence:unsubscribed();
 presence(probe) ->
     exmpp_presence:proble().
+
+presence_direct(#client{jid=Jid}, Type) ->
+    Presence = presence(Type),
+    exmpp_stanza:set_recipient(Presence, Jid).
+
+presence_show(Presence, Type) ->
+    exmpp_presence:set_show(Presence, Type).
+
+presence_status(Presence, Status) ->
+    exmpp_presence:set_status(Presence, Status).
+
+presence_priority(Presence, Priority) ->
+    exmpp_presence:set_priority(Presence, Priority).

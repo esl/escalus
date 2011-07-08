@@ -19,7 +19,18 @@
 -export([is_chat_message/2, 
          has_no_stanzas/1, 
          is_iq/2,
-         is_presence_stanza/1]).
+         is_presence_stanza/1,
+         is_presence_type/2,
+         is_presence_with_show/2,
+         is_presence_with_status/2,
+         is_presence_with_priority/2,
+         is_stanza_from/2]).
+
+-include("include/escalus.hrl").
+
+%%---------------------------------------------------------------------
+%% API functions
+%%---------------------------------------------------------------------
 
 is_chat_message(Msg, Stanza) when is_list(Msg) ->
     is_chat_message(list_to_binary(Msg), Stanza);
@@ -35,4 +46,29 @@ has_no_stanzas(Client) ->
 
 is_presence_stanza(Stanza) ->
     "presence" = exmpp_xml:get_name_as_list(Stanza).
+
+is_presence_type(Type, Presence) ->
+    case Type of
+        "available" ->
+            none = exmpp_xml:get_attribute_as_list(Presence, <<"type">>, none);
+        _ ->
+            Type = exmpp_xml:get_attribute_as_list(Presence, <<"type">>, none)
+    end.
+
+is_presence_with_show(Show, Presence) ->
+    Show = exmpp_xml:get_path(Presence, [{element, "show"},
+                                       cdata_as_list]).
+
+is_presence_with_status(Status, Presence) ->
+    Status = exmpp_xml:get_path(Presence, [{element, "status"},
+                                       cdata_as_list]).
+
+is_presence_with_priority(Priority, Presence) ->
+    Priority = exmpp_xml:get_path(Presence, [{element, "priority"},
+                                       cdata_as_list]).
+                
+is_stanza_from(#client{jid=Jid}, Stanza) ->
+    ExpectedJid = binary_to_list(Jid),
+    ActualJid = exmpp_xml:get_attribute_as_list(Stanza, <<"from">>, none),
+    true = lists:prefix(ExpectedJid, ActualJid).
 
