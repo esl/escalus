@@ -19,24 +19,19 @@
 % Public API
 -export([start_session/3,
          login/3,
-         start_for/3, start_for_wait/3,
-         start/3, start_wait/3,
-         send/2, send_wait/2,
-         stop/1, stop_wait/1,
-         kill/1, kill_wait/1,
-         drop_history/1,
-         peek_stanzas/1,
-         get_stanzas/1,
-         has_stanzas/1,
+         start_for/3,
+         start/3,
+         send/2,
+         stop/1,
+         kill/1,
+         peek_stanzas/1, has_stanzas/1,
          wait_for_stanzas/2, wait_for_stanzas/3,
          wait_for_stanza/1, wait_for_stanza/2,
-         only_stanza/1,
          is_client/1]).
 
 % spawn exports
 -export([client_loop/2]).
 
--define(WAIT_TIME, 100).
 -define(WAIT_FOR_STANZA_TIMOUT, 1000).
 
 -include("escalus.hrl").
@@ -84,46 +79,15 @@ start(Config, UserSpec, Resource) ->
     send_initial_presence(Config, UserSpec, Client),
     Client.
 
-start_wait(Config, UserSpec, Resource) ->
-    Client = start(Config, UserSpec, Resource),
-    wait(),
-    Client.
-
 start_for(Config, Username, Resource) ->
     {Username, UserSpec} = escalus_users:get_user_by_name(Username),
     start(Config, UserSpec, Resource).
 
-start_for_wait(Config, Username, Resource) ->
-    Client = start_for(Config, Username, Resource),
-    wait(),
-    Client.
-
 stop(#client{session=Session}) ->
     exmpp_session:stop(Session).
 
-stop_wait(Client) ->
-    stop(Client),
-    wait().
-
 kill(#client{session=Session}) ->
     erlang:exit(Session, kill).
-
-kill_wait(Client) ->
-    Client ! kill.
-
-drop_history(Client) ->
-    get_stanzas(Client).
-
-get_stanzas(Client) ->
-    get_stanzas(Client, []).
-
-get_stanzas(#client{ref=Ref} = Client, Acc) ->
-    receive
-        {got_stanza, Ref, Stanza} ->
-            get_stanzas(Client, [Stanza|Acc])
-    after 0 ->
-            lists:reverse(Acc)
-    end.
 
 peek_stanzas(#client{ref=Ref}) ->
     {messages, Msgs} = process_info(self(), messages),
@@ -155,26 +119,14 @@ do_wait_for_stanzas(#client{ref=Ref}=Client, Count, TimeoutMsg, Acc) ->
             do_wait_for_stanzas(Client, 0, TimeoutMsg, Acc)
     end.
 
-only_stanza(Client) ->
-    [Stanza] = get_stanzas(Client),
-    Stanza.
-
 wait_for_stanza(Client) ->
     wait_for_stanza(Client, ?WAIT_FOR_STANZA_TIMOUT).
 
 wait_for_stanza(Client, Timeout) ->
-    [Stanza] = wait_for_stanzas(Client, 1, Timeout),
-    Stanza.
+    hd(wait_for_stanzas(Client, 1, Timeout)).
 
 send(#client{session=Session}, Packet) ->
     exmpp_session:send_packet(Session, Packet).
-
-send_wait(Client, Packet) ->
-    send(Client, Packet),
-    wait().
-
-wait() ->
-    timer:sleep(?WAIT_TIME).
 
 is_client(#client{}) ->
     true;
@@ -206,7 +158,7 @@ send_initial_presence(Config, UserSpec, Client) ->
         none ->
             ok;
         Presence ->
-            send_wait(Client, Presence)
+            send(Client, Presence)
     end.
 
 copy_packet_messages(TargetPid) ->

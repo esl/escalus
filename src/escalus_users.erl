@@ -28,6 +28,7 @@
          get_usp/1,
          make_everyone_friends/1]).
 
+-include("include/escalus.hrl").
 -include_lib("exmpp/include/exmpp_client.hrl").
 
 %%--------------------------------------------------------------------
@@ -101,27 +102,16 @@ get_usp(UserSpec) ->
     [Username, Server, Password].
 
 make_everyone_friends(Users) ->
-    send_to_everyone(Users, exmpp_presence:subscribe()),
-    send_to_everyone(Users, exmpp_presence:subscribed()).
-
-send_to_everyone(Users, BaseStanza) ->
     % start the clients
     Config = escalus_cleaner:start([]),
-    Clients = [escalus_client:start(Config, UserSpec, "friendly") ||
-                     {_Name, UserSpec} <- Users],
-    Jids = [get_jid(Name) || {Name, _Spec} <- Users],
+    Clients = start_clients(Config, Users, "friendly"),
 
-    % send BaseStanza to everyone
-    all_to_all(fun(Client, Jid) ->
-        Stanza = exmpp_stanza:set_recipient(BaseStanza, Jid),
-        escalus_client:send_wait(Client, Stanza)
-    end, Clients, Jids),
+    % get initial presences
+    lists:foreach(fun escalus_client:wait_for_stanza/1, Clients),
 
-    % wait for everyone to receive it
-    StanzaCount = length(Users), % N-1 (from others) + 1 (initial presence)
-    lists:foreach(fun(Client) ->
-        escalus_client:wait_for_stanzas(Client, StanzaCount)
-    end, Clients),
+    % exchange subscribe and subscribed stanzas
+    escalus_utils:exchange_stanzas(Users, exmpp_presence:subscribe()),
+    escalus_utils:exchange_stanzas(Users, exmpp_presence:subscribed()),
 
     % stop the clients
     escalus_cleaner:stop(Config).
@@ -161,18 +151,6 @@ get_registration_questions(Stanza) ->
     ChildrenNames = lists:map(fun exmpp_xml:get_name_as_atom/1, Children),
     ChildrenNames -- [instructions].
 
-%% As and Bs are lists of equal length
-%% calls Fun(A, B) on all but corresponding elements
-%% of that list
-all_to_all(Fun, As, Bs) ->
-    lists:foldl(fun(A, N) ->
-        lists:foldl(fun(B, M) ->
-            if N =/= M ->
-                    Fun(A, B);
-               true ->
-                   skip
-           end,
-           M + 1
-        end, 1, Bs),
-        N + 1
-    end, 1, As).
+-spec start_clients(list(), list(), string()) -> [#client{}].
+start_clients(Config, Users, Presence) ->
+    [escalus_client:start(Config, UserSpec, Presence) || {_Name, UserSpec} <- Users].
