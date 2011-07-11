@@ -21,7 +21,9 @@
          presence_direct/2,
          presence_show/2,
          presence_status/2,
-         presence_priority/2]).
+         presence_priority/2,
+         roster_get/0,
+         roster_add_contact/3]).
 
 -include("include/escalus.hrl").
 -include_lib("exmpp/include/exmpp.hrl").
@@ -57,3 +59,9 @@ presence_status(Presence, Status) ->
 
 presence_priority(Presence, Priority) ->
     exmpp_presence:set_priority(Presence, Priority).
+
+roster_get() ->
+    exmpp_client_roster:get_roster().
+
+roster_add_contact(#client{jid=Jid}, Group, Nick) ->
+    exmpp_client_roster:set_item(Jid, Group, Nick).

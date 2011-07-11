@@ -24,7 +24,12 @@
          is_presence_with_show/2,
          is_presence_with_status/2,
          is_presence_with_priority/2,
-         is_stanza_from/2]).
+         is_stanza_from/2,
+         is_roster_result/1,
+         is_roster_result_set/1,
+         is_roster_result_short/1,
+         count_roster_items/2,
+         roster_contains/2]).
 
 -include("include/escalus.hrl").
 
@@ -71,4 +76,41 @@ is_stanza_from(#client{jid=Jid}, Stanza) ->
     ExpectedJid = binary_to_list(Jid),
     ActualJid = exmpp_xml:get_attribute_as_list(Stanza, <<"from">>, none),
     true = lists:prefix(ExpectedJid, ActualJid).
+
+
+is_roster_result(Stanza) ->
+    "result" = exmpp_xml:get_attribute_as_list(Stanza, <<"type">>, none),
+    Query = exmpp_xml:get_element(Stanza, "jabber:iq:roster", "query"),
+    exmpp_xml:element_matches(Query, "query").
+
+is_roster_result_set(Stanza) ->
+    "set" = exmpp_xml:get_attribute_as_list(Stanza, <<"type">>, none).
+
+is_roster_result_short(Stanza) ->
+    "result" = exmpp_xml:get_attribute_as_list(Stanza, <<"type">>, none).
+
+count_roster_items(Num, Stanza) ->
+    Items =  exmpp_xml:get_child_elements(
+               exmpp_xml:get_element(Stanza, "jabber:iq:roster", "query")),
+    Num = length(Items).
+
+roster_contains(#client{jid=Jid}, Stanza) ->
+    ExpectedJid = binary_to_list(Jid),
+    Items =  exmpp_xml:get_child_elements(exmpp_xml:get_element(Stanza,"query")),
+    true = lists:foldl(fun(Item, Res) ->
+                               ContactJid = exmpp_xml:get_attribute_as_list(Item, 
+                                                                        <<"jid">>, 
+                                                                        none),
+                               case lists:prefix(ExpectedJid, ContactJid) of
+                                   true ->
+                                       true;
+                                   _ ->
+                                       Res
+                               end
+                       end, false, Items).
+
+
+
+                            
+
 
