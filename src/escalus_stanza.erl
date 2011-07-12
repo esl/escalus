@@ -17,6 +17,7 @@
 -module(escalus_stanza).
 
 -export([chat_to/2,
+         iq_result/1,
          presence/1,
          presence_direct/2,
          presence_show/2,
@@ -31,6 +32,9 @@
 chat_to(#client{jid=Jid}, Msg) ->
     Chat = exmpp_message:chat(Msg),
     exmpp_stanza:set_recipient(Chat, Jid).
+
+iq_result(Request) ->
+    exmpp_iq:result(Request).
 
 presence(available) ->
     exmpp_presence:available();
