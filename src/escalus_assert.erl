@@ -27,7 +27,7 @@
          is_stanza_from/2,
          is_roster_result/1,
          is_roster_result_set/1,
-         is_roster_result_short/1,
+         is_result/1,
          count_roster_items/2,
          roster_contains/2]).
 
@@ -86,7 +86,7 @@ is_roster_result(Stanza) ->
 is_roster_result_set(Stanza) ->
     "set" = exmpp_xml:get_attribute_as_list(Stanza, <<"type">>, none).
 
-is_roster_result_short(Stanza) ->
+is_result(Stanza) ->
     "result" = exmpp_xml:get_attribute_as_list(Stanza, <<"type">>, none).
 
 count_roster_items(Num, Stanza) ->

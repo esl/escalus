@@ -24,7 +24,8 @@
          presence_status/2,
          presence_priority/2,
          roster_get/0,
-         roster_add_contact/3]).
+         roster_add_contact/3,
+         roster_remove_contact/1]).
 
 -include("include/escalus.hrl").
 -include_lib("exmpp/include/exmpp.hrl").
@@ -69,3 +70,12 @@ roster_get() ->
 
 roster_add_contact(#client{jid=Jid}, Group, Nick) ->
     exmpp_client_roster:set_item(Jid, Group, Nick).
+
+roster_remove_contact(#client{jid=Jid}) ->
+    Stanza = exmpp_client_roster:set_item(Jid, [], []),
+    Query = exmpp_xml:get_element(Stanza,"query"),
+    [Item] = exmpp_xml:get_child_elements(Query),
+    ItemNew = exmpp_xml:set_attribute(Item, {<<"subscription">>, "remove"}),
+    QueryNew = exmpp_xml:replace_child(Query, Item, ItemNew),
+    exmpp_xml:replace_child(Stanza, Query, QueryNew).
+
