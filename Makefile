@@ -16,7 +16,7 @@ compile: $(EXMPP_BUILT) $(BEAMS) ebin/escalus.app
 
 ebin/%.beam: src/%.erl $(INCLUDES)
 	@test -d ebin || mkdir ebin
-	erlc -I include -pa deps/exmpp -o ebin $<
+	erlc -I include -I deps/exmpp/include -pa deps/exmpp -o ebin $<
 
 ebin/escalus.app: src/escalus.app.src
 	@test -d ebin || mkdir ebin

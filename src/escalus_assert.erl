@@ -29,8 +29,11 @@
          is_roster_result_set/1,
          is_result/1,
          count_roster_items/2,
-         roster_contains/2]).
+         roster_contains/2,
+         is_privacy_query_result/1,
+         is_nonexistent_list_error/1]).
 
+-include_lib("deps/exmpp/include/exmpp.hrl").
 -include("include/escalus.hrl").
 
 %%---------------------------------------------------------------------
@@ -109,8 +112,20 @@ roster_contains(#client{jid=Jid}, Stanza) ->
                                end
                        end, false, Items).
 
+is_privacy_query_result(Stanza) ->
+    is_result(Stanza),
+    Query = exmpp_xml:get_element(Stanza, ?NS_PRIVACY, 'query'),
+    exmpp_xml:element_matches(Query, 'query').
 
+is_nonexistent_list_error(Stanza) ->
+    escalus_assert:is_iq('error', Stanza),
 
-                            
+    Query = exmpp_xml:get_element(Stanza, ?NS_PRIVACY, 'query'),
+    exmpp_xml:element_matches(Query, 'query'),
+    List = exmpp_xml:get_element(Query, 'list'),
+    exmpp_xml:element_matches(List, 'list'),
+    exmpp_xml:has_attribute(List, <<"name">>),
 
-
+    Error = exmpp_xml:get_element(Stanza, 'error'),
+    exmpp_xml:element_matches(Error, 'error'),
+    exmpp_xml:has_element(Error, ?NS_STANZA_ERRORS, 'item-not-found').

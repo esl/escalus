@@ -25,7 +25,10 @@
          presence_priority/2,
          roster_get/0,
          roster_add_contact/3,
-         roster_remove_contact/1]).
+         roster_remove_contact/1,
+         privacy_get_all/1,
+         privacy_get_one/2,
+         privacy_set_one/2]).
 
 -include("include/escalus.hrl").
 -include_lib("exmpp/include/exmpp.hrl").
@@ -79,3 +82,21 @@ roster_remove_contact(#client{jid=Jid}) ->
     QueryNew = exmpp_xml:replace_child(Query, Item, ItemNew),
     exmpp_xml:replace_child(Stanza, Query, QueryNew).
 
+privacy_get_all(#client{jid=Jid}) ->
+    Query = exmpp_xml:element(?NS_PRIVACY, 'query'),
+    Iq = exmpp_iq:get(?NS_JABBER_CLIENT, Query),
+    exmpp_stanza:set_sender(Iq, Jid).
+
+privacy_get_one(#client{jid=Jid}, ListName) ->
+    Query = exmpp_xml:append_child(
+        exmpp_xml:element(?NS_PRIVACY, 'query'),
+        exmpp_xml:set_attribute(exmpp_xml:element('list'),
+            {<<"name">>, ListName})),
+    Iq = exmpp_iq:get(?NS_JABBER_CLIENT, Query),
+    exmpp_stanza:set_sender(Iq, Jid).
+
+privacy_set_one(#client{jid=Jid}, PrivacyList) ->
+    Query = exmpp_xml:append_child(
+        exmpp_xml:element(?NS_PRIVACY, 'query'), PrivacyList),
+    Iq = exmpp_iq:set(?NS_JABBER_CLIENT, Query),
+    exmpp_stanza:set_sender(Iq, Jid).
