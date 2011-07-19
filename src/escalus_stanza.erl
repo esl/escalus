@@ -30,7 +30,8 @@
          privacy_get_one/2,
          privacy_get_many/2,
          privacy_set_one/2,
-         privacy_activate/2]).
+         privacy_activate/2,
+         privacy_deactivate/1]).
 
 -include("include/escalus.hrl").
 -include_lib("exmpp/include/exmpp.hrl").
@@ -89,7 +90,7 @@ privacy_get_all(#client{jid=Jid}) ->
     Iq = exmpp_iq:get(?NS_JABBER_CLIENT, Query),
     exmpp_stanza:set_sender(Iq, Jid).
 
-privacy_get_one(Client = #client{jid=Jid}, ListName) ->
+privacy_get_one(Client, ListName) ->
     privacy_get_many(Client, [ListName]).
 
 privacy_get_many(#client{jid=Jid}, ListNames) ->
@@ -110,11 +111,22 @@ privacy_set_one(#client{jid=Jid}, PrivacyList) ->
 privacy_activate(#client{jid=Jid}, ListName) ->
     exmpp_stanza:set_sender(
         exmpp_iq:set(?NS_JABBER_CLIENT,
-            exmpp_xml:append_child(                                                                                      
+            exmpp_xml:append_child(
                 exmpp_xml:element(?NS_PRIVACY, 'query'),
-                exmpp_xml:set_attribute(
-                    exmpp_xml:remove_attribute(
-                        exmpp_xml:element('active'),
-                        <<"xmlns">>),
-                    {<<"name">>, ListName}))),
+                case ListName of
+                    'deactivate-should-not-happen-by-accident' ->
+                        exmpp_xml:remove_attribute(
+                            exmpp_xml:element('active'),
+                            <<"xmlns">>);
+                    _ ->
+                        exmpp_xml:set_attribute(
+                            exmpp_xml:remove_attribute(
+                                exmpp_xml:element('active'),
+                                <<"xmlns">>),
+                            {<<"name">>, ListName})
+                end )),
         Jid).
+
+privacy_deactivate(Client) ->
+    privacy_activate(Client,
+        'deactivate-should-not-happen-by-accident').
