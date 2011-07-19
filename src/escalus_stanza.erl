@@ -31,7 +31,9 @@
          privacy_get_many/2,
          privacy_set_one/2,
          privacy_activate/2,
-         privacy_deactivate/1]).
+         privacy_deactivate/1,
+         privacy_default/2,
+         privacy_nodefault/1]).
 
 -include("include/escalus.hrl").
 -include_lib("exmpp/include/exmpp.hrl").
@@ -108,25 +110,37 @@ privacy_set_one(#client{jid=Jid}, PrivacyList) ->
     Iq = exmpp_iq:set(?NS_JABBER_CLIENT, Query),
     exmpp_stanza:set_sender(Iq, Jid).
 
-privacy_activate(#client{jid=Jid}, ListName) ->
+privacy_active_or_default(#client{jid=Jid}, What, ListName)
+    when What =:= 'active';
+         What =:= 'default' ->
     exmpp_stanza:set_sender(
         exmpp_iq:set(?NS_JABBER_CLIENT,
             exmpp_xml:append_child(
                 exmpp_xml:element(?NS_PRIVACY, 'query'),
                 case ListName of
-                    'deactivate-should-not-happen-by-accident' ->
+                    'this-must-not-happen-by-accident' ->
                         exmpp_xml:remove_attribute(
-                            exmpp_xml:element('active'),
+                            exmpp_xml:element(What),
                             <<"xmlns">>);
                     _ ->
                         exmpp_xml:set_attribute(
                             exmpp_xml:remove_attribute(
-                                exmpp_xml:element('active'),
+                                exmpp_xml:element(What),
                                 <<"xmlns">>),
                             {<<"name">>, ListName})
                 end )),
         Jid).
 
+privacy_activate(Client, ListName) ->
+    privacy_active_or_default(Client, active, ListName).
+
 privacy_deactivate(Client) ->
-    privacy_activate(Client,
-        'deactivate-should-not-happen-by-accident').
+    privacy_active_or_default(Client, active,
+        'this-must-not-happen-by-accident').
+
+privacy_default(Client, ListName) ->
+    privacy_active_or_default(Client, default, ListName).
+
+privacy_nodefault(Client) ->
+    privacy_active_or_default(Client, default,
+        'this-must-not-happen-by-accident').
