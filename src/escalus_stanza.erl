@@ -33,7 +33,7 @@
          privacy_activate/2,
          privacy_deactivate/1,
          privacy_default/2,
-         privacy_nodefault/1]).
+         privacy_no_default/1]).
 
 -include("include/escalus.hrl").
 -include_lib("exmpp/include/exmpp.hrl").
@@ -141,6 +141,6 @@ privacy_deactivate(Client) ->
 privacy_default(Client, ListName) ->
     privacy_active_or_default(Client, default, ListName).
 
-privacy_nodefault(Client) ->
+privacy_no_default(Client) ->
     privacy_active_or_default(Client, default,
         'this-must-not-happen-by-accident').
