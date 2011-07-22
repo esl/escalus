@@ -60,7 +60,7 @@ presence(unsubscribed) ->
 presence(probe) ->
     exmpp_presence:proble().
 
-presence_direct(#client{jid=Jid}, Type) ->
+presence_direct(#client{jid_short=Jid}, Type) ->
     Presence = presence(Type),
     exmpp_stanza:set_recipient(Presence, Jid).
 
@@ -76,10 +76,10 @@ presence_priority(Presence, Priority) ->
 roster_get() ->
     exmpp_client_roster:get_roster().
 
-roster_add_contact(#client{jid=Jid}, Group, Nick) ->
+roster_add_contact(#client{jid_short=Jid}, Group, Nick) ->
     exmpp_client_roster:set_item(Jid, Group, Nick).
 
-roster_remove_contact(#client{jid=Jid}) ->
+roster_remove_contact(#client{jid_short=Jid}) ->
     Stanza = exmpp_client_roster:set_item(Jid, [], []),
     Query = exmpp_xml:get_element(Stanza,"query"),
     [Item] = exmpp_xml:get_child_elements(Query),

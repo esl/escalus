@@ -17,6 +17,7 @@
 -record(client, {
         session :: any(),
         jid :: binary(),
+        jid_short :: binary(),
         pid :: pid(),
         ref :: reference()
 }).
