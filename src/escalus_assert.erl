@@ -109,7 +109,8 @@ roster_contains(#client{jid=Jid}, Stanza) ->
                                ContactJid = exmpp_xml:get_attribute_as_list(Item, 
                                                                         <<"jid">>, 
                                                                         none),
-                               case lists:prefix(ExpectedJid, ContactJid) of
+                               % ExpectedJid may contain the resource
+                               case lists:prefix(ContactJid, ExpectedJid) of
                                    true ->
                                        true;
                                    _ ->
