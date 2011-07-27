@@ -31,7 +31,7 @@ story(Config, ResourceCounts, Story) ->
                {{_, UserSpec}, ResCount} <- zip_shortest(UserSpecs,
                                                          ResourceCounts)],
     ClientList = lists:flatten(Clients),
-    prepare_clients(Config, ClientList),
+    prepare_clients(Config, Clients),
     apply(Story, ClientList),
     post_story_checks(Config, ClientList).
 
@@ -45,11 +45,17 @@ start_clients(Config, UserSpec, ResourceCount) ->
 
 start_client(Config, UserSpec, ResNo) ->
     Res = "res" ++ integer_to_list(ResNo),
-    escalus_client:start_wait(Config, UserSpec, Res).
+    escalus_client:start(Config, UserSpec, Res).
 
-prepare_clients(Config, ClientList) ->
+prepare_clients(Config, Clients) ->
     do_when(Config, escalus_save_initial_history, false,
-            fun escalus_client:drop_history/1, ClientList).
+            % drop initial presences form all of the resources
+            fun (UsersClients) ->
+                N = length(UsersClients),
+                lists:foreach(fun(Client) ->
+                    escalus_client:wait_for_stanzas(Client, N)
+                end, UsersClients)
+            end, Clients).
 
 post_story_checks(Config, ClientList) ->
     do_when(Config, escalus_no_stanzas_after_story, true,
