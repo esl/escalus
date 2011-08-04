@@ -110,8 +110,8 @@ make_everyone_friends(Users) ->
     lists:foreach(fun escalus_client:wait_for_stanza/1, Clients),
 
     % exchange subscribe and subscribed stanzas
-    escalus_utils:exchange_stanzas(Users, exmpp_presence:subscribe()),
-    escalus_utils:exchange_stanzas(Users, exmpp_presence:subscribed()),
+    escalus_utils:exchange_stanzas(Clients, exmpp_presence:subscribe()),
+    escalus_utils:exchange_stanzas(Clients, exmpp_presence:subscribed()),
 
     % stop the clients
     escalus_cleaner:stop(Config).
