@@ -26,6 +26,7 @@
          create_users/1,
          create_users/2,
          delete_users/1,
+         get_global_option/1,
          with_local_option/3]).
 
 rpc(M, F, A) ->
@@ -64,6 +65,10 @@ delete_users(Config) ->
     lists:foreach(fun({_Name, UserSpec}) ->
         unregister_user(UserSpec)
     end, AllUsers).
+
+-spec get_global_option(term()) -> term().
+get_global_option(Option) ->
+    rpc(ejabberd_config, get_global_option, [Option]).
 
 -spec with_local_option(atom(), any(), fun(() -> Type)) -> Type.
 with_local_option(Option, Value, Fun) ->
