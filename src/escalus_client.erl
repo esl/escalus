@@ -76,7 +76,7 @@ start(Config, UserSpec, Resource) ->
                      pid=ClientPid,
                      ref=ClientRef},
     escalus_cleaner:add_client(Config, Client),
-    send_initial_presence(Config, UserSpec, Client),
+    do_initial_activity(Config, UserSpec, Client),
     Client.
 
 start_for(Config, Username, Resource) ->
@@ -151,14 +151,20 @@ client_loop(ClientRef, Master) ->
 %% helpers
 %%--------------------------------------------------------------------
 
-send_initial_presence(Config, UserSpec, Client) ->
-    case get_config(initial_presence, Config,
-                    initial_presence, UserSpec,
-                    exmpp_presence:available()) of
+do_initial_activity(Config, UserSpec, Client) ->
+    send_as_configured(Config, UserSpec, Client,
+                       initial_roster_get, escalus_stanza:roster_get()),
+    send_as_configured(Config, UserSpec, Client,
+                       initial_presence, exmpp_presence:available()).
+
+send_as_configured(Config, UserSpec, Client, OptionName, Default) ->
+    case escalus_config:get_config(OptionName, Config,
+                                   OptionName, UserSpec,
+                                   Default) of
         none ->
             ok;
-        Presence ->
-            send(Client, Presence)
+        Stanza ->
+            send(Client, Stanza)
     end.
 
 copy_packet_messages(TargetPid) ->
