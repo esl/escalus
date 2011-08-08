@@ -72,7 +72,6 @@ start(Config, UserSpec, Resource) ->
     copy_packet_messages(ClientPid),
     Client = #client{session=Session,
                      jid=JID#jid.raw,
-                     jid_short=make_short_jid(JID),
                      pid=ClientPid,
                      ref=ClientRef},
     escalus_cleaner:add_client(Config, Client),
@@ -176,8 +175,3 @@ copy_packet_messages(TargetPid) ->
     after 0 ->
         done
 end.
-
-make_short_jid(Jid) ->
-    Full = binary_to_list(Jid#jid.raw),
-    Short = lists:sublist(Full, length(Full) - size(Jid#jid.resource) - 1),
-    list_to_binary(Short).
