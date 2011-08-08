@@ -27,13 +27,15 @@
          create_users/2,
          delete_users/1,
          get_global_option/1,
-         with_local_option/3]).
+         with_local_option/3,
+         get_c2s_status/1]).
+
+-include("escalus.hrl").
 
 rpc(M, F, A) ->
     Node = ct:get_config(ejabberd_node),
     Cookie = ct:get_config(ejabberd_cookie),
     ct_rpc:call(Node, M, F, A, 3000, Cookie).
-
 
 remote_display(String) ->
     Line = [$\n, [$- || _ <- String], $\n],
@@ -83,6 +85,11 @@ with_local_option(Option, Value, Fun) ->
         escalus_ejabberd:rpc(ejabberd_config, add_local_option, [{Option, Host}, OldValue])
     end, lists:zip(Hosts, OldValues)),
     Result.
+
+get_c2s_status(#client{jid=Jid}) ->
+    {match, USR} = re:run(Jid, <<"([^@]*)@([^/]*)/(.*)">>, [{capture, all_but_first, list}]),
+    Pid = rpc(ejabberd_sm, get_session_pid, USR),
+    State = rpc(sys, get_status, [Pid]).
 
 %%--------------------------------------------------------------------
 %% Helpers
