@@ -44,8 +44,8 @@
 
 start_session(Config, UserSpec, Resource) ->
     {server, Server} = proplists:lookup(server, UserSpec),
-    Host = get_config(host, UserSpec, escalus_host, Config, Server),
-    Port = get_config(port, UserSpec, escalus_port, Config, 5222),
+    Host = escalus_config:get_config(host, UserSpec, escalus_host, Config, Server),
+    Port = escalus_config:get_config(port, UserSpec, escalus_port, Config, 5222),
     [Username, Server, Password] = escalus_users:get_usp(UserSpec),
     JID = exmpp_jid:make(Username, Server, Resource),
 
@@ -58,9 +58,9 @@ start_session(Config, UserSpec, Resource) ->
     Session.
 
 login(Config, Session, UserSpec) ->
-    AuthMethod = get_config(auth_method, UserSpec,
-                            escalus_auth_method, Config,
-                            "PLAIN"),
+    AuthMethod = escalus_config:get_config(auth_method, UserSpec,
+                                           escalus_auth_method, Config,
+                                           "PLAIN"),
     {ok, _RealJid} = exmpp_session:login(Session, AuthMethod).
 
 start(Config, UserSpec, Resource) ->
@@ -170,18 +170,6 @@ copy_packet_messages(TargetPid) ->
     after 0 ->
         done
 end.
-
-%%--------------------------------------------------------------------
-%% utilities
-%%--------------------------------------------------------------------
-
-get_config(USName, UserSpec, CName, Config, Default) ->
-    case proplists:get_value(USName, UserSpec, Missing=make_ref()) of
-        Missing ->
-            proplists:get_value(CName, Config, Default);
-        Found ->
-            Found
-    end.
 
 make_short_jid(Jid) ->
     Full = binary_to_list(Jid#jid.raw),
