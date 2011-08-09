@@ -33,7 +33,9 @@
          privacy_activate/2,
          privacy_deactivate/1,
          privacy_default/2,
-         privacy_no_default/1]).
+         privacy_no_default/1,
+         privacy_list/2,
+         privacy_list_item/1]).
 
 -include("include/escalus.hrl").
 -include_lib("exmpp/include/exmpp.hrl").
@@ -144,3 +146,27 @@ privacy_default(Client, ListName) ->
 privacy_no_default(Client) ->
     privacy_active_or_default(Client, default,
         'this-must-not-happen-by-accident').
+
+%% Create empty list element with given name.
+privacy_list(Name, Items) ->
+    exmpp_xml:append_children(
+        exmpp_xml:set_attribute(
+            exmpp_xml:remove_attribute(
+                exmpp_xml:element('list'),
+                <<"xmlns">>),
+            {<<"name">>, Name}),
+        Items).
+
+%% Create a privacy list item element, wrapping up arguments as attributes.
+privacy_list_item(ItemDescription) ->
+    Attrs = case ItemDescription of
+        {Action, Order, Contents} ->
+            [{<<"action">>, Action}, {<<"order">>, Order}];
+        {Type, Value, Action, Order, Contents} ->
+            [{<<"type">>, Type}, {<<"value">>, Value}, {<<"action">>, Action},
+             {<<"order">>, Order}]
+    end,
+    ContentElements = [ exmpp_xml:element(Content) || Content <- Contents ],
+    exmpp_xml:append_children(
+        exmpp_xml:set_attributes(exmpp_xml:element('item'), Attrs),
+        ContentElements).
