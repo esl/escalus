@@ -33,12 +33,9 @@ log_stanzas(Comment, Stanzas) ->
 -spec exchange_stanzas([#client{}], #xmlel{}, full_jid|short_jid) -> any().
 exchange_stanzas(Clients, BaseStanza, JidType) ->
     % send BaseStanza to everyone
-    distinct_ordered_pairs(fun(Sender, #client{jid=RecipientJid}) ->
-        Jid = case JidType of
-            full_jid -> RecipientJid;
-            short_jid -> make_short_jid(RecipientJid)
-        end,
-        Stanza = exmpp_stanza:set_recipient(BaseStanza, Jid),
+    distinct_ordered_pairs(fun(Sender, Recipient) ->
+        RecipientJid = escalus_client:JidType(Recipient),
+        Stanza = exmpp_stanza:set_recipient(BaseStanza, RecipientJid),
         escalus_client:send(Sender, Stanza)
     end, Clients),
 
@@ -67,11 +64,3 @@ each_with_index(Fun, Start, List) ->
         Fun(Element, N),
         N + 1
     end, Start, List).
-
-%%--------------------------------------------------------------------
-%% Helpers
-%%--------------------------------------------------------------------
-make_short_jid(Jid) ->
-    {match, [ShortJid]} =
-        re:run(Jid, <<"^([^/]*)">>, [{capture, all_but_first, binary}]),
-    ShortJid.

@@ -27,7 +27,9 @@
          peek_stanzas/1, has_stanzas/1,
          wait_for_stanzas/2, wait_for_stanzas/3,
          wait_for_stanza/1, wait_for_stanza/2,
-         is_client/1]).
+         is_client/1,
+         full_jid/1,
+         short_jid/1]).
 
 % spawn exports
 -export([client_loop/2]).
@@ -132,6 +134,12 @@ is_client(#client{}) ->
 is_client(_) ->
     false.
 
+full_jid(#client{jid=Jid}) ->
+    Jid.
+
+short_jid(Client) ->
+    drop_jid_resource(full_jid(Client)).
+
 %%--------------------------------------------------------------------
 %% spawn export
 %%--------------------------------------------------------------------
@@ -175,3 +183,8 @@ copy_packet_messages(TargetPid) ->
     after 0 ->
         done
 end.
+
+drop_jid_resource(Jid) ->
+    {match, [ShortJid]} =
+        re:run(Jid, <<"^([^/]*)">>, [{capture, all_but_first, binary}]),
+    ShortJid.
