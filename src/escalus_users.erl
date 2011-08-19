@@ -106,8 +106,8 @@ make_everyone_friends(Users) ->
     Config = escalus_cleaner:start([]),
     Clients = start_clients(Config, Users, "friendly"),
 
-    % get initial presences
-    lists:foreach(fun escalus_client:wait_for_stanza/1, Clients),
+    SACs = [{S, [C]} || {S, C} <- lists:zip(Users, Clients)],
+    escalus_story:drop_initial_stanzas(Config, SACs, length(Clients)),
 
     % exchange subscribe and subscribed stanzas
     escalus_utils:exchange_stanzas(Clients, exmpp_presence:subscribe(), short_jid),

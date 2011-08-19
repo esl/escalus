@@ -17,7 +17,7 @@
 -module(escalus_story).
 
 % Public API
--export([story/3]).
+-export([story/3, drop_initial_stanzas/3]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -48,15 +48,22 @@ start_client(Config, UserSpec, ResNo) ->
     escalus_client:start(Config, UserSpec, Res).
 
 prepare_clients(Config, SpecsAndClients, TotalClients) ->
-    do_when(Config, escalus_save_initial_history, false,
-            % drop initial presences form all of the resources
-            fun ({NamedSpec, Clients}) ->
-                N = initial_stanza_count(Config, NamedSpec, Clients, TotalClients),
-                lists:foreach(fun(Client) ->
-                    Dropped = escalus_client:wait_for_stanzas(Client, N),
-                    N = length(Dropped)
-                end, Clients)
-            end, SpecsAndClients).
+    case proplists:get_bool(escalus_save_initial_history, Config) of
+        false ->
+            drop_initial_stanzas(Config, SpecsAndClients, TotalClients);
+        true ->
+            ok
+    end.
+
+drop_initial_stanzas(Config, SpecsAndClients, TotalClients) ->
+    lists:foreach(
+        fun ({NamedSpec, Clients}) ->
+            N = initial_stanza_count(Config, NamedSpec, Clients, TotalClients),
+            lists:foreach(fun(Client) ->
+                Dropped = escalus_client:wait_for_stanzas(Client, N),
+                N = length(Dropped)
+            end, Clients)
+        end, SpecsAndClients).
 
 initial_stanza_count(Config, {_UserName, UserSpec}, Clients, TotalClients) ->
     GetConfig = fun(Name) ->
