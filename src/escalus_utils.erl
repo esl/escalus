@@ -17,9 +17,14 @@
 -module(escalus_utils).
 
 -export([log_stanzas/2,
+         pretty_stanza_list/1,
          exchange_stanzas/3,
          distinct_ordered_pairs/2,
-         each_with_index/3
+         each_with_index/3,
+         all_true/1,
+         any_true/1,
+         mix_match/3,
+         drop_first_such/2
         ]).
 
 -include("include/escalus.hrl").
@@ -27,8 +32,11 @@
 
 -spec log_stanzas(iolist(), [#xmlel{}]) -> any().
 log_stanzas(Comment, Stanzas) ->
-    StanzaLines = [["\n  * ", exmpp_xml:document_to_iolist(S)] || S <- Stanzas],
-    error_logger:info_msg("~s:~s~n", [Comment, StanzaLines]).
+    error_logger:info_msg("~s:~s~n", [Comment, stanza_lines("\n  * ", Stanzas)]).
+
+-spec pretty_stanza_list([#xmlel{}]) -> string().
+pretty_stanza_list(Stanzas) ->
+    binary_to_list(list_to_binary(stanza_lines("     ", Stanzas))).
 
 -spec exchange_stanzas([#client{}], #xmlel{}, full_jid|short_jid) -> any().
 exchange_stanzas(Clients, BaseStanza, JidType) ->
@@ -64,3 +72,33 @@ each_with_index(Fun, Start, List) ->
         Fun(Element, N),
         N + 1
     end, Start, List).
+
+all_true(List) ->
+    lists:foldl(fun erlang:'and'/2, true, List).
+
+any_true(List) ->
+    lists:foldl(fun erlang:'or'/2, false, List).
+
+%% Does for each Case in Cases exist a Cond in Conds such that
+%% (Predgen(Cond))(Case) == true?
+mix_match(Predgen, Conds, Cases) ->
+    [] == lists:foldl(fun(Cond, CasesLeft) ->
+              Pred = Predgen(Cond),
+              drop_first_such(Pred, CasesLeft)
+          end, Cases, Conds).
+
+drop_first_such(Pred, List) ->
+    drop_first_such(Pred, List, []).
+
+drop_first_such(Pred, [], Acc) ->
+    lists:reverse(Acc);
+drop_first_such(Pred, [H|T], Acc) ->
+    case Pred(H) of
+        true ->
+            lists:reverse(Acc) ++ T;
+        false ->
+            drop_first_such(Pred, T, [H|Acc])
+    end.
+
+stanza_lines(Prefix, Stanzas) ->
+    [[Prefix, exmpp_xml:document_to_iolist(S)] || S <- Stanzas].
