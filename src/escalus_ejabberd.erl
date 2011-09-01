@@ -85,17 +85,19 @@ with_global_option(Option, Value, Fun) ->
 
 -spec with_local_option(atom(), any(), fun(() -> Type)) -> Type.
 with_local_option(Option, Value, Fun) ->
-    Hosts = escalus_ejabberd:rpc(ejabberd_config, get_global_option, [hosts]),
+    Hosts = rpc(ejabberd_config, get_global_option, [hosts]),
     OldValues = lists:map(fun(Host) ->
-        OldValue = escalus_ejabberd:rpc(ejabberd_config, get_local_option, [{Option, Host}]),
-        escalus_ejabberd:rpc(ejabberd_config, add_local_option, [{Option, Host}, Value]),
+        OldValue = rpc(ejabberd_config, get_local_option, [{Option, Host}]),
+        rpc(ejabberd_config, add_local_option, [{Option, Host}, Value]),
         OldValue
     end, Hosts),
-    Result = Fun(),
-    lists:foreach(fun({Host, OldValue}) ->
-        escalus_ejabberd:rpc(ejabberd_config, add_local_option, [{Option, Host}, OldValue])
-    end, lists:zip(Hosts, OldValues)),
-    Result.
+    try
+        Fun()
+    after
+        lists:foreach(fun({Host, OldValue}) ->
+            rpc(ejabberd_config, add_local_option, [{Option, Host}, OldValue])
+        end, lists:zip(Hosts, OldValues))
+    end.
 
 get_c2s_status(#client{jid=Jid}) ->
     {match, USR} = re:run(Jid, <<"([^@]*)@([^/]*)/(.*)">>, [{capture, all_but_first, list}]),
