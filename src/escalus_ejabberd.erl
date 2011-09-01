@@ -27,6 +27,7 @@
          create_users/2,
          delete_users/1,
          get_global_option/1,
+         with_global_option/3,
          with_local_option/3,
          get_c2s_status/1]).
 
@@ -71,6 +72,16 @@ delete_users(Config) ->
 -spec get_global_option(term()) -> term().
 get_global_option(Option) ->
     rpc(ejabberd_config, get_global_option, [Option]).
+
+-spec with_global_option(atom(), any(), fun(() -> Type)) -> Type.
+with_global_option(Option, Value, Fun) ->
+    OldValue = rpc(ejabberd_config, get_global_option, [Option]),
+    rpc(ejabberd_config, add_global_option, [Option, Value]),
+    try
+        Fun()
+    after
+        rpc(ejabberd_config, add_global_option, [Option, OldValue])
+    end.
 
 -spec with_local_option(atom(), any(), fun(() -> Type)) -> Type.
 with_local_option(Option, Value, Fun) ->
