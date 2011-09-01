@@ -55,7 +55,13 @@ is_iq(Type, Stanza) ->
     Type = exmpp_iq:get_type(Stanza).
 
 has_no_stanzas(Client) ->
-    false = escalus_client:has_stanzas(Client).
+    case escalus_client:peek_stanzas(Client) of
+        [] ->
+            ok;
+        Stanzas ->
+            escalus_utils:log_stanzas("following stanzas shouldn't be there", Stanzas),
+            ct:fail({has_stanzas_but_shouldnt, Stanzas})
+    end.
 
 is_presence_stanza(Stanza) ->
     "presence" = exmpp_xml:get_name_as_list(Stanza).
