@@ -25,7 +25,7 @@
 -module(escalus_cleaner).
 
 % Public API
--export([start/1, add_client/2, stop/1]).
+-export([start/1, add_client/2, clean/1, stop/1]).
 
 % spawn exports
 -export([cleaner_loop/1]).
@@ -43,8 +43,11 @@ start(Config) ->
 add_client(Config, Client) ->
     ?config(escalus_cleaner, Config) ! {add, Client}.
 
-stop(Config) ->
+clean(Config) ->
     ?config(escalus_cleaner, Config) ! clean.
+
+stop(Config) ->
+    ?config(escalus_cleaner, Config) ! stop.
 
 %%--------------------------------------------------------------------
 %% cleaner
@@ -55,5 +58,8 @@ cleaner_loop(ClientList) ->
         {add, NewClient} ->
             cleaner_loop([NewClient | ClientList]);
         clean ->
-            lists:foreach(fun escalus_client:stop/1, ClientList)
+            lists:foreach(fun escalus_client:stop/1, ClientList),
+            cleaner_loop([]);
+        stop ->
+            stop
     end.

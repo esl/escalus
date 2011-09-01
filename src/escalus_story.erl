@@ -17,8 +17,11 @@
 -module(escalus_story).
 
 % Public API
--export([story/3, drop_initial_stanzas/3]).
+-export([story/3,
+         make_everyone_friends/2,
+         start_ready_clients/2]).
 
+-include("escalus.hrl").
 -include_lib("test_server/include/test_server.hrl").
 
 %%--------------------------------------------------------------------
@@ -27,72 +30,100 @@
 
 story(Config, ResourceCounts, Story) ->
     {escalus_users, NamedSpecs} = proplists:lookup(escalus_users, Config),
-    Clients = [start_clients(Config, UserSpec, ResCount) ||
-               {{_, UserSpec}, ResCount} <- zip_shortest(NamedSpecs,
-                                                         ResourceCounts)],
-    ClientList = lists:flatten(Clients),
-    prepare_clients(Config, zip_shortest(NamedSpecs, Clients), length(ClientList)),
-    apply(Story, ClientList),
-    post_story_checks(Config, ClientList).
+    ClientDescs = [[{UserSpec, "res"++integer_to_list(N)} || N <- lists:seq(1, ResCount)] ||
+                   {{_, UserSpec}, ResCount} <- zip_shortest(NamedSpecs,
+                                                             ResourceCounts)],
+    try
+        Clients = start_clients(Config, ClientDescs),
+        ensure_all_clean(Clients),
+        apply(Story, Clients),
+        post_story_checks(Config, Clients)
+    after
+        escalus_cleaner:clean(Config)
+    end.
+
+make_everyone_friends(Config0, Users) ->
+    % start the clients
+    Config1 = escalus_cleaner:start(Config0),
+    Clients = start_clients(Config1, [[{US, "friendly"}] || {_Name, US} <- Users]),
+
+    % exchange subscribe and subscribed stanzas
+    escalus_utils:distinct_ordered_pairs(fun(C1, C2) ->
+        send_presence(C1, subscribe, C2),
+        wait_for_presence("subscribe", C2),
+        send_presence(C2, subscribed, C1),
+        wait_for_presence("subscribed", C1)
+    end, Clients),
+
+    % stop the clients
+    escalus_cleaner:clean(Config1),
+    escalus_cleaner:stop(Config1),
+    [{everyone_is_friends, true} | Config1].
+
+start_ready_clients(Config, FlatCDs) ->
+    {_, RClients} = lists:foldl(fun({UserSpec, Resource}, {N, Acc}) ->
+        Client = escalus_client:start(Config, UserSpec, Resource),
+        escalus_hooks:run(Config, after_login, [Client]),
+        escalus_client:send(Client, escalus_stanza:presence(available)),
+        %% drop 1 own presence + N-1 probe replies = N presence stanzas
+        drop_presences(Client, N),
+        {N+1, [Client|Acc]}
+    end, {1, []}, FlatCDs),
+    Clients = lists:reverse(RClients),
+    ClientsCount = length(Clients),
+    escalus_utils:each_with_index(fun(Client, N) ->
+        %% drop presence updates of guys who have logged in after you did
+        drop_presences(Client, ClientsCount - N)
+    end, 1, Clients),
+    ensure_all_clean(Clients),
+    Clients.
 
 %%--------------------------------------------------------------------
 %% Helpers
 %%--------------------------------------------------------------------
 
-start_clients(Config, UserSpec, ResourceCount) ->
-    [start_client(Config, UserSpec, ResNo) ||
-     ResNo <- lists:seq(1, ResourceCount)].
+send_presence(From, Type, To) ->
+    ToJid = escalus_client:short_jid(To),
+    Stanza = exmpp_stanza:set_recipient(exmpp_presence:Type(), ToJid),
+    escalus_client:send(From, Stanza).
 
-start_client(Config, UserSpec, ResNo) ->
-    Res = "res" ++ integer_to_list(ResNo),
-    escalus_client:start(Config, UserSpec, Res).
-
-prepare_clients(Config, SpecsAndClients, TotalClients) ->
-    case proplists:get_bool(escalus_save_initial_history, Config) of
-        false ->
-            drop_initial_stanzas(Config, SpecsAndClients, TotalClients);
+wait_for_presence(Type, Client) ->
+    Stanza = escalus_client:wait_for_stanza(Client),
+    case escalus_pred:is_presence_type(Type, Stanza) of
         true ->
-            ok
+            Stanza;
+        false ->
+            wait_for_presence(Type, Client)
     end.
 
-drop_initial_stanzas(Config, SpecsAndClients, TotalClients) ->
-    lists:foreach(
-        fun ({NamedSpec, Clients}) ->
-            N = initial_stanza_count(Config, NamedSpec, Clients, TotalClients),
-            lists:foreach(fun(Client) ->
-                Dropped = escalus_client:wait_for_stanzas(Client, N),
-                N = length(Dropped)
-            end, Clients)
-        end, SpecsAndClients).
+ensure_all_clean(Clients) ->
+    %% timer:sleep(1000),
+    lists:foreach(fun(Client) ->
+        escalus_assert:has_no_stanzas(Client)
+    end, Clients).
 
-initial_stanza_count(Config, {_UserName, UserSpec}, Clients, TotalClients) ->
-    GetConfig = fun(Name) ->
-                    escalus_config:get_config(Name, Config,
-                                              Name, UserSpec,
-                                              default_stanza)
-                end,
-    TotalCount =
-        case GetConfig(initial_roster_get) of
-            none -> 0;
-            _Some -> 1
-        end
-        +
-        case {GetConfig(initial_presence), GetConfig(everyone_is_friends)} of
-            {none, _} -> 0; % no initial presence
-            {_, true} -> TotalClients; % initial presence from everybody
-            {_, _} -> length(Clients) % initial presence only from own resources
-        end,
-    TotalCount.
+start_clients(Config, ClientDescs) ->
+    case proplists:get_bool(everyone_is_friends, Config) of
+        true ->
+            start_ready_clients(Config, lists:flatten(ClientDescs));
+        false ->
+            lists:flatmap(fun(UserCDs) ->
+                start_ready_clients(Config, UserCDs)
+            end, ClientDescs)
+    end.
 
+drop_presences(Client, N) ->
+    Dropped = escalus_client:wait_for_stanzas(Client, N),
+    lists:foreach(fun escalus_assert:is_presence_stanza/1, Dropped),
+    N = length(Dropped).
 
-post_story_checks(Config, ClientList) ->
-    do_when(Config, escalus_no_stanzas_after_story, true,
-            fun escalus_assert:has_no_stanzas/1, ClientList).
-
-do_when(Config, Key, Value, Fun, ClientList) ->
-    case proplists:get_bool(Key, Config) of
+post_story_checks(Config, Clients) ->
+    case proplists:get_bool(escalus_no_stanzas_after_story, Config) of
         Value ->
-            lists:foreach(Fun, ClientList);
+            lists:foreach(
+                fun escalus_assert:has_no_stanzas/1,
+                Clients
+            );
         _ ->
             do_nothing
     end.

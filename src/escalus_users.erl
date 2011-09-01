@@ -25,8 +25,7 @@
          create_user/1,
          verify_creation/1,
          delete_user/1,
-         get_usp/1,
-         make_everyone_friends/1]).
+         get_usp/1]).
 
 -include("include/escalus.hrl").
 -include_lib("exmpp/include/exmpp_client.hrl").
@@ -101,22 +100,6 @@ get_usp(UserSpec) ->
     {password, Password} = proplists:lookup(password, UserSpec),
     [Username, Server, Password].
 
-make_everyone_friends(Users) ->
-    % start the clients
-    Config = escalus_cleaner:start([]),
-    Clients = start_clients(Config, Users, "friendly"),
-
-    SACs = [{S, [C]} || {S, C} <- lists:zip(Users, Clients)],
-    escalus_story:drop_initial_stanzas(Config, SACs, length(Clients)),
-
-    % exchange subscribe and subscribed stanzas
-    escalus_utils:exchange_stanzas(Clients, exmpp_presence:subscribe(), short_jid),
-    escalus_utils:exchange_stanzas(Clients, exmpp_presence:subscribed(), short_jid),
-
-    % stop the clients
-    escalus_cleaner:stop(Config).
-
-
 %%--------------------------------------------------------------------
 %% Helpers
 %%--------------------------------------------------------------------
@@ -150,7 +133,3 @@ get_registration_questions(Stanza) ->
     Children = exmpp_xml:get_child_elements(Query),
     ChildrenNames = lists:map(fun exmpp_xml:get_name_as_atom/1, Children),
     ChildrenNames -- [instructions].
-
--spec start_clients(list(), list(), string()) -> [#client{}].
-start_clients(Config, Users, Presence) ->
-    [escalus_client:start(Config, UserSpec, Presence) || {_Name, UserSpec} <- Users].

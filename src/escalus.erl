@@ -63,8 +63,7 @@ end_per_testcase(_CaseName, Config) ->
 
 make_everyone_friends(Config) ->
     {escalus_users, Users} = proplists:lookup(escalus_users, Config),
-    escalus_users:make_everyone_friends(Users),
-    Config.
+    escalus_story:make_everyone_friends(Config, Users).
 
 story(Config, ResourceCount, Test) ->
     escalus_story:story(Config, ResourceCount, Test).

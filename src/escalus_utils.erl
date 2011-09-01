@@ -45,12 +45,6 @@ exchange_stanzas(Clients, BaseStanza, JidType) ->
         RecipientJid = escalus_client:JidType(Recipient),
         Stanza = exmpp_stanza:set_recipient(BaseStanza, RecipientJid),
         escalus_client:send(Sender, Stanza)
-    end, Clients),
-
-    % wait for everyone to receive it
-    StanzaCount = length(Clients) - 1, % get BaseStanza from everyone else, but me (-1)
-    lists:foreach(fun(Client) ->
-        escalus_client:wait_for_stanzas(Client, StanzaCount)
     end, Clients).
 
 %% calls Fun(A, B) on each distinct (A =/= B) ordered pair of elements in List
