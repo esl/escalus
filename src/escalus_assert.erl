@@ -25,6 +25,7 @@
          is_presence_with_status/2,
          is_presence_with_priority/2,
          is_stanza_from/2,
+         is_roster_set/1,
          is_roster_result/1,
          is_roster_result_set/1,
          is_result/1,
@@ -96,6 +97,11 @@ is_roster_result(Stanza) ->
     "result" = exmpp_xml:get_attribute_as_list(Stanza, <<"type">>, none),
     Query = exmpp_xml:get_element(Stanza, "jabber:iq:roster", "query"),
     exmpp_xml:element_matches(Query, "query").
+
+is_roster_set(Stanza) ->
+    "set" = exmpp_xml:get_attribute_as_list(Stanza, <<"type">>, none),
+    Query = exmpp_xml:get_element(Stanza, "jabber:iq:roster", "query"),
+    true = exmpp_xml:element_matches(Query, "query").
 
 is_roster_result_set(Stanza) ->
     "set" = exmpp_xml:get_attribute_as_list(Stanza, <<"type">>, none).
