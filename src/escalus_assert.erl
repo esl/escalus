@@ -16,8 +16,8 @@
 
 -module(escalus_assert).
 
--export([is_chat_message/2, 
-         has_no_stanzas/1, 
+-export([is_chat_message/2,
+         has_no_stanzas/1,
          is_iq/2,
          is_presence_stanza/1,
          is_presence_type/2,
@@ -86,7 +86,7 @@ is_presence_with_status(Status, Presence) ->
 is_presence_with_priority(Priority, Presence) ->
     Priority = exmpp_xml:get_path(Presence, [{element, "priority"},
                                        cdata_as_list]).
-                
+
 is_stanza_from(#client{jid=Jid}, Stanza) ->
     ExpectedJid = binary_to_list(Jid),
     ActualJid = exmpp_xml:get_attribute_as_list(Stanza, <<"from">>, none),
@@ -118,8 +118,8 @@ roster_contains(#client{jid=Jid}, Stanza) ->
     ExpectedJid = binary_to_list(Jid),
     Items =  exmpp_xml:get_child_elements(exmpp_xml:get_element(Stanza,"query")),
     true = lists:foldl(fun(Item, Res) ->
-                               ContactJid = exmpp_xml:get_attribute_as_list(Item, 
-                                                                        <<"jid">>, 
+                               ContactJid = exmpp_xml:get_attribute_as_list(Item,
+                                                                        <<"jid">>,
                                                                         none),
                                % ExpectedJid may contain the resource
                                case lists:prefix(ContactJid, ExpectedJid) of
