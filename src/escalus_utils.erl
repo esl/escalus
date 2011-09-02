@@ -24,7 +24,8 @@
          all_true/1,
          any_true/1,
          mix_match/3,
-         drop_first_such/2
+         drop_first_such/2,
+         show_backtrace/0
         ]).
 
 -include("include/escalus.hrl").
@@ -96,3 +97,10 @@ drop_first_such(Pred, [H|T], Acc) ->
 
 stanza_lines(Prefix, Stanzas) ->
     [[Prefix, exmpp_xml:document_to_iolist(S)] || S <- Stanzas].
+
+show_backtrace() ->
+    try
+        a = b
+    catch _:_ ->
+        error_logger:info_msg("Backtrace:~n~p~n", [tl(erlang:get_stacktrace())])
+    end.
