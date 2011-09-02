@@ -119,7 +119,7 @@ drop_presences(Client, N) ->
 
 post_story_checks(Config, Clients) ->
     case proplists:get_bool(escalus_no_stanzas_after_story, Config) of
-        Value ->
+        true ->
             lists:foreach(
                 fun escalus_assert:has_no_stanzas/1,
                 Clients
