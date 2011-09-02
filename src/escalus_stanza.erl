@@ -20,6 +20,7 @@
          chat_to_short_jid/2,
          iq_result/1,
          presence/1,
+         presence_error/2,
          presence_direct/2,
          presence_show/2,
          presence_status/2,
@@ -65,7 +66,11 @@ presence(unsubscribe) ->
 presence(unsubscribed) ->
     exmpp_presence:unsubscribed();
 presence(probe) ->
-    exmpp_presence:proble().
+    exmpp_presence:probe().
+
+
+presence_error(Presence, Error) ->
+    exmpp_presence:error(Presence, Error).
 
 presence_direct(Recipient, Type) ->
     Presence = presence(Type),
