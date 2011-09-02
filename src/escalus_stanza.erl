@@ -67,9 +67,9 @@ presence(unsubscribed) ->
 presence(probe) ->
     exmpp_presence:proble().
 
-presence_direct(#client{jid=Jid}, Type) ->
+presence_direct(Recipient, Type) ->
     Presence = presence(Type),
-    exmpp_stanza:set_recipient(Presence, escalus_utils:make_short_jid(Jid)).
+    exmpp_stanza:set_recipient(Presence, escalus_client:short_jid(Recipient)).
 
 presence_show(Presence, Type) ->
     exmpp_presence:set_show(Presence, Type).
@@ -83,11 +83,11 @@ presence_priority(Presence, Priority) ->
 roster_get() ->
     exmpp_client_roster:get_roster().
 
-roster_add_contact(#client{jid=Jid}, Group, Nick) ->
-    exmpp_client_roster:set_item(escalus_utils:make_short_jid(Jid), Group, Nick).
+roster_add_contact(Recipient, Group, Nick) ->
+    exmpp_client_roster:set_item(escalus_client:short_jid(Recipient), Group, Nick).
 
-roster_remove_contact(#client{jid=Jid}) ->
-    Stanza = exmpp_client_roster:set_item(escalus_utils:make_short_jid(Jid), [], []),
+roster_remove_contact(Recipient) ->
+    Stanza = exmpp_client_roster:set_item(escalus_client:short_jid(Recipient), [], []),
     Query = exmpp_xml:get_element(Stanza,"query"),
     [Item] = exmpp_xml:get_child_elements(Query),
     ItemNew = exmpp_xml:set_attribute(Item, {<<"subscription">>, "remove"}),
