@@ -18,8 +18,6 @@
 -compile(export_all).
 
 -include_lib("escalus/include/escalus.hrl").
--include_lib("exmpp/include/exmpp.hrl").
--include_lib("exmpp/include/exmpp_client.hrl").
 -include_lib("common_test/include/ct.hrl").
 
 %%--------------------------------------------------------------------
@@ -64,10 +62,11 @@ end_per_testcase(CaseName, Config) ->
 messages_story(Config) ->
     escalus:story(Config, [1, 1], fun(Alice, Bob) ->
 
-        % Alice sends a message to Bob
-        escalus_client:send(Alice, escalus_stanza:chat_to(Bob, "OH, HAI!")),
+        %% Alice sends a message to Bob
+        escalus:send(Alice, escalus_stanza:chat_to(Bob, "OH, HAI!")),
 
-        % Bob gets the message
-        escalus_assert:is_chat_message("OH, HAI!", escalus_client:wait_for_stanza(Bob))
+        %% Bob gets the message
+        escalus:assert(is_chat_message, ["OH, HAI!"],
+                       escalus:wait_for_stanza(Bob))
 
     end).
