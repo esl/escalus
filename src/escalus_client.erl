@@ -123,7 +123,12 @@ wait_for_stanza(Client) ->
     wait_for_stanza(Client, ?WAIT_FOR_STANZA_TIMOUT).
 
 wait_for_stanza(Client, Timeout) ->
-    hd(wait_for_stanzas(Client, 1, Timeout)).
+    case wait_for_stanzas(Client, 1, Timeout) of
+        [Stanza] ->
+            Stanza;
+        [] ->
+            exit({timeout_when_waiting_for_stanza, Client})
+    end.
 
 send(#client{session=Session}, Packet) ->
     exmpp_session:send_packet(Session, Packet).
