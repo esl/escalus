@@ -19,13 +19,39 @@
 %% This module is meant to replace legacy escalus_assert in future versions
 %% of Escalus
 
--export([mix_match/2]).
+-export([assert/2, assert/3, mix_match/2]).
+
+%%==============================================================================
+%% API functions
+%%==============================================================================
+
+assert(PredSpec, Arg) ->
+    Fun = predspec_to_fun(PredSpec),
+    assert_true(Fun(Arg),
+        {assertion_failed, assert, PredSpec, Arg}).
+
+assert(PredSpec, Params, Arg) ->
+    Fun = predspec_to_fun(PredSpec),
+    assert_true(apply(Fun, Params ++ [Arg]),
+        {assertion_failed, assert, PredSpec, Params, Arg}).
 
 mix_match(Predicates, Stanzas) ->
-    case escalus_utils:mix_match(fun(F) -> {escalus_pred, F} end, Predicates, Stanzas) of
-        true ->
-            ok;
-        false ->
-            StanzasStr = escalus_utils:pretty_stanza_list(Stanzas),
-            exit({assertion_failed, mix_match, Predicates, StanzasStr})
-    end.
+    Ok = escalus_utils:mix_match(fun predspec_to_fun/1, Predicates, Stanzas),
+    StanzasStr = escalus_utils:pretty_stanza_list(Stanzas),
+    assert_true(Ok,
+        {assertion_failed, mix_match, Predicates, Stanzas, StanzasStr}).
+
+%%==============================================================================
+%% Helpers
+%%==============================================================================
+
+predspec_to_fun(F) when is_atom(F) ->
+    {escalus_pred, F};
+predspec_to_fun(Other) ->
+    Other.
+
+assert_true(true, _) -> ok;
+assert_true(false, Fail) ->
+    exit(Fail);
+assert_true(WTF, Pred) ->
+    exit({wtf, bad_predicate_value, WTF, Pred}).

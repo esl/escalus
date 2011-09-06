@@ -26,7 +26,18 @@
          init_per_testcase/2,
          end_per_testcase/2,
          make_everyone_friends/1,
-         story/3]).
+         story/3,
+         assert/2,
+         assert/3,
+         send/2]).
+
+%%--------------------------------------------------------------------
+%% Helper macros
+%%--------------------------------------------------------------------
+
+-define(FORWARD1(M, F), F(X) -> M:F(X)).
+-define(FORWARD2(M, F), F(X, Y) -> M:F(X, Y)).
+-define(FORWARD3(M, F), F(X, Y, Z) -> M:F(X, Y, Z)).
 
 %%--------------------------------------------------------------------
 %% Public API
@@ -65,5 +76,7 @@ make_everyone_friends(Config) ->
     {escalus_users, Users} = proplists:lookup(escalus_users, Config),
     escalus_story:make_everyone_friends(Config, Users).
 
-story(Config, ResourceCount, Test) ->
-    escalus_story:story(Config, ResourceCount, Test).
+?FORWARD3(escalus_story, story).
+?FORWARD2(escalus_new_assert, assert).
+?FORWARD3(escalus_new_assert, assert).
+?FORWARD2(escalus_client, send).

@@ -26,7 +26,12 @@
          has_no_stanzas/1,
          is_iq/1,
          is_iq/2,
-         is_presence_stanza/1,
+         is_iq_set/1,
+         is_iq_get/1,
+         is_iq_error/1,
+         is_iq_result/1,
+         is_presence/1,
+         is_presence_stanza/1, % backwards compatibility
          is_presence_type/2,
          is_presence_with_show/2,
          is_presence_with_status/2,
@@ -76,14 +81,22 @@ is_iq(Type, Stanza) ->
     andalso
     Type == exmpp_iq:get_type(Stanza).
 
+is_iq_set(Stanza) -> is_iq(set, Stanza).
+is_iq_get(Stanza) -> is_iq(get, Stanza).
+is_iq_error(Stanza) -> is_iq(error, Stanza).
+is_iq_result(Stanza) -> is_iq(result, Stanza).
+
 has_stanzas(Client) ->
     escalus_client:has_stanzas(Client).
 
 has_no_stanzas(Client) ->
     not escalus_client:has_stanzas(Client).
 
-is_presence_stanza(Stanza) ->
+is_presence(Stanza) ->
     "presence" == exmpp_xml:get_name_as_list(Stanza).
+
+is_presence_stanza(Stanza) ->
+    is_presence(Stanza). % backwards compatibility
 
 is_presence_type(Type, Presence) ->
     Type == exmpp_xml:get_attribute_as_list(Presence, <<"type">>, "available").
