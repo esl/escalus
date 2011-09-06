@@ -17,7 +17,10 @@
 -module(escalus_users).
 
 % Public API
--export([get_jid/1,
+-export([create_users/1,
+         create_users/2,
+         delete_users/1,
+         get_jid/1,
          get_username/1,
          get_users/1,
          get_userspec/2,
@@ -33,6 +36,19 @@
 %%--------------------------------------------------------------------
 %% Public API
 %%--------------------------------------------------------------------
+
+create_users(Config) ->
+    create_users(Config, all).
+
+create_users(Config, Who) ->
+    Users = get_users(Who),
+    CreationResults = lists:map(fun create_user/1, Users),
+    lists:foreach(fun verify_creation/1, CreationResults),
+    [{escalus_users, Users}] ++ Config.
+
+delete_users(Config) ->
+    {escalus_users, Users} = proplists:lookup(escalus_users, Config),
+    lists:foreach(fun delete_user/1, Users).
 
 get_jid(Name) ->
     {Name, Spec} = get_user_by_name(Name),

@@ -18,6 +18,7 @@
 
 % Public API
 -export([story/3,
+         make_everyone_friends/1,
          make_everyone_friends/2,
          start_ready_clients/2]).
 
@@ -41,6 +42,10 @@ story(Config, ResourceCounts, Story) ->
     after
         escalus_cleaner:clean(Config)
     end.
+
+make_everyone_friends(Config) ->
+    {escalus_users, Users} = proplists:lookup(escalus_users, Config),
+    make_everyone_friends(Config, Users).
 
 make_everyone_friends(Config0, Users) ->
     % start the clients
