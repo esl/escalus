@@ -7,3 +7,8 @@ It's intended to be used with Common Test.
 Escalus is aimed at checking correctness of XMPP server behaviour,
 in contrast to tools such as Tsung which are about stress testing,
 and don't verify correctness.
+
+Quick start
+===========
+
+*   Read the [the intro file](escalus/blob/master/docs/intro.md) to get started.
