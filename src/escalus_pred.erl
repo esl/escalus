@@ -141,7 +141,7 @@ count_roster_items(Num, Stanza) ->
     Items = exmpp_xml:get_child_elements(exmpp_xml:get_element(Stanza,
                                                                "jabber:iq:roster",
                                                                "query")),
-    Num = length(Items).
+    Num == length(Items).
 
 roster_contains(#client{jid=Jid}, Stanza) ->
     ExpectedJid = binary_to_list(Jid),
