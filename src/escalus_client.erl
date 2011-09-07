@@ -92,7 +92,9 @@ kill(#client{session=Session}) ->
 peek_stanzas(#client{ref=Ref}) ->
     {messages, Msgs} = process_info(self(), messages),
     lists:flatmap(fun ({got_stanza, MRef, Stanza}) when MRef == Ref ->
-                         [Stanza];
+                         Stanza;
+                      ({stream_error, MRef, Reason}) when MRef == Ref ->
+                         {stream_error, Reason};
                      (_) ->
                          []
                  end, Msgs).
@@ -115,6 +117,8 @@ do_wait_for_stanzas(#client{ref=Ref}=Client, Count, TimeoutMsg, Acc) ->
     receive
         {got_stanza, Ref, Stanza} ->
             do_wait_for_stanzas(Client, Count - 1, TimeoutMsg, [Stanza|Acc]);
+        {stream_error, Ref, Reason} ->
+            do_wait_for_stanzas(Client, Count - 1, TimeoutMsg, [{stream_error, Reason}|Acc]);
         TimeoutMsg ->
             do_wait_for_stanzas(Client, 0, TimeoutMsg, Acc)
     end.
@@ -152,6 +156,9 @@ client_loop(ClientRef, Master) ->
     receive
         #received_packet{raw_packet=Packet} ->
             Master ! {got_stanza, ClientRef, Packet},
+            client_loop(ClientRef, Master);
+        {stream_error, Reason} ->
+            Master ! {stream_error, ClientRef, Reason},
             client_loop(ClientRef, Master);
         Other ->
             error_logger:error_msg("bad message: ~p~n", [Other]),
