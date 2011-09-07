@@ -92,11 +92,11 @@ kill(#client{session=Session}) ->
 peek_stanzas(#client{ref=Ref}) ->
     {messages, Msgs} = process_info(self(), messages),
     lists:flatmap(fun ({got_stanza, MRef, Stanza}) when MRef == Ref ->
-                         Stanza;
+                          [Stanza];
                       ({stream_error, MRef, Reason}) when MRef == Ref ->
-                         {stream_error, Reason};
-                     (_) ->
-                         []
+                          [{stream_error, Reason}];
+                      (_) ->
+                          []
                  end, Msgs).
 
 has_stanzas(Client) ->
