@@ -208,7 +208,7 @@ is_privacy_list_nonexistent_error(Stanza) ->
 %%     Stanza = exmpp_xml:xmlel() | iq()
 %%     Type = binary()
 %%     Condition = atom()
-is_error(Stanza, Type, Condition) ->
+is_error(Type, Condition, Stanza) ->
     escalus_utils:all_true([
         exmpp_iq:is_error(Stanza),
         Type == exmpp_stanza:get_error_type(Stanza),
