@@ -32,7 +32,8 @@
          is_iq_result/1,
          is_presence/1,
          is_presence_stanza/1, % backwards compatibility
-         is_presence_type/2,
+         is_presence_type/2, %% backwards compatibility
+         is_presence_with_type/2,
          is_presence_with_show/2,
          is_presence_with_status/2,
          is_presence_with_priority/2,
@@ -99,15 +100,26 @@ is_presence_stanza(Stanza) ->
     is_presence(Stanza). % backwards compatibility
 
 is_presence_type(Type, Presence) ->
+    is_presence_with_type(Type, Presence).
+
+is_presence_with_type(Type, Presence) ->
+    is_presence(Presence)
+    andalso
     Type == exmpp_xml:get_attribute_as_list(Presence, <<"type">>, "available").
 
 is_presence_with_show(Show, Presence) ->
+    is_presence(Presence)
+    andalso
     Show == exmpp_xml:get_path(Presence, [{element, "show"}, cdata_as_list]).
 
 is_presence_with_status(Status, Presence) ->
+    is_presence(Presence)
+    andalso
     Status == exmpp_xml:get_path(Presence, [{element, "status"}, cdata_as_list]).
 
 is_presence_with_priority(Priority, Presence) ->
+    is_presence(Presence)
+    andalso
     Priority == exmpp_xml:get_path(Presence, [{element, "priority"}, cdata_as_list]).
 
 is_stanza_from(#client{jid=Jid}, Stanza) ->
