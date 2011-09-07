@@ -22,8 +22,6 @@
 -export([is_message/1,
          is_chat_message/1,
          is_chat_message/2,
-         has_stanzas/1,
-         has_no_stanzas/1,
          is_iq/1,
          is_iq/2,
          is_iq_set/1,
@@ -86,12 +84,6 @@ is_iq_set(Stanza) -> is_iq(set, Stanza).
 is_iq_get(Stanza) -> is_iq(get, Stanza).
 is_iq_error(Stanza) -> is_iq(error, Stanza).
 is_iq_result(Stanza) -> is_iq(result, Stanza).
-
-has_stanzas(Client) ->
-    escalus_client:has_stanzas(Client).
-
-has_no_stanzas(Client) ->
-    not escalus_client:has_stanzas(Client).
 
 is_presence(Stanza) ->
     "presence" == exmpp_xml:get_name_as_list(Stanza).
