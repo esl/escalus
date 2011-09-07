@@ -27,13 +27,15 @@
 
 assert(PredSpec, Arg) ->
     Fun = predspec_to_fun(PredSpec),
+    StanzaStr = exmpp_xml:document_to_list(Arg),
     assert_true(Fun(Arg),
-        {assertion_failed, assert, PredSpec, Arg}).
+        {assertion_failed, assert, PredSpec, Arg, StanzaStr}).
 
 assert(PredSpec, Params, Arg) ->
     Fun = predspec_to_fun(PredSpec),
+    StanzaStr = exmpp_xml:document_to_list(Arg),
     assert_true(apply(Fun, Params ++ [Arg]),
-        {assertion_failed, assert, PredSpec, Params, Arg}).
+        {assertion_failed, assert, PredSpec, Params, Arg, StanzaStr}).
 
 mix_match(Predicates, Stanzas) ->
     Ok = escalus_utils:mix_match(fun predspec_to_fun/1, Predicates, Stanzas),
