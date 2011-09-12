@@ -16,18 +16,30 @@
 
 -module(escalus_hooks).
 
--export([run/3]).
+-export([run/3, run_default/4]).
 
 -spec run([{atom(), term()}], atom(), [term()]) -> term().
 run(Config, HookName, Args) ->
-    case ct:get_config(escalus_hooks) of
+    case get_hook(Config, HookName, undefined) of
         undefined ->
             no_hook;
+        {Mod, Fun} ->
+            apply(Mod, Fun, Args)
+    end.
+
+-spec run_default([{atom(), term()}], atom(), [term()], {atom(), atom()}) -> term().
+run_default(Config, HookName, Args, Default) ->
+    {Mod, Fun} = get_hook(Config, HookName, Default),
+    apply(Mod, Fun, Args).
+
+%%==============================================================================
+%% Helpers
+%%==============================================================================
+
+get_hook(Config, HookName, Default) ->
+    case ct:get_config(escalus_hooks) of
+        undefined ->
+            Default;
         Hooks ->
-            case proplists:get_value(HookName, Hooks) of
-                {Mod, Fun} ->
-                    apply(Mod, Fun, Args);
-                undefined ->
-                    no_hook
-            end
+            proplists:get_value(HookName, Hooks, Default)
     end.

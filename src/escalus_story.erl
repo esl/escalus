@@ -20,7 +20,8 @@
 -export([story/3,
          make_everyone_friends/1,
          make_everyone_friends/2,
-         start_ready_clients/2]).
+         start_ready_clients/2,
+         send_initial_presence/1]).
 
 -include("escalus.hrl").
 -include_lib("test_server/include/test_server.hrl").
@@ -68,8 +69,8 @@ make_everyone_friends(Config0, Users) ->
 start_ready_clients(Config, FlatCDs) ->
     {_, RClients} = lists:foldl(fun({UserSpec, Resource}, {N, Acc}) ->
         Client = escalus_client:start(Config, UserSpec, Resource),
-        escalus_hooks:run(Config, after_login, [Client]),
-        escalus_client:send(Client, escalus_stanza:presence(available)),
+        escalus_hooks:run_default(Config, after_login, [Client],
+                                  {?MODULE, send_initial_presence}),
         %% drop 1 own presence + N-1 probe replies = N presence stanzas
         drop_presences(Client, N),
         {N+1, [Client|Acc]}
@@ -82,6 +83,9 @@ start_ready_clients(Config, FlatCDs) ->
     end, 1, Clients),
     ensure_all_clean(Clients),
     Clients.
+
+send_initial_presence(Client) ->
+    escalus_client:send(Client, escalus_stanza:presence(available)).
 
 %%--------------------------------------------------------------------
 %% Helpers
