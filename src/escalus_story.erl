@@ -31,10 +31,7 @@
 %%--------------------------------------------------------------------
 
 story(Config, ResourceCounts, Story) ->
-    {escalus_users, NamedSpecs} = proplists:lookup(escalus_users, Config),
-    ClientDescs = [[{UserSpec, "res"++integer_to_list(N)} || N <- lists:seq(1, ResCount)] ||
-                   {{_, UserSpec}, ResCount} <- zip_shortest(NamedSpecs,
-                                                             ResourceCounts)],
+    ClientDescs = clients_from_resource_counts(Config, ResourceCounts),
     try
         Clients = start_clients(Config, ClientDescs),
         ensure_all_clean(Clients),
@@ -141,3 +138,18 @@ zip_shortest([H1|T1], [H2|T2]) ->
     [{H1,H2}|zip_shortest(T1, T2)];
 zip_shortest(_, _) ->
     [].
+
+%% ResourceCounts is a list of tuples: [{alice,2}, {bob,1}]
+clients_from_resource_counts(Config, ResourceCounts = [{_, _} | _]) ->
+    [ resources_per_spec(UserSpec, ResCount) ||
+      {User, ResCount} <- ResourceCounts,
+      UserSpec <- [ct:get_config({escalus_users, User}, Config)] ];
+%% Old-style ResourceCounts: [2, 1]
+clients_from_resource_counts(Config, ResourceCounts) ->
+    {escalus_users, NamedSpecs} = proplists:lookup(escalus_users, Config),
+    [ resources_per_spec(UserSpec, ResCount) ||
+      {{_, UserSpec}, ResCount} <- zip_shortest(NamedSpecs,
+                                                ResourceCounts) ].
+
+resources_per_spec(UserSpec, ResCount) ->
+    [{UserSpec, "res"++integer_to_list(N)} || N <- lists:seq(1, ResCount)].
