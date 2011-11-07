@@ -29,7 +29,10 @@
          wait_for_stanza/1, wait_for_stanza/2,
          is_client/1,
          full_jid/1,
-         short_jid/1]).
+         short_jid/1,
+         username/1,
+         server/1,
+         resource/1]).
 
 % spawn exports
 -export([client_loop/2]).
@@ -146,7 +149,16 @@ full_jid(#client{jid=Jid}) ->
     Jid.
 
 short_jid(Client) ->
-    drop_jid_resource(full_jid(Client)).
+    regexp_get(full_jid(Client), <<"^([^/]*)">>).
+
+username(Client) ->
+    regexp_get(full_jid(Client), <<"^([^@]*)">>).
+
+server(Client) ->
+    regexp_get(full_jid(Client), <<"^[^@]*[@]([^/]*)">>).
+
+resource(Client) ->
+    regexp_get(full_jid(Client), <<"^[^/]*[/](.*)">>).
 
 %%--------------------------------------------------------------------
 %% spawn export
@@ -179,7 +191,7 @@ copy_packet_messages(TargetPid) ->
         done
 end.
 
-drop_jid_resource(Jid) ->
+regexp_get(Jid, Regex) ->
     {match, [ShortJid]} =
-        re:run(Jid, <<"^([^/]*)">>, [{capture, all_but_first, binary}]),
+        re:run(Jid, Regex, [{capture, all_but_first, binary}]),
     ShortJid.
