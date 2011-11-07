@@ -19,6 +19,8 @@
 %% Public API
 -export([get_property/2,
          get_usp/1,
+         get_config_with_fallback/2,
+         get_config_with_fallback/3,
          get_config/5]).
 
 %%--------------------------------------------------------------------
@@ -31,6 +33,22 @@ get_property(Name, Config) ->
 
 get_usp(UserSpec) ->
     escalus_users:get_usp(UserSpec).
+
+get_config_with_fallback(Config, Option) ->
+    get_config_with_fallback(Config, Option, undefined).
+
+get_config_with_fallback(Config, Option, Default) ->
+    case proplists:get_value(Option, Config) of
+        undefined ->
+            case ct:get_config(Option) of
+                undefined ->
+                    Default;
+                Value ->
+                    Value
+            end;
+        Value ->
+            Value
+    end.
 
 get_config(USName, UserSpec, CName, Config, Default) ->
     case proplists:get_value(USName, UserSpec, Missing=make_ref()) of
