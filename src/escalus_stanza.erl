@@ -42,9 +42,9 @@
 -include("include/escalus.hrl").
 -include_lib("exmpp/include/exmpp.hrl").
 
-chat_to(#client{jid=Jid}, Msg) ->
+chat_to(Recipient, Msg) ->
     Chat = exmpp_message:chat(Msg),
-    exmpp_stanza:set_recipient(Chat, Jid).
+    exmpp_stanza:set_recipient(Chat, get_jid(Recipient)).
 
 chat_to_short_jid(Recipient, Msg) ->
     Chat = exmpp_message:chat(Msg),
@@ -68,13 +68,13 @@ presence(unsubscribed) ->
 presence(probe) ->
     exmpp_presence:probe().
 
-
 presence_error(Presence, Error) ->
     exmpp_presence:error(Presence, Error).
 
+%% FIXME: see roster_add_contact/3 comment
 presence_direct(Recipient, Type) ->
     Presence = presence(Type),
-    exmpp_stanza:set_recipient(Presence, escalus_client:short_jid(Recipient)).
+    exmpp_stanza:set_recipient(Presence, get_short_jid(Recipient)).
 
 presence_show(Presence, Type) ->
     exmpp_presence:set_show(Presence, Type).
@@ -88,41 +88,45 @@ presence_priority(Presence, Priority) ->
 roster_get() ->
     exmpp_client_roster:get_roster().
 
+%% FIXME: there is a legacy issue here. This function should
+%% use get_jid function to let the caller make decision
+%% wether to use bare or full jid.
 roster_add_contact(Recipient, Group, Nick) ->
-    exmpp_client_roster:set_item(escalus_client:short_jid(Recipient), Group, Nick).
+    exmpp_client_roster:set_item(get_short_jid(Recipient), Group, Nick).
 
+%% FIXME: see roster_add_contact/3 comment
 roster_remove_contact(Recipient) ->
-    Stanza = exmpp_client_roster:set_item(escalus_client:short_jid(Recipient), [], []),
+    Stanza = exmpp_client_roster:set_item(get_short_jid(Recipient), [], []),
     Query = exmpp_xml:get_element(Stanza,"query"),
     [Item] = exmpp_xml:get_child_elements(Query),
     ItemNew = exmpp_xml:set_attribute(Item, {<<"subscription">>, "remove"}),
     QueryNew = exmpp_xml:replace_child(Query, Item, ItemNew),
     exmpp_xml:replace_child(Stanza, Query, QueryNew).
 
-privacy_get_all(#client{jid=Jid}) ->
+privacy_get_all(Recipient) ->
     Query = exmpp_xml:element(?NS_PRIVACY, 'query'),
     Iq = exmpp_iq:get(?NS_JABBER_CLIENT, Query),
-    exmpp_stanza:set_sender(Iq, Jid).
+    exmpp_stanza:set_sender(Iq, get_jid(Recipient)).
 
 privacy_get_one(Client, ListName) ->
     privacy_get_many(Client, [ListName]).
 
-privacy_get_many(#client{jid=Jid}, ListNames) ->
+privacy_get_many(Recipient, ListNames) ->
     Query = exmpp_xml:append_children(
         exmpp_xml:element(?NS_PRIVACY, 'query'),
         [ exmpp_xml:set_attribute(exmpp_xml:element('list'),
             {<<"name">>, ListName}) || ListName <- ListNames ]
         ),
     Iq = exmpp_iq:get(?NS_JABBER_CLIENT, Query),
-    exmpp_stanza:set_sender(Iq, Jid).
+    exmpp_stanza:set_sender(Iq, get_jid(Recipient)).
 
-privacy_set_one(#client{jid=Jid}, PrivacyList) ->
+privacy_set_one(Recipient, PrivacyList) ->
     Query = exmpp_xml:append_child(
         exmpp_xml:element(?NS_PRIVACY, 'query'), PrivacyList),
     Iq = exmpp_iq:set(?NS_JABBER_CLIENT, Query),
-    exmpp_stanza:set_sender(Iq, Jid).
+    exmpp_stanza:set_sender(Iq, get_jid(Recipient)).
 
-privacy_active_or_default(#client{jid=Jid}, What, ListName)
+privacy_active_or_default(Recipient, What, ListName)
     when What =:= 'active';
          What =:= 'default' ->
     exmpp_stanza:set_sender(
@@ -141,7 +145,7 @@ privacy_active_or_default(#client{jid=Jid}, What, ListName)
                                 <<"xmlns">>),
                             {<<"name">>, ListName})
                 end )),
-        Jid).
+        get_jid(Recipient)).
 
 privacy_activate(Client, ListName) ->
     privacy_active_or_default(Client, active, ListName).
@@ -180,3 +184,19 @@ privacy_list_item(ItemDescription) ->
     exmpp_xml:append_children(
         exmpp_xml:set_attributes(exmpp_xml:element('item'), Attrs),
         ContentElements).
+
+%%--------------------------------------------------------------------
+%% Helpers
+%%--------------------------------------------------------------------
+
+get_jid(#client{jid=Jid}) ->
+    Jid;
+get_jid(Username) when is_atom(Username) ->
+    escalus_users:get_jid(Username).
+
+%% FIXME: see roster_add_contact/3 comment,
+%% delete fixing that issue afterwards
+get_short_jid(#client{}=Recipient) ->
+    escalus_client:short_jid(Recipient);
+get_short_jid(Username) when is_atom(Username) ->
+    escalus_users:get_jid(Username).
