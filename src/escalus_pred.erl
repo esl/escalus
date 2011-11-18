@@ -163,18 +163,18 @@ is_privacy_query_result(Stanza) ->
     exmpp_xml:has_element(Stanza, ?NS_PRIVACY, 'query').
 
 is_privacy_query_result_with_active(Stanza) ->
-    is_privacy_query_result_with(Stanza, active, none).
+    is_privacy_query_result_with(active, none, Stanza).
 
 is_privacy_query_result_with_default(Stanza) ->
-    is_privacy_query_result_with(Stanza, default, none).
+    is_privacy_query_result_with(default, none, Stanza).
 
-is_privacy_query_result_with_active(Stanza, ActiveListName) ->
-    is_privacy_query_result_with(Stanza, active, ActiveListName).
+is_privacy_query_result_with_active(ActiveListName, Stanza) ->
+    is_privacy_query_result_with(active, ActiveListName, Stanza).
 
-is_privacy_query_result_with_default(Stanza, DefaultListName) ->
-    is_privacy_query_result_with(Stanza, default, DefaultListName).
+is_privacy_query_result_with_default(DefaultListName, Stanza) ->
+    is_privacy_query_result_with(default, DefaultListName, Stanza).
 
-is_privacy_query_result_with(Stanza, What, ListName) ->
+is_privacy_query_result_with(What, ListName, Stanza) ->
     Query = exmpp_iq:get_result(Stanza),
     is_privacy_query_result(Stanza)
     andalso
