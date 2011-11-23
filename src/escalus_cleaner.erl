@@ -44,7 +44,11 @@ add_client(Config, Client) ->
     ?config(escalus_cleaner, Config) ! {add, Client}.
 
 clean(Config) ->
-    ?config(escalus_cleaner, Config) ! clean.
+    ?config(escalus_cleaner, Config) ! {clean, self()},
+    receive
+        done ->
+            ok
+    end.
 
 stop(Config) ->
     ?config(escalus_cleaner, Config) ! stop.
@@ -57,8 +61,9 @@ cleaner_loop(ClientList) ->
     receive
         {add, NewClient} ->
             cleaner_loop([NewClient | ClientList]);
-        clean ->
+        {clean, Pid} ->
             lists:foreach(fun escalus_client:stop/1, ClientList),
+            Pid ! done,
             cleaner_loop([]);
         stop ->
             stop
