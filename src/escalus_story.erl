@@ -61,7 +61,7 @@ make_everyone_friends(Config0, Users) ->
     % stop the clients
     escalus_cleaner:clean(Config1),
     escalus_cleaner:stop(Config1),
-    [{everyone_is_friends, true} | Config1].
+    [{everyone_is_friends, true} | Config0].
 
 start_ready_clients(Config, FlatCDs) ->
     {_, RClients} = lists:foldl(fun({UserSpec, Resource}, {N, Acc}) ->
