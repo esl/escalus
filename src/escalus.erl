@@ -34,7 +34,8 @@
          wait_for_stanza/1,
          wait_for_stanza/2,
          wait_for_stanzas/2,
-         wait_for_stanzas/3]).
+         wait_for_stanzas/3,
+         peek_stanzas/1]).
 
 %%--------------------------------------------------------------------
 %% Public API
@@ -79,5 +80,6 @@ end_per_testcase(_CaseName, Config) ->
 ?FORWARD2(escalus_client, wait_for_stanza).
 ?FORWARD2(escalus_client, wait_for_stanzas).
 ?FORWARD3(escalus_client, wait_for_stanzas).
+?FORWARD1(escalus_client, peek_stanzas).
 
 ?FORWARD3(escalus_overridables, override).
