@@ -19,6 +19,8 @@
 -export([chat_to/2,
          chat_to_short_jid/2,
          iq_result/1,
+         iq_get/2,
+         iq_set/2,
          presence/1,
          presence_error/2,
          presence_direct/2,
@@ -52,6 +54,25 @@ chat_to_short_jid(Recipient, Msg) ->
 
 iq_result(Request) ->
     exmpp_iq:result(Request).
+
+iq_get(NS, Payload) ->
+    iq_with_type(<<"get">>, NS, Payload).
+
+iq_set(NS, Payload) ->
+    iq_with_type(<<"set">>, NS, Payload).
+
+iq_with_type(Type, NS, Payload) ->
+    #xmlel{
+        name = 'iq',
+        attrs = [#xmlattr{name = <<"type">>,
+                          value = Type}],
+        children = [
+            #xmlel{
+                name = 'query',
+                ns = NS,
+                children = [Payload]
+            }
+    ]}.
 
 presence(available) ->
     exmpp_presence:available();
