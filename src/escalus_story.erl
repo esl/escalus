@@ -64,7 +64,9 @@ make_everyone_friends(Config0, Users) ->
     [{everyone_is_friends, true} | Config0].
 
 start_ready_clients(Config, FlatCDs) ->
-    {_, RClients} = lists:foldl(fun({UserSpec, Resource}, {N, Acc}) ->
+    {_, RClients} = lists:foldl(fun({UserSpec, BaseResource}, {N, Acc}) ->
+        Resource = escalus_overridables:do(Config, modify_resource, [BaseResource],
+                                           {escalus_utils, identity}),
         Client = escalus_client:start(Config, UserSpec, Resource),
         escalus_overridables:do(Config, initial_activity, [Client],
                                 {?MODULE, send_initial_presence}),

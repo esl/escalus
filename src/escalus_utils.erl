@@ -23,10 +23,10 @@
          each_with_index/3,
          all_true/1,
          any_true/1,
+         identity/1,
          mix_match/3,
          drop_first_such/2,
-         show_backtrace/0
-        ]).
+         show_backtrace/0]).
 
 -include("include/escalus.hrl").
 -include_lib("exmpp/include/exmpp.hrl").
@@ -73,6 +73,9 @@ all_true(List) ->
 
 any_true(List) ->
     lists:foldl(fun erlang:'or'/2, false, List).
+
+identity(X) ->
+    X.
 
 %% Does for each Case in Cases exist a Cond in Conds such that
 %% (Predgen(Cond))(Case) == true?
