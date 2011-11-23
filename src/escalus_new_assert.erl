@@ -38,9 +38,10 @@ assert(PredSpec, Params, Arg) ->
         {assertion_failed, assert, PredSpec, Params, Arg, StanzaStr}).
 
 mix_match(Predicates, Stanzas) ->
+    AllStanzas = length(Predicates) == length(Stanzas),
     Ok = escalus_utils:mix_match(fun predspec_to_fun/1, Predicates, Stanzas),
     StanzasStr = escalus_utils:pretty_stanza_list(Stanzas),
-    assert_true(Ok,
+    assert_true(Ok and AllStanzas,
         {assertion_failed, mix_match, Predicates, Stanzas, StanzasStr}).
 
 %%==============================================================================
