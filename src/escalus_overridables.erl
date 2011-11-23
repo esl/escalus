@@ -14,32 +14,29 @@
 %% limitations under the License.
 %%==============================================================================
 
--module(escalus_hooks).
+-module(escalus_overridables).
 
--export([run/3, run_default/4]).
+-export([do/4, override/3]).
 
--spec run([{atom(), term()}], atom(), [term()]) -> term().
-run(Config, HookName, Args) ->
-    case get_hook(Config, HookName, undefined) of
-        undefined ->
-            no_hook;
-        {Mod, Fun} ->
-            apply(Mod, Fun, Args)
-    end.
-
--spec run_default([{atom(), term()}], atom(), [term()], {atom(), atom()}) -> term().
-run_default(Config, HookName, Args, Default) ->
-    {Mod, Fun} = get_hook(Config, HookName, Default),
+-spec do([{atom(), term()}], atom(), [term()], {atom(), atom()}) -> term().
+do(Config, OverrideName, Args, Default) ->
+    {Mod, Fun} = get_mf(Config, OverrideName, Default),
     apply(Mod, Fun, Args).
+
+-spec override([{atom(), term()}], atom(), {atom(), atom()}) -> [{atom(), term()}].
+override(Config, OverrideName, NewValue) ->
+    OldOverrides = escalus_config:get_config_with_fallback(Config, escalus_overrides),
+    NewOverrides = lists:keystore(OverrideName, 1, OldOverrides, {OverrideName, NewValue}),
+    lists:keystore(escalus_overrides, 1, Config, {escalus_overrides, NewOverrides}).
 
 %%==============================================================================
 %% Helpers
 %%==============================================================================
 
-get_hook(Config, HookName, Default) ->
-    case ct:get_config(escalus_hooks) of
+get_mf(Config, OverrideName, Default) ->
+    case escalus_config:get_config_with_fallback(Config, escalus_overrides) of
         undefined ->
             Default;
         Hooks ->
-            proplists:get_value(HookName, Hooks, Default)
+            proplists:get_value(OverrideName, Hooks, Default)
     end.

@@ -69,7 +69,9 @@ login(Config, Session, UserSpec) ->
     {ok, _RealJid} = exmpp_session:login(Session, AuthMethod).
 
 start(Config, UserSpec, Resource) ->
-    Session = start_session(Config, UserSpec, Resource),
+    Session = escalus_overridables:do(Config, start_session,
+                                      [Config, UserSpec, Resource],
+                                      {?MODULE, start_session}),
     {ok, JID} = login(Config, Session, UserSpec),
     ClientRef = make_ref(),
     ClientPid = spawn(?MODULE, client_loop, [ClientRef, self()]),

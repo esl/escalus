@@ -24,6 +24,7 @@
          end_per_testcase/2,
          create_users/1,
          delete_users/1,
+         override/3,
          make_everyone_friends/1,
          story/3,
          assert/2,
@@ -76,3 +77,5 @@ end_per_testcase(_CaseName, Config) ->
 ?FORWARD2(escalus_client, wait_for_stanza).
 ?FORWARD2(escalus_client, wait_for_stanzas).
 ?FORWARD3(escalus_client, wait_for_stanzas).
+
+?FORWARD3(escalus_overridables, override).

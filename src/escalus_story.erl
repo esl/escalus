@@ -66,8 +66,8 @@ make_everyone_friends(Config0, Users) ->
 start_ready_clients(Config, FlatCDs) ->
     {_, RClients} = lists:foldl(fun({UserSpec, Resource}, {N, Acc}) ->
         Client = escalus_client:start(Config, UserSpec, Resource),
-        escalus_hooks:run_default(Config, after_login, [Client],
-                                  {?MODULE, send_initial_presence}),
+        escalus_overridables:do(Config, initial_activity, [Client],
+                                {?MODULE, send_initial_presence}),
         %% drop 1 own presence + N-1 probe replies = N presence stanzas
         drop_presences(Client, N),
         {N+1, [Client|Acc]}
