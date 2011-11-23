@@ -87,15 +87,18 @@ with_global_option(Option, Value, Fun) ->
 with_local_option(Option, Value, Fun) ->
     Hosts = rpc(ejabberd_config, get_global_option, [hosts]),
     OldValues = lists:map(fun(Host) ->
-        OldValue = rpc(ejabberd_config, get_local_option, [{Option, Host}]),
+        OldValue = rpc(mnesia, dirty_read, [local_config, {Option, Host}]),
         rpc(ejabberd_config, add_local_option, [{Option, Host}, Value]),
         OldValue
     end, Hosts),
     try
         Fun()
     after
-        lists:foreach(fun({Host, OldValue}) ->
-            rpc(ejabberd_config, add_local_option, [{Option, Host}, OldValue])
+        lists:foreach(
+            fun ({Host, [{local_config, {Host, _Opt}, OldValue}]}) ->
+                    rpc(ejabberd_config, add_local_option, [{Option, Host}, OldValue]);
+                ({Host, []}) ->
+                    rpc(mnesia, dirty_delete, [local_config, {Option, Host}])
         end, lists:zip(Hosts, OldValues))
     end.
 
