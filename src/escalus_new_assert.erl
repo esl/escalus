@@ -19,7 +19,7 @@
 %% This module is meant to replace legacy escalus_assert in future versions
 %% of Escalus
 
--export([assert/2, assert/3, mix_match/2]).
+-export([assert/2, assert/3, assert_many/2, mix_match/2]).
 
 %%==============================================================================
 %% API functions
@@ -37,12 +37,20 @@ assert(PredSpec, Params, Arg) ->
     assert_true(apply(Fun, Params ++ [Arg]),
         {assertion_failed, assert, PredSpec, Params, Arg, StanzaStr}).
 
-mix_match(Predicates, Stanzas) ->
+assert_many(Predicates, Stanzas) ->
     AllStanzas = length(Predicates) == length(Stanzas),
     Ok = escalus_utils:mix_match(fun predspec_to_fun/1, Predicates, Stanzas),
     StanzasStr = escalus_utils:pretty_stanza_list(Stanzas),
+    case Ok of
+        true -> ok;
+        false ->
+            escalus_utils:log_stanzas("multi-assertion failed on", Stanzas)
+    end,
     assert_true(Ok and AllStanzas,
-        {assertion_failed, mix_match, Predicates, Stanzas, StanzasStr}).
+        {assertion_failed, assert_many, AllStanzas, Predicates, Stanzas, StanzasStr}).
+
+mix_match(Predicates, Stanzas) ->
+    assert_many(Predicates, Stanzas).
 
 %%==============================================================================
 %% Helpers
