@@ -34,9 +34,6 @@
          server/1,
          resource/1]).
 
-% spawn exports
--export([client_loop/2]).
-
 -define(WAIT_FOR_STANZA_TIMOUT, 1000).
 
 -include("escalus.hrl").
@@ -69,20 +66,26 @@ login(Config, Session, UserSpec) ->
     {ok, _RealJid} = exmpp_session:login(Session, AuthMethod).
 
 start(Config, UserSpec, Resource) ->
-    Session = escalus_overridables:do(Config, start_session,
-                                      [Config, UserSpec, Resource],
-                                      {?MODULE, start_session}),
-    {ok, JID} = login(Config, Session, UserSpec),
+    Master = self(),
     ClientRef = make_ref(),
-    ClientPid = spawn(?MODULE, client_loop, [ClientRef, self()]),
-    exmpp_session:set_controlling_process(Session, ClientPid),
-    copy_packet_messages(ClientPid),
-    Client = #client{session=Session,
-                     jid=JID#jid.raw,
-                     pid=ClientPid,
-                     ref=ClientRef},
-    escalus_cleaner:add_client(Config, Client),
-    Client.
+    ClientPid = spawn_link(fun() ->
+        Session = escalus_overridables:do(Config, start_session,
+                                          [Config, UserSpec, Resource],
+                                          {?MODULE, start_session}),
+        {ok, JID} = login(Config, Session, UserSpec),
+        Master ! {logged_in, ClientRef, JID, Session},
+        client_loop(ClientRef, Master)
+    end),
+    receive
+        {logged_in, ClientRef, JID, Session} ->
+            unlink(ClientPid),
+            Client = #client{session=Session,
+                             jid=JID#jid.raw,
+                             pid=ClientPid,
+                             ref=ClientRef},
+            escalus_cleaner:add_client(Config, Client),
+            Client
+    end.
 
 start_for(Config, Username, Resource) ->
     {Username, UserSpec} = escalus_users:get_user_by_name(Username),
@@ -182,16 +185,6 @@ client_loop(ClientRef, Master) ->
 %%--------------------------------------------------------------------
 %% helpers
 %%--------------------------------------------------------------------
-
-copy_packet_messages(TargetPid) ->
-    receive
-        #received_packet{} = Packet ->
-            error_logger:info_msg("got packet: ~p~n", [Packet]),
-            TargetPid ! Packet,
-            copy_packet_messages(TargetPid)
-    after 0 ->
-        done
-end.
 
 regexp_get(Jid, Regex) ->
     {match, [ShortJid]} =
