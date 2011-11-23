@@ -22,6 +22,7 @@
          delete_users/1,
          get_jid/1,
          get_username/1,
+         get_server/1,
          get_users/1,
          get_userspec/2,
          get_user_by_name/1,
@@ -59,6 +60,11 @@ get_username(Name) ->
     {Name, Spec} = get_user_by_name(Name),
     [U, _, _] = get_usp(Spec),
     U.
+
+get_server(Name) ->
+    {Name, Spec} = get_user_by_name(Name),
+    [_, S, _] = get_usp(Spec),
+    S.
 
 get_users(all) ->
     ct:get_config(escalus_users);
