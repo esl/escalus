@@ -131,7 +131,7 @@ post_story_checks(Config, Clients) ->
                 Clients
             );
         _ ->
-            do_nothing
+            ok
     end.
 
 zip_shortest([H1|T1], [H2|T2]) ->
