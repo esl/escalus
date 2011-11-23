@@ -54,7 +54,7 @@ has_no_stanzas(Client) ->
             ok;
         Stanzas ->
             escalus_utils:log_stanzas("following stanzas shouldn't be there", Stanzas),
-            ct:fail({has_stanzas_but_shouldnt, Stanzas})
+            ct:fail({has_stanzas_but_shouldnt, Client, Stanzas})
     end.
 
 %%===================================================================
