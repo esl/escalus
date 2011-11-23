@@ -105,7 +105,7 @@ with_local_option(Option, Value, Fun) ->
 get_c2s_status(#client{jid=Jid}) ->
     {match, USR} = re:run(Jid, <<"([^@]*)@([^/]*)/(.*)">>, [{capture, all_but_first, list}]),
     Pid = rpc(ejabberd_sm, get_session_pid, USR),
-    State = rpc(sys, get_status, [Pid]).
+    rpc(sys, get_status, [Pid]).
 
 %%--------------------------------------------------------------------
 %% Helpers
