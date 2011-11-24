@@ -39,7 +39,8 @@
          privacy_default/2,
          privacy_no_default/1,
          privacy_list/2,
-         privacy_list_item/1]).
+         privacy_list_item/1,
+         last_activity/1]).
 
 -include("include/escalus.hrl").
 -include_lib("exmpp/include/exmpp.hrl").
@@ -205,6 +206,15 @@ privacy_list_item(ItemDescription) ->
     exmpp_xml:append_children(
         exmpp_xml:set_attributes(exmpp_xml:element('item'), Attrs),
         ContentElements).
+
+last_activity(Recipient) ->
+    Query = #xmlel{ns = ?NS_LAST_ACTIVITY, name = 'query'},
+    Iq = exmpp_xml:set_attributes(
+           #xmlel{ns = ?NS_JABBER_CLIENT, name = 'iq'},
+           [{<<"type">>, "get"},
+            {<<"to">>, get_short_jid(Recipient)},
+            {<<"id">>, "last-" ++ integer_to_list(random:uniform(65536 * 65536))}]),
+    exmpp_xml:append_child(Iq, Query).
 
 %%--------------------------------------------------------------------
 %% Helpers
