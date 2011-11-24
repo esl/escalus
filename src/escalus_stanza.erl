@@ -41,7 +41,9 @@
          privacy_no_default/1,
          privacy_list/2,
          privacy_list_item/1,
-         last_activity/1]).
+         last_activity/1,
+         private_set/2,
+         private_get/2]).
 
 -include("include/escalus.hrl").
 -include_lib("exmpp/include/exmpp.hrl").
@@ -101,7 +103,7 @@ presence_error(Presence, Error) ->
 %% FIXME: see roster_add_contact/3 comment
 presence_direct(Recipient, Type) ->
     Presence = presence(Type),
-    exmpp_stanza:set_recipient(Presence, get_short_jid(Recipient)).
+    exmpp_stanza:set_recipient(Presence, escalus_utils:get_short_jid(Recipient)).
 
 presence_show(Presence, Type) ->
     exmpp_presence:set_show(Presence, Type).
@@ -119,11 +121,11 @@ roster_get() ->
 %% use get_jid function to let the caller make decision
 %% wether to use bare or full jid.
 roster_add_contact(Recipient, Group, Nick) ->
-    exmpp_client_roster:set_item(get_short_jid(Recipient), Group, Nick).
+    exmpp_client_roster:set_item(escalus_utils:get_short_jid(Recipient), Group, Nick).
 
 %% FIXME: see roster_add_contact/3 comment
 roster_remove_contact(Recipient) ->
-    Stanza = exmpp_client_roster:set_item(get_short_jid(Recipient), [], []),
+    Stanza = exmpp_client_roster:set_item(escalus_utils:get_short_jid(Recipient), [], []),
     Query = exmpp_xml:get_element(Stanza,"query"),
     [Item] = exmpp_xml:get_child_elements(Query),
     ItemNew = exmpp_xml:set_attribute(Item, {<<"subscription">>, "remove"}),
@@ -216,19 +218,29 @@ last_activity(Recipient) ->
     Query = #xmlel{ns = ?NS_LAST_ACTIVITY, name = 'query'},
     Iq = exmpp_xml:set_attributes(
            #xmlel{ns = ?NS_JABBER_CLIENT, name = 'iq'},
-           [{<<"type">>, "get"},
-            {<<"to">>, get_short_jid(Recipient)},
+           [{<<"type">>, <<"get">>},
+            {<<"to">>, escalus_utils:get_short_jid(Recipient)},
             {<<"id">>, "last-" ++ integer_to_list(random:uniform(65536 * 65536))}]),
     exmpp_xml:append_child(Iq, Query).
+
+private_set(NS, Data0) ->
+    Data = Data0#xmlel{ns = NS},
+    Query = #xmlel{ns = ?NS_PRIVATE, name = 'query'},
+    Iq = exmpp_xml:set_attributes(
+           #xmlel{ns = ?NS_JABBER_CLIENT, name = 'iq'},
+           [{<<"type">>, <<"set">>},
+            {<<"id">>, "private-" ++ integer_to_list(random:uniform(65536 * 65536))}]),
+    exmpp_xml:append_child(Iq, exmpp_xml:append_child(Query, Data)).
+
+private_get(NS, Name) ->
+    Body = exmpp_xml:element(NS, Name),
+    Query = #xmlel{ns = ?NS_PRIVATE, name = 'query'},
+    Iq = exmpp_xml:set_attributes(
+           #xmlel{ns = ?NS_JABBER_CLIENT, name = 'iq'},
+           [{<<"type">>, <<"get">>},
+            {<<"id">>, "private-" ++ integer_to_list(random:uniform(65536 * 65536))}]),
+    exmpp_xml:append_child(Iq, exmpp_xml:append_child(Query, Body)).
 
 %%--------------------------------------------------------------------
 %% Helpers
 %%--------------------------------------------------------------------
-%% FIXME: see roster_add_contact/3 comment,
-%% delete fixing that issue afterwards
-get_short_jid(#client{}=Recipient) ->
-    escalus_client:short_jid(Recipient);
-get_short_jid(Username) when is_atom(Username) ->
-    escalus_users:get_jid(Username);
-get_short_jid(Jid) when is_list(Jid); is_binary(Jid) ->
-    Jid.

@@ -26,6 +26,7 @@
          identity/1,
          mix_match/3,
          get_jid/1,
+         get_short_jid/1,
          drop_first_such/2,
          show_backtrace/0]).
 
@@ -114,4 +115,11 @@ get_jid(#client{jid=Jid}) ->
 get_jid(Username) when is_atom(Username) ->
     escalus_users:get_jid(Username);
 get_jid(Jid) when is_list(Jid); is_binary(Jid) ->
+    Jid.
+
+get_short_jid(#client{}=Recipient) ->
+    escalus_client:short_jid(Recipient);
+get_short_jid(Username) when is_atom(Username) ->
+    escalus_users:get_jid(Username);
+get_short_jid(Jid) when is_list(Jid); is_binary(Jid) ->
     Jid.

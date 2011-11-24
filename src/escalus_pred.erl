@@ -39,6 +39,8 @@
          is_roster_set/1,
          is_roster_result/1,
          is_last_result/1,
+         is_private_result/1,
+         is_private_error/1,
          is_result/1,
          count_roster_items/2,
          roster_contains/2,
@@ -126,19 +128,28 @@ is_roster_set(Stanza) ->
     exmpp_xml:element_matches(Query, "query").
 
 is_roster_result(Stanza) ->
-    Query = exmpp_xml:get_element(Stanza, "jabber:iq:roster", "query"),
-    exmpp_xml:element_matches(Query, "query")
-    andalso
-    "result" == exmpp_xml:get_attribute_as_list(Stanza, <<"type">>, none).
+    is_result(?NS_ROSTER, Stanza).
 
 is_last_result(Stanza) ->
-    Query = exmpp_xml:get_element(Stanza, ?NS_LAST_ACTIVITY, "query"),
+    is_result(?NS_LAST_ACTIVITY, Stanza).
+
+is_private_result(Stanza) ->
+    is_result(?NS_PRIVATE, Stanza).
+
+is_private_error(Stanza) ->
+    Query = exmpp_xml:get_element(Stanza, ?NS_PRIVATE, "query"),
     exmpp_xml:element_matches(Query, "query")
         andalso
-        "result" == exmpp_xml:get_attribute_as_list(Stanza, <<"type">>, none).
+        "error" == exmpp_xml:get_attribute_as_list(Stanza, <<"type">>, none).
 
 is_result(Stanza) ->
     "result" == exmpp_xml:get_attribute_as_list(Stanza, <<"type">>, none).
+
+is_result(NS, Stanza) ->
+    Query = exmpp_xml:get_element(Stanza, NS, "query"),
+    exmpp_xml:element_matches(Query, "query")
+        andalso
+        "result" == exmpp_xml:get_attribute_as_list(Stanza, <<"type">>, none).
 
 count_roster_items(Num, Stanza) ->
     Items = exmpp_xml:get_child_elements(exmpp_xml:get_element(Stanza,
