@@ -18,6 +18,7 @@
 
 -export([chat_to/2,
          chat_to_short_jid/2,
+         groupchat_to/2,
          iq_result/1,
          iq_get/2,
          iq_set/2,
@@ -47,7 +48,11 @@
 
 chat_to(Recipient, Msg) ->
     Chat = exmpp_message:chat(Msg),
-    exmpp_stanza:set_recipient(Chat, get_jid(Recipient)).
+    exmpp_stanza:set_recipient(Chat, escalus_utils:get_jid(Recipient)).
+
+groupchat_to(Recipient, Msg) ->
+    Chat = chat_to(Recipient, Msg),
+    exmpp_xml:set_attribute(Chat, {<<"type">>, <<"groupchat">>}).
 
 chat_to_short_jid(Recipient, Msg) ->
     Chat = exmpp_message:chat(Msg),
@@ -128,7 +133,7 @@ roster_remove_contact(Recipient) ->
 privacy_get_all(Recipient) ->
     Query = exmpp_xml:element(?NS_PRIVACY, 'query'),
     Iq = exmpp_iq:get(?NS_JABBER_CLIENT, Query),
-    exmpp_stanza:set_sender(Iq, get_jid(Recipient)).
+    exmpp_stanza:set_sender(Iq, escalus_utils:get_jid(Recipient)).
 
 privacy_get_one(Client, ListName) ->
     privacy_get_many(Client, [ListName]).
@@ -140,13 +145,13 @@ privacy_get_many(Recipient, ListNames) ->
             {<<"name">>, ListName}) || ListName <- ListNames ]
         ),
     Iq = exmpp_iq:get(?NS_JABBER_CLIENT, Query),
-    exmpp_stanza:set_sender(Iq, get_jid(Recipient)).
+    exmpp_stanza:set_sender(Iq, escalus_utils:get_jid(Recipient)).
 
 privacy_set_one(Recipient, PrivacyList) ->
     Query = exmpp_xml:append_child(
         exmpp_xml:element(?NS_PRIVACY, 'query'), PrivacyList),
     Iq = exmpp_iq:set(?NS_JABBER_CLIENT, Query),
-    exmpp_stanza:set_sender(Iq, get_jid(Recipient)).
+    exmpp_stanza:set_sender(Iq, escalus_utils:get_jid(Recipient)).
 
 privacy_active_or_default(Recipient, What, ListName)
     when What =:= 'active';
@@ -167,7 +172,7 @@ privacy_active_or_default(Recipient, What, ListName)
                                 <<"xmlns">>),
                             {<<"name">>, ListName})
                 end )),
-        get_jid(Recipient)).
+        escalus_utils:get_jid(Recipient)).
 
 privacy_activate(Client, ListName) ->
     privacy_active_or_default(Client, active, ListName).
@@ -219,15 +224,11 @@ last_activity(Recipient) ->
 %%--------------------------------------------------------------------
 %% Helpers
 %%--------------------------------------------------------------------
-
-get_jid(#client{jid=Jid}) ->
-    Jid;
-get_jid(Username) when is_atom(Username) ->
-    escalus_users:get_jid(Username).
-
 %% FIXME: see roster_add_contact/3 comment,
 %% delete fixing that issue afterwards
 get_short_jid(#client{}=Recipient) ->
     escalus_client:short_jid(Recipient);
 get_short_jid(Username) when is_atom(Username) ->
-    escalus_users:get_jid(Username).
+    escalus_users:get_jid(Username);
+get_short_jid(Jid) when is_list(Jid); is_binary(Jid) ->
+    Jid.

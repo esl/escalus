@@ -25,6 +25,7 @@
          any_true/1,
          identity/1,
          mix_match/3,
+         get_jid/1,
          drop_first_such/2,
          show_backtrace/0]).
 
@@ -88,7 +89,7 @@ mix_match(Predgen, Conds, Cases) ->
 drop_first_such(Pred, List) ->
     drop_first_such(Pred, List, []).
 
-drop_first_such(Pred, [], Acc) ->
+drop_first_such(_, [], Acc) ->
     lists:reverse(Acc);
 drop_first_such(Pred, [H|T], Acc) ->
     case Pred(H) of
@@ -107,3 +108,10 @@ show_backtrace() ->
     catch _:_ ->
         error_logger:info_msg("Backtrace:~n~p~n", [tl(erlang:get_stacktrace())])
     end.
+
+get_jid(#client{jid=Jid}) ->
+    Jid;
+get_jid(Username) when is_atom(Username) ->
+    escalus_users:get_jid(Username);
+get_jid(Jid) when is_list(Jid); is_binary(Jid) ->
+    Jid.
