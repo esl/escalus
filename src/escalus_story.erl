@@ -67,7 +67,7 @@ start_ready_clients(Config, FlatCDs) ->
     {_, RClients} = lists:foldl(fun({UserSpec, BaseResource}, {N, Acc}) ->
         Resource = escalus_overridables:do(Config, modify_resource, [BaseResource],
                                            {escalus_utils, identity}),
-        Client = escalus_client:start(Config, UserSpec, Resource),
+        {ok, Client} = escalus_client:start(Config, UserSpec, Resource),
         escalus_overridables:do(Config, initial_activity, [Client],
                                 {?MODULE, send_initial_presence}),
         %% drop 1 own presence + N-1 probe replies = N presence stanzas

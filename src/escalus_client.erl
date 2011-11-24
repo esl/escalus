@@ -68,7 +68,7 @@ login(Config, Session, UserSpec) ->
 start(Config, UserSpec, Resource) ->
     Master = self(),
     ClientRef = make_ref(),
-    ClientPid = spawn_link(fun() ->
+    {ClientPid, ClientMon} = spawn_monitor(fun() ->
         Session = escalus_overridables:do(Config, start_session,
                                           [Config, UserSpec, Resource],
                                           {?MODULE, start_session}),
@@ -78,13 +78,14 @@ start(Config, UserSpec, Resource) ->
     end),
     receive
         {logged_in, ClientRef, JID, Session} ->
-            unlink(ClientPid),
             Client = #client{session=Session,
                              jid=JID#jid.raw,
                              pid=ClientPid,
                              ref=ClientRef},
             escalus_cleaner:add_client(Config, Client),
-            Client
+            {ok, Client};
+        {'DOWN', ClientMon, _, _, Info} ->
+            {error, {login_failed, UserSpec, Info}}
     end.
 
 start_for(Config, Username, Resource) ->
