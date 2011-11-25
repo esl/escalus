@@ -27,7 +27,6 @@
          is_stanza_from/2,
          is_roster_set/1,
          is_roster_result/1,
-         is_roster_result_set/1,
          is_result/1,
          count_roster_items/2,
          roster_contains/2,
@@ -79,7 +78,6 @@ has_no_stanzas(Client) ->
 ?USE_NEW_API_2(is_stanza_from).
 ?USE_NEW_API_1(is_roster_set).
 ?USE_NEW_API_1(is_roster_result).
-?USE_NEW_API_1(is_roster_result_set).
 ?USE_NEW_API_1(is_result).
 ?USE_NEW_API_2(count_roster_items).
 ?USE_NEW_API_2(roster_contains).

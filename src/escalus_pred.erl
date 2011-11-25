@@ -38,7 +38,6 @@
          is_stanza_from/2,
          is_roster_set/1,
          is_roster_result/1,
-         is_roster_result_set/1,
          is_last_result/1,
          is_result/1,
          count_roster_items/2,
@@ -131,9 +130,6 @@ is_roster_result(Stanza) ->
     exmpp_xml:element_matches(Query, "query")
     andalso
     "result" == exmpp_xml:get_attribute_as_list(Stanza, <<"type">>, none).
-
-is_roster_result_set(Stanza) ->
-    "set" == exmpp_xml:get_attribute_as_list(Stanza, <<"type">>, none).
 
 is_last_result(Stanza) ->
     Query = exmpp_xml:get_element(Stanza, ?NS_LAST_ACTIVITY, "query"),
