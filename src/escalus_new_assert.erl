@@ -65,4 +65,4 @@ assert_true(true, _) -> ok;
 assert_true(false, Fail) ->
     exit(Fail);
 assert_true(WTF, Pred) ->
-    exit({wtf, bad_predicate_value, WTF, Pred}).
+    exit({wtf, bad_predicate_return_value, WTF, Pred}).
