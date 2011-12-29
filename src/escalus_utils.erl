@@ -110,16 +110,22 @@ show_backtrace() ->
         error_logger:info_msg("Backtrace:~n~p~n", [tl(erlang:get_stacktrace())])
     end.
 
+-spec get_jid(#client{} | atom() | binary() | string()) -> string().
 get_jid(#client{jid=Jid}) ->
-    Jid;
+    binary_to_list(Jid);
 get_jid(Username) when is_atom(Username) ->
     escalus_users:get_jid(Username);
-get_jid(Jid) when is_list(Jid); is_binary(Jid) ->
-    Jid.
+get_jid(Jid) when is_list(Jid) ->
+    Jid;
+get_jid(Jid) when is_binary(Jid) ->
+    binary_to_list(Jid).
 
+-spec get_short_jid(#client{} | atom() | binary() | string()) -> string().
 get_short_jid(#client{}=Recipient) ->
-    escalus_client:short_jid(Recipient);
+    binary_to_list(escalus_client:short_jid(Recipient));
 get_short_jid(Username) when is_atom(Username) ->
     escalus_users:get_jid(Username);
-get_short_jid(Jid) when is_list(Jid); is_binary(Jid) ->
-    Jid.
+get_short_jid(Jid) when is_list(Jid) ->
+    Jid;
+get_short_jid(Jid) when is_binary(Jid) ->
+    binary_to_list(Jid).

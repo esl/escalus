@@ -117,7 +117,7 @@ is_presence_with_priority(Priority, Presence) ->
     Priority == exmpp_xml:get_path(Presence, [{element, "priority"}, cdata_as_list]).
 
 is_stanza_from(From, Stanza) ->
-    ExpectedJid = binary_to_list(escalus_utils:get_jid(From)),
+    ExpectedJid = escalus_utils:get_jid(From),
     ActualJid = exmpp_xml:get_attribute_as_list(Stanza, <<"from">>, none),
     lists:prefix(ExpectedJid, ActualJid).
 
