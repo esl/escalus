@@ -9,20 +9,19 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("exml/include/exml.hrl").
+-include("lxmppc.hrl").
 
 -compile(export_all).
-
-application_test() ->
-    ?assertEqual(ok, application:start(lxmppc)),
-    ?assertEqual(ok, application:stop(lxmppc)).
 
 auth_plain_stanzas_test() ->
     Username = <<"romeo">>,
     Password = <<"I <3 Juliet">>,
-    Stanza = lxmppc_auth:plain(Username, Password),
-    ExpectedAttrs = [{<<"xmlns">>, <<"urn:ietf:params:xml:ns:xmpp-sasl">>}],
+    Stanza = lxmppc_stanza:auth_plain(Username, Password),
+    ExpectedAttrs = [{<<"xmlns">>, <<"urn:ietf:params:xml:ns:xmpp-sasl">>},
+                     {<<"mechanism">>, <<"PLAIN">>}],
     ?assertEqual(<<"auth">>, Stanza#xmlelement.name),
     ?assertEqual(ExpectedAttrs, Stanza#xmlelement.attrs),
-    CData = Stanza#xmlelement.body,
-    ExpectedAuth = <<Username/binary, 0:8, Password/binary, 0:8>>,
-    ?assertEqual(ExpectedAuth, CData#xmlcdata.content).
+    [CData] = Stanza#xmlelement.body,
+    Payload = base64:decode(exml:unescape_cdata(CData)),
+    ExpectedAuth = <<0:8, Username/binary, 0:8, Password/binary>>,
+    ?assertEqual(ExpectedAuth, Payload).
