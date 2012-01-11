@@ -21,12 +21,9 @@
 %% Stream - related functions
 %%--------------------------------------------------------------------
 
-stream_start(Jid) ->
-    From = lxmppc_jid:bare(Jid),
-    To = Jid#jid.server,
+stream_start(Server) ->
     #xmlstreamstart{name = <<"stream:stream">>, attrs=[
-            {<<"from">>, From},
-            {<<"to">>, To},
+            {<<"to">>, Server},
             {<<"version">>, <<"1.0">>},
             {<<"xml:lang">>, <<"en">>},
             {<<"xmlns">>, <<"jabber:client">>},
