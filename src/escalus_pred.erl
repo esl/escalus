@@ -24,6 +24,8 @@
          is_chat_message/2,
          is_iq/1,
          is_iq/2,
+         is_iq/3,
+         is_iq_with_ns/2,
          is_iq_set/1,
          is_iq_get/1,
          is_iq_error/1,
@@ -36,199 +38,225 @@
          is_presence_with_status/2,
          is_presence_with_priority/2,
          is_stanza_from/2,
+         is_roster_get/1,
          is_roster_set/1,
          is_roster_result/1,
          is_last_result/1,
          is_private_result/1,
          is_private_error/1,
-         is_result/1,
+         is_result/1, %% backwards compatibility
          count_roster_items/2,
          roster_contains/2,
+         is_error/3,
+         is_privacy_set/1,
+         has_type/2,
+
+         % TODO: ugly, rename
          is_privacy_query_result/1,
          is_privacy_query_result_with_active/1,
-         is_privacy_query_result_with_active/2,
          is_privacy_query_result_with_default/1,
+         is_privacy_query_result_with_active/2,
          is_privacy_query_result_with_default/2,
-         is_privacy_list_nonexistent_error/1,
-         is_error/3]).
+         is_privacy_list_nonexistent_error/1
+     ]).
 
--include_lib("deps/exmpp/include/exmpp.hrl").
--include("include/escalus.hrl").
+-include("escalus.hrl").
+-include("escalus_xmlns.hrl").
+-include("escalus_deprecated.hrl").
+-include_lib("exml/include/exml.hrl").
 
-%%---------------------------------------------------------------------
-%% API functions
-%%---------------------------------------------------------------------
+-import(escalus_compat, [bin/1]).
 
-is_message(Stanza) ->
-    "message" == exmpp_xml:get_name_as_list(Stanza).
+%%--------------------------------------------------------------------
+%% Deprecation support
+%%--------------------------------------------------------------------
 
-is_chat_message(Stanza) ->
-    is_message(Stanza)
+?DEPRECATED1(is_presence_stanza, is_presence).
+?DEPRECATED2(is_presence_type, is_presence_with_type).
+?DEPRECATED1(is_result, is_iq_result).
+
+%%--------------------------------------------------------------------
+%% Public API
+%%--------------------------------------------------------------------
+
+is_presence(#xmlelement{name = <<"presence">>}) ->
+    true;
+is_presence(_) ->
+    false.
+
+is_presence_with_type(<<"available">>, Pres) ->
+    is_presence_with_type(Pres, undefined);
+is_presence_with_type(Type, Pres) ->
+    is_presence(Pres)
     andalso
-    chat == exmpp_message:get_type(Stanza).
+    has_type(Type, Pres).
 
-is_chat_message(Msg, Stanza) when is_list(Msg) ->
-    is_chat_message(list_to_binary(Msg), Stanza);
-is_chat_message(Msg, Stanza) when is_binary(Msg) ->
-    is_chat_message(Stanza)
-    andalso
-    Msg == exmpp_message:get_body(Stanza).
+is_message(#xmlelement{name = <<"message">>}) ->
+    true;
+is_message(_) ->
+    false.
 
-is_iq(Stanza) ->
-    "iq" == exmpp_xml:get_name_as_list(Stanza).
+is_iq(#xmlelement{name = <<"iq">>}) ->
+    true;
+is_iq(_) ->
+    false.
 
 is_iq(Type, Stanza) ->
     is_iq(Stanza)
     andalso
-    Type == exmpp_iq:get_type(Stanza).
+    has_type(Type, Stanza).
 
-is_iq_set(Stanza) -> is_iq(set, Stanza).
-is_iq_get(Stanza) -> is_iq(get, Stanza).
-is_iq_error(Stanza) -> is_iq(error, Stanza).
-is_iq_result(Stanza) -> is_iq(result, Stanza).
-
-is_presence(Stanza) ->
-    "presence" == exmpp_xml:get_name_as_list(Stanza).
-
-is_presence_stanza(Stanza) ->
-    is_presence(Stanza). % backwards compatibility
-
-is_presence_type(Type, Presence) ->
-    is_presence_with_type(Type, Presence).
-
-is_presence_with_type(Type, Presence) ->
-    is_presence(Presence)
+is_iq(Type, NS, Stanza) ->
+    is_iq_with_ns(NS, Stanza)
     andalso
-    Type == exmpp_xml:get_attribute_as_list(Presence, <<"type">>, "available").
+    has_type(Type, Stanza).
+
+is_iq_with_ns(NS, Stanza) ->
+    is_iq(Stanza)
+    andalso
+    bin(NS) == exml_query:path(Stanza, [{element, <<"query">>},
+                                        {attr, <<"xmlns">>}]).
+
+is_chat_message(Stanza) ->
+    is_message(Stanza)
+    andalso
+    has_type(<<"chat">>, Stanza).
+
+is_chat_message(Msg, Stanza) ->
+    is_chat_message(Stanza)
+    andalso
+    bin(Msg) == exml_query:path(Stanza, [{element, <<"body">>}, cdata]).
+
+has_type(Type, Stanza) ->
+    bin(Type) == exml_query:attr(Stanza, <<"type">>).
+
+is_iq_set(Stanza) -> is_iq(<<"set">>, Stanza).
+is_iq_get(Stanza) -> is_iq(<<"get">>, Stanza).
+is_iq_error(Stanza) -> is_iq(<<"error">>, Stanza).
+is_iq_result(Stanza) -> is_iq(<<"result">>, Stanza).
 
 is_presence_with_show(Show, Presence) ->
     is_presence(Presence)
     andalso
-    Show == exmpp_xml:get_path(Presence, [{element, "show"}, cdata_as_list]).
+    bin(Show) == exml_query:path(Presence, [{element, <<"show">>}, cdata]).
 
 is_presence_with_status(Status, Presence) ->
     is_presence(Presence)
     andalso
-    Status == exmpp_xml:get_path(Presence, [{element, "status"}, cdata_as_list]).
+    bin(Status) == exml_query:path(Presence, [{element, <<"status">>}, cdata]).
 
 is_presence_with_priority(Priority, Presence) ->
     is_presence(Presence)
     andalso
-    Priority == exmpp_xml:get_path(Presence, [{element, "priority"}, cdata_as_list]).
+    bin(Priority) == exml_query:path(Presence, [{element, <<"priority">>}, cdata]).
 
 is_stanza_from(From, Stanza) ->
     ExpectedJid = escalus_utils:get_jid(From),
-    ActualJid = exmpp_xml:get_attribute_as_list(Stanza, <<"from">>, none),
-    lists:prefix(ExpectedJid, ActualJid).
+    ActualJid = exml_query:attr(Stanza, <<"from">>),
+    escalus_utils:is_prefix(ExpectedJid, ActualJid).
+
+is_roster_get(Stanza) ->
+    is_iq(<<"get">>, ?NS_ROSTER, Stanza).
 
 is_roster_set(Stanza) ->
-    Query = exmpp_xml:get_element(Stanza, "jabber:iq:roster", "query"),
-    "set" == exmpp_xml:get_attribute_as_list(Stanza, <<"type">>, none)
-    andalso
-    exmpp_xml:element_matches(Query, "query").
+    is_iq(<<"set">>, ?NS_ROSTER, Stanza).
 
 is_roster_result(Stanza) ->
-    is_result(?NS_ROSTER, Stanza).
+    is_iq(<<"result">>, ?NS_ROSTER, Stanza).
 
 is_last_result(Stanza) ->
-    is_result(?NS_LAST_ACTIVITY, Stanza).
+    is_iq(<<"result">>, ?NS_LAST_ACTIVITY, Stanza).
 
 is_private_result(Stanza) ->
-    is_result(?NS_PRIVATE, Stanza).
+    is_iq(<<"result">>, ?NS_PRIVATE, Stanza).
 
 is_private_error(Stanza) ->
-    Query = exmpp_xml:get_element(Stanza, ?NS_PRIVATE, "query"),
-    exmpp_xml:element_matches(Query, "query")
-        andalso
-        "error" == exmpp_xml:get_attribute_as_list(Stanza, <<"type">>, none).
+    is_iq(<<"error">>, ?NS_PRIVATE, Stanza).
 
-is_result(Stanza) ->
-    "result" == exmpp_xml:get_attribute_as_list(Stanza, <<"type">>, none).
-
-is_result(NS, Stanza) ->
-    Query = exmpp_xml:get_element(Stanza, NS, "query"),
-    exmpp_xml:element_matches(Query, "query")
-        andalso
-        "result" == exmpp_xml:get_attribute_as_list(Stanza, <<"type">>, none).
+roster_contains(Contact, Stanza) ->
+    ExpectedJid = escalus_utils:get_jid(Contact),
+    Items = get_roster_items(Stanza),
+    lists:any(fun (#xmlelement{} = Element) ->
+                      ContactJid = exml_query:attr(Element, <<"jid">>),
+                      Pref = escalus_utils:is_prefix(ContactJid, ExpectedJid),
+                      if %% TODO: simplify to `ContactJid == ExpectedJid`
+                          ContactJid == ExpectedJid ->
+                              true;
+                          Pref ->
+                              escalus_compat:complain("deprecated use of escalus_pred:roster_contains"),
+                              true;
+                          true ->
+                              false
+                      end;
+                  (_CData) ->
+                      false
+              end, Items).
 
 count_roster_items(Num, Stanza) ->
-    Items = exmpp_xml:get_child_elements(exmpp_xml:get_element(Stanza,
-                                                               "jabber:iq:roster",
-                                                               "query")),
-    Num == length(Items).
+    Num == length(get_roster_items(Stanza)).
 
-roster_contains(#client{jid=Jid}, Stanza) ->
-    ExpectedJid = binary_to_list(Jid),
-    Items = exmpp_xml:get_child_elements(exmpp_xml:get_element(Stanza, "query")),
-    lists:foldl(fun(Item, Res) ->
-                    ContactJid = exmpp_xml:get_attribute_as_list(Item, <<"jid">>, none),
-                    % ExpectedJid may contain the resource
-                    case lists:prefix(ContactJid, ExpectedJid) of
-                        true ->
-                            true;
-                        _ ->
-                            Res
-                    end
-                end, false, Items).
+is_error(Type, Condition, Stanza) ->
+    Error = exml_query:subelement(Stanza, <<"error">>),
+    has_type(<<"error">>, Stanza)
+    andalso
+    exml_query:attr(Error, <<"type">>) == bin(Type)
+    andalso
+    exml_query:subelement(Error, bin(Condition)) /= undefined.
+
+is_privacy_set(Stanza) ->
+    is_iq(<<"set">>, ?NS_PRIVACY, Stanza).
+
+%%--------------------------------------------------------------------
+%% Helpers
+%%--------------------------------------------------------------------
+
+get_roster_items(Stanza) ->
+    escalus:assert(is_iq_with_ns, [?NS_ROSTER], Stanza),
+    Query = exml_query:subelement(Stanza, <<"query">>),
+    Query#xmlelement.body.
+
+has_path(Stanza, Path) ->
+    exml_query:path(Stanza, Path) /= undefined.
+
+%%--------------------------------------------------------------------
+%% Privacy ugliness
+%%--------------------------------------------------------------------
+%% TODO: cleanup names (get rid of _query)
 
 is_privacy_query_result(Stanza) ->
-    exmpp_iq:is_result(Stanza)
-    andalso
-    exmpp_xml:has_element(Stanza, ?NS_PRIVACY, 'query').
+    is_iq(<<"result">>, ?NS_PRIVACY, Stanza).
 
-is_privacy_query_result_with_active(Stanza) ->
-    is_privacy_query_result_with(active, none, Stanza).
-
-is_privacy_query_result_with_default(Stanza) ->
-    is_privacy_query_result_with(default, none, Stanza).
-
-is_privacy_query_result_with_active(ActiveListName, Stanza) ->
-    is_privacy_query_result_with(active, ActiveListName, Stanza).
-
-is_privacy_query_result_with_default(DefaultListName, Stanza) ->
-    is_privacy_query_result_with(default, DefaultListName, Stanza).
-
-is_privacy_query_result_with(What, ListName, Stanza) ->
-    Query = exmpp_iq:get_result(Stanza),
+is_privacy_result_with(Child, Stanza) ->
     is_privacy_query_result(Stanza)
     andalso
-    has_query_got(Query, What, ListName).
+    has_path(Stanza, [{element, <<"query">>},
+                      {element, Child}]).
 
-has_query_got(Query, What, ListName)
-    when What =:= 'active';
-         What =:= 'default' ->
-    TheElement = exmpp_xml:get_element(Query, What),
-    escalus_utils:all_true([
-        exmpp_xml:has_element(Query, What),
-        exmpp_xml:has_attribute(TheElement, <<"name">>),
-        (ListName == none)
-            or
-        (atom_to_list(ListName) == exmpp_xml:get_attribute_as_list(TheElement,
-                                                                   <<"name">>,
-                                                                   none))
-    ]).
+is_privacy_result_with(Child, ChildName, Stanza) ->
+    is_privacy_query_result(Stanza)
+    andalso
+    ChildName == exml_query:path(Stanza, [{element, <<"query">>},
+                                          {element, Child},
+                                          {attr, <<"name">>}]).
+
+is_privacy_query_result_with_active(Stanza) ->
+    is_privacy_result_with(<<"active">>, Stanza).
+
+is_privacy_query_result_with_default(Stanza) ->
+    is_privacy_result_with(<<"default">>, Stanza).
+
+is_privacy_query_result_with_active(ActiveListName, Stanza) ->
+    is_privacy_result_with(<<"active">>, ActiveListName, Stanza).
+
+is_privacy_query_result_with_default(DefaultListName, Stanza) ->
+    is_privacy_result_with(<<"default">>, DefaultListName, Stanza).
 
 is_privacy_list_nonexistent_error(Stanza) ->
-    Query = exmpp_xml:get_element(Stanza, ?NS_PRIVACY, 'query'),
-    List = exmpp_xml:get_element(Query, 'list'),
-    Error = exmpp_xml:get_element(Stanza, 'error'),
-
-    escalus_utils:all_true([
-        is_iq('error', Stanza),
-        exmpp_xml:element_matches(Query, 'query'),
-        exmpp_xml:element_matches(List, 'list'),
-        exmpp_xml:has_attribute(List, <<"name">>),
-        exmpp_xml:element_matches(Error, 'error'),
-        exmpp_xml:has_element(Error, ?NS_STANZA_ERRORS, 'item-not-found')
-    ]).
-
-%% @spec (Stanza, Type, Condition) -> bool()
-%%     Stanza = exmpp_xml:xmlel() | iq()
-%%     Type = binary()
-%%     Condition = atom()
-is_error(Type, Condition, Stanza) ->
-    escalus_utils:all_true([
-        exmpp_iq:is_error(Stanza),
-        Type == exmpp_stanza:get_error_type(Stanza),
-        Condition == exmpp_stanza:get_condition(Stanza)
-    ]).
+    is_iq(<<"error">>, ?NS_PRIVACY, Stanza)
+    andalso
+    has_path(Stanza, [{element, <<"query">>},
+                      {element, <<"list">>},
+                      {attr, <<"name">>}])
+    andalso
+    has_path(Stanza, [{element, <<"error">>},
+                      {element, <<"item-not-found">>}]).

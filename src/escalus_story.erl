@@ -48,19 +48,29 @@ make_everyone_friends(Config) ->
 make_everyone_friends(Config0, Users) ->
     % start the clients
     Config1 = escalus_cleaner:start(Config0),
-    Clients = start_clients(Config1, [[{US, "friendly"}] || {_Name, US} <- Users]),
+    Clients = start_clients(Config1, [[{US, <<"friendly">>}] || {_Name, US} <- Users]),
 
     % exchange subscribe and subscribed stanzas
-    escalus_utils:distinct_ordered_pairs(fun(C1, C2) ->
-        send_presence(C1, subscribe, C2),
-        wait_for_presence("subscribe", C2),
-        send_presence(C2, subscribed, C1),
-        wait_for_presence("subscribed", C1)
+    escalus_utils:distinct_pairs(fun(C1, C2) ->
+        send_presence(C1, <<"subscribe">>, C2),
+        swallow_stanzas(C1, 1, 0),
+        swallow_stanzas(C2, 0, 1),
+        send_presence(C2, <<"subscribe">>, C1),
+        send_presence(C2, <<"subscribed">>, C1),
+        swallow_stanzas(C1, 2, 3),
+        swallow_stanzas(C2, 2, 0),
+        send_presence(C1, <<"subscribed">>, C2),
+        swallow_stanzas(C1, 1, 0),
+        swallow_stanzas(C2, 1, 2)
     end, Clients),
+
+    ensure_all_clean(Clients),
 
     % stop the clients
     escalus_cleaner:clean(Config1),
     escalus_cleaner:stop(Config1),
+
+    % return Config0
     [{everyone_is_friends, true} | Config0].
 
 start_ready_clients(Config, FlatCDs) ->
@@ -84,7 +94,7 @@ start_ready_clients(Config, FlatCDs) ->
     Clients.
 
 send_initial_presence(Client) ->
-    escalus_client:send(Client, escalus_stanza:presence(available)).
+    escalus_client:send(Client, escalus_stanza:presence(<<"available">>)).
 
 %%--------------------------------------------------------------------
 %% Helpers
@@ -92,20 +102,16 @@ send_initial_presence(Client) ->
 
 send_presence(From, Type, To) ->
     ToJid = escalus_client:short_jid(To),
-    Stanza = exmpp_stanza:set_recipient(exmpp_presence:Type(), ToJid),
+    Stanza = escalus_stanza:presence_direct(ToJid, Type),
     escalus_client:send(From, Stanza).
 
-wait_for_presence(Type, Client) ->
-    Stanza = escalus_client:wait_for_stanza(Client),
-    case escalus_pred:is_presence_type(Type, Stanza) of
-        true ->
-            Stanza;
-        false ->
-            wait_for_presence(Type, Client)
-    end.
+swallow_stanzas(User, NoRosters, NoPresences) ->
+    Rosters = lists:duplicate(NoRosters, is_roster_set),
+    Presences = lists:duplicate(NoPresences, is_presence),
+    Stanzas = escalus:wait_for_stanzas(User, NoRosters + NoPresences),
+    escalus:assert_many(Rosters ++ Presences, Stanzas).
 
 ensure_all_clean(Clients) ->
-    %% timer:sleep(1000),
     lists:foreach(fun(Client) ->
         escalus_assert:has_no_stanzas(Client)
     end, Clients).
@@ -113,7 +119,7 @@ ensure_all_clean(Clients) ->
 start_clients(Config, ClientDescs) ->
     case proplists:get_bool(everyone_is_friends, Config) of
         true ->
-            start_ready_clients(Config, lists:flatten(ClientDescs));
+            start_ready_clients(Config, lists:append(ClientDescs));
         false ->
             lists:flatmap(fun(UserCDs) ->
                 start_ready_clients(Config, UserCDs)
@@ -122,7 +128,7 @@ start_clients(Config, ClientDescs) ->
 
 drop_presences(Client, N) ->
     Dropped = escalus_client:wait_for_stanzas(Client, N),
-    lists:foreach(fun escalus_assert:is_presence_stanza/1, Dropped),
+    [escalus:assert(is_presence, Stanza) || Stanza <- Dropped],
     N = length(Dropped).
 
 post_story_checks(Config, Clients) ->
@@ -154,4 +160,4 @@ clients_from_resource_counts(Config, ResourceCounts) ->
                                                 ResourceCounts) ].
 
 resources_per_spec(UserSpec, ResCount) ->
-    [{UserSpec, "res"++integer_to_list(N)} || N <- lists:seq(1, ResCount)].
+    [{UserSpec, list_to_binary("res"++integer_to_list(N))} || N <- lists:seq(1, ResCount)].

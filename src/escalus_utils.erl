@@ -18,7 +18,7 @@
 
 -export([log_stanzas/2,
          pretty_stanza_list/1,
-         exchange_stanzas/3,
+         distinct_pairs/2,
          distinct_ordered_pairs/2,
          each_with_index/3,
          all_true/1,
@@ -28,27 +28,36 @@
          get_jid/1,
          get_short_jid/1,
          drop_first_such/2,
-         show_backtrace/0]).
+         show_backtrace/0,
+         is_prefix/2]).
+
+-import(escalus_compat, [unimplemented/0, bin/1]).
 
 -include("include/escalus.hrl").
--include_lib("exmpp/include/exmpp.hrl").
+-include_lib("exml/include/exml.hrl").
+-include_lib("lxmppc/include/lxmppc.hrl").
 
--spec log_stanzas(iolist(), [#xmlel{}]) -> any().
+-spec log_stanzas(iolist(), [#xmlelement{}]) -> any().
 log_stanzas(Comment, Stanzas) ->
     error_logger:info_msg("~s:~s~n", [Comment, stanza_lines("\n  * ", Stanzas)]).
 
--spec pretty_stanza_list([#xmlel{}]) -> string().
+-spec pretty_stanza_list([#xmlelement{}]) -> string().
 pretty_stanza_list(Stanzas) ->
     binary_to_list(list_to_binary(stanza_lines("     ", Stanzas))).
 
--spec exchange_stanzas([#client{}], #xmlel{}, full_jid|short_jid) -> any().
-exchange_stanzas(Clients, BaseStanza, JidType) ->
-    % send BaseStanza to everyone
-    distinct_ordered_pairs(fun(Sender, Recipient) ->
-        RecipientJid = escalus_client:JidType(Recipient),
-        Stanza = exmpp_stanza:set_recipient(BaseStanza, RecipientJid),
-        escalus_client:send(Sender, Stanza)
-    end, Clients).
+%% calls Fun(A, B) on each distinct (A =/= B) pair of elements in List
+%% if Fun(A, B) was called, then Fun(B, A) won't
+distinct_pairs(Fun, List) ->
+    K = each_with_index(fun(A, N) ->
+        each_with_index(fun(B, M) ->
+            if N < M ->
+                    Fun(A, B);
+               true ->
+                   skip
+           end
+        end, 0, List)
+    end, 0, List),
+    K * (K - 1) div 2.
 
 %% calls Fun(A, B) on each distinct (A =/= B) ordered pair of elements in List
 distinct_ordered_pairs(Fun, List) ->
@@ -101,24 +110,23 @@ drop_first_such(Pred, [H|T], Acc) ->
     end.
 
 stanza_lines(Prefix, Stanzas) ->
-    [[Prefix, exmpp_xml:document_to_iolist(S)] || S <- Stanzas].
+    [[Prefix, exml:to_iolist(S)] || S <- Stanzas].
 
 show_backtrace() ->
-    try
-        a = b
+    try throw(catch_me)
     catch _:_ ->
         error_logger:info_msg("Backtrace:~n~p~n", [tl(erlang:get_stacktrace())])
     end.
 
 -spec get_jid(#client{} | atom() | binary() | string()) -> string().
 get_jid(#client{jid=Jid}) ->
-    binary_to_list(Jid);
-get_jid(Username) when is_atom(Username) ->
-    escalus_users:get_jid(Username);
-get_jid(Jid) when is_list(Jid) ->
     Jid;
+get_jid(Username) when is_atom(Username) ->
+    bin(escalus_users:get_jid(Username));
+get_jid(Jid) when is_list(Jid) ->
+    bin(Jid);
 get_jid(Jid) when is_binary(Jid) ->
-    binary_to_list(Jid).
+    Jid.
 
 -spec get_short_jid(#client{} | atom() | binary() | string()) -> string().
 get_short_jid(#client{}=Recipient) ->
@@ -129,3 +137,7 @@ get_short_jid(Jid) when is_list(Jid) ->
     Jid;
 get_short_jid(Jid) when is_binary(Jid) ->
     binary_to_list(Jid).
+
+is_prefix(Prefix, Full) when is_binary(Prefix), is_binary(Full) ->
+    LCP = binary:longest_common_prefix([Prefix, Full]),
+    size(Prefix) =< size(Full) andalso LCP == size(Prefix).

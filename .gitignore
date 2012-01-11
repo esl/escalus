@@ -3,3 +3,5 @@ logs
 tags
 *.beam
 *~
+deps
+.eunit

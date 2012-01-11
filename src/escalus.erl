@@ -45,7 +45,8 @@ suite() ->
     [{require, escalus_users}].
 
 init_per_suite(Config) ->
-    application:start(exmpp),
+    application:start(exml),
+    application:start(lxmppc),
     Config.
 
 end_per_suite(_Config) ->

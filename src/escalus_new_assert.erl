@@ -27,13 +27,13 @@
 
 assert(PredSpec, Arg) ->
     Fun = predspec_to_fun(PredSpec),
-    StanzaStr = exmpp_xml:document_to_list(Arg),
+    StanzaStr = exml:to_list(Arg),
     assert_true(Fun(Arg),
         {assertion_failed, assert, PredSpec, Arg, StanzaStr}).
 
 assert(PredSpec, Params, Arg) ->
-    Fun = predspec_to_fun(PredSpec),
-    StanzaStr = exmpp_xml:document_to_list(Arg),
+    Fun = predspec_to_fun(PredSpec, length(Params) + 1),
+    StanzaStr = exml:to_list(Arg),
     assert_true(apply(Fun, Params ++ [Arg]),
         {assertion_failed, assert, PredSpec, Params, Arg, StanzaStr}).
 
@@ -56,9 +56,19 @@ mix_match(Predicates, Stanzas) ->
 %% Helpers
 %%==============================================================================
 
-predspec_to_fun(F) when is_atom(F) ->
-    {escalus_pred, F};
-predspec_to_fun(Other) ->
+predspec_to_fun(F) ->
+    predspec_to_fun(F, 1).
+
+predspec_to_fun(F, N) when is_atom(F), is_integer(N) ->
+    %% Fugly, avert your eyes :-/
+    %% R15B complains about {escalus_pred, F} syntax, where
+    %% R14B04 doesn't allow fun escalus_pred:F/A yet.
+    case N of
+        1 -> fun (X) -> escalus_pred:F(X) end;
+        2 -> fun (X, Y) -> escalus_pred:F(X, Y) end;
+        3 -> fun (X, Y, Z) -> escalus_pred:F(X, Y, Z) end
+    end;
+predspec_to_fun(Other, _) ->
     Other.
 
 assert_true(true, _) -> ok;

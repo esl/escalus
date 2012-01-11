@@ -31,8 +31,11 @@
          delete_user/1,
          get_usp/1]).
 
+-import(escalus_compat, [unimplemented/0]).
+
 -include("include/escalus.hrl").
--include_lib("exmpp/include/exmpp_client.hrl").
+-include_lib("exml/include/exml.hrl").
+-include_lib("lxmppc/include/lxmppc.hrl").
 
 %%--------------------------------------------------------------------
 %% Public API
@@ -54,7 +57,7 @@ delete_users(Config) ->
 get_jid(Name) ->
     {Name, Spec} = get_user_by_name(Name),
     [U, S, _] = get_usp(Spec),
-    U ++ "@" ++ S.
+    <<U/binary,"@",S/binary>>.
 
 get_username(Name) ->
     {Name, Spec} = get_user_by_name(Name),
@@ -83,37 +86,31 @@ get_userspec(Config, Username) ->
     UserSpec.
 
 create_user({_Name, UserSpec}) ->
-    Session = escalus_client:start_session([], UserSpec, random),
-    GetFields = exmpp_client_register:get_registration_fields(),
-    exmpp_session:send_packet(Session, GetFields),
-    {ok, result, RegisterInstrs} = wait_for_result("create user"),
-    Id = exmpp_stanza:get_id(GetFields),
-    FieldKeys = get_registration_questions(RegisterInstrs),
-    Fields = [Field || Key <- FieldKeys,
-                       none /= (Field = proplists:lookup(Key, UserSpec))],
-    Register = exmpp_client_register:register_account(Id, Fields),
-    exmpp_session:send_packet(Session, Register),
-    Result = wait_for_result("create user"),
-    exmpp_session:stop(Session),
+    {ok, Conn, _} = lxmppc:connect(UserSpec),
+    lxmppc_session:start_stream(Conn, []),
+    lxmppc:send(Conn, escalus_stanza:get_registration_fields()),
+    {ok, result, RegisterInstrs} = wait_for_result(Conn),
+    Answers = get_answers(UserSpec, RegisterInstrs),
+    lxmppc:send(Conn, escalus_stanza:register_account(Answers)),
+    Result = wait_for_result(Conn),
+    lxmppc:stop(Conn),
     Result.
 
 verify_creation({ok, result, _}) ->
     ok;
 verify_creation({ok, conflict, Raw}) ->
-    RawStr = exmpp_xml:document_to_iolist(Raw),
+    RawStr = exml:to_iolist(Raw),
     error_logger:info_msg("user already existed: ~s~n", [RawStr]);
 verify_creation({error, Error, Raw}) ->
-    RawStr = exmpp_xml:document_to_iolist(Raw),
+    RawStr = exml:to_iolist(Raw),
     error_logger:error_msg("error when trying to register user: ~s~n", [RawStr]),
     exit(Error).
 
 delete_user({_Name, UserSpec}) ->
-    Session = escalus_client:start_session([], UserSpec, random),
-    {ok, _JID} = escalus_client:login([], Session, UserSpec),
-    Packet = exmpp_client_register:remove_account(),
-    exmpp_session:send_packet(Session, Packet),
-    Result = wait_for_result("delete user"),
-    exmpp_session:stop(Session),
+    {ok, Conn, _} = lxmppc:start(UserSpec),
+    lxmppc:send(Conn, escalus_stanza:remove_account()),
+    Result = wait_for_result(Conn),
+    lxmppc:stop(Conn),
     Result.
 
 get_usp(UserSpec) ->
@@ -129,29 +126,45 @@ get_usp(UserSpec) ->
 get_user_by_name(Name, Users) ->
     {Name, _} = proplists:lookup(Name, Users).
 
-wait_for_result(_Action) ->
+wait_for_result(Conn) ->
     receive
-        #received_packet{packet_type=iq, type_attr="result", raw_packet=Raw} ->
-            % RawStr = exmpp_xml:document_to_iolist(Raw),
-            % error_logger:info_msg("success when trying to ~s: ~s~n", [Action, RawStr]),
-            {ok, result, Raw};
-        #received_packet{packet_type=iq, type_attr="error", raw_packet=Raw} ->
-            case is_conflict_stanza(Raw) of
-                true ->
-                    {ok, conflict, Raw};
-                false ->
-                    {error, failed_to_register, Raw}
+        {stanza, Conn, Stanza} ->
+            case response_type(Stanza) of
+                result ->
+                    {ok, result, Stanza};
+                conflict ->
+                    {ok, conflict, Stanza};
+                error ->
+                    {error, failed_to_register, Stanza};
+                _ ->
+                    {error, bad_response, Stanza}
             end
-        after 3000 ->
-            {error, timeout, exmpp_xml:cdata("timeout")}
+    after 3000 ->
+            {error, timeout, exml:escape_cdata(<<"timeout">>)}
     end.
 
-is_conflict_stanza(Stanza) ->
-    exmpp_xml:get_attribute(Stanza, <<"type">>, x) == <<"error">> andalso
-    exmpp_xml:get_path(Stanza, [{element, "error"}, {attribute, <<"code">>}]) == <<"409">>.
+response_type(#xmlelement{name = <<"iq">>} = IQ) ->
+    case exml_query:attr(IQ, <<"type">>) of
+        <<"result">> ->
+            result;
+        <<"error">> ->
+            case exml_query:path(IQ, [{element, <<"error">>},
+                                      {attr, <<"code">>}]) of
+                <<"409">> ->
+                    conflict;
+                _ ->
+                    error
+            end;
+        _ ->
+            other
+    end;
+response_type(_) ->
+    other.
 
-get_registration_questions(Stanza) ->
-    Query = exmpp_xml:get_element(Stanza, "query"),
-    Children = exmpp_xml:get_child_elements(Query),
-    ChildrenNames = lists:map(fun exmpp_xml:get_name_as_atom/1, Children),
-    ChildrenNames -- [instructions].
+get_answers(UserSpec, InstrStanza) ->
+    BinSpec = [{list_to_binary(atom_to_list(K)), V} || {K, V} <- UserSpec],
+    Query = exml_query:subelement(InstrStanza, <<"query">>),
+    ChildrenNames = [N || #xmlelement{name = N} <- Query#xmlelement.body],
+    NoInstr = ChildrenNames -- [<<"instructions">>],
+    [#xmlelement{name=K, body=[exml:escape_cdata(proplists:get_value(K, BinSpec))]}
+     || K <- NoInstr].
