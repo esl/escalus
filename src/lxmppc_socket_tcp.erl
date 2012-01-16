@@ -23,7 +23,9 @@
 %%%===================================================================
 
 -spec connect({binary(), integer()}) -> {ok, #transport{}}.
-connect({Host, Port}) ->
+connect(Args) ->
+    Host = proplists:get_value(host, Args, <<"localhost">>),
+    Port = proplists:get_value(port, Args, 5222),
     {Pid, Mon} =
             erlang:spawn_monitor(?MODULE,
                                  start_receiver,
