@@ -32,6 +32,8 @@ start(Props0) ->
                 Props5 = lxmppc_session:session(Conn, Props4),
                 {ok, Conn, Props5}
             catch Error ->
+                Mod = Conn#transport.module,
+                Mod:stop(Conn),
                 {error, Error}
             end;
         {error, Error} ->

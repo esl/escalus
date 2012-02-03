@@ -67,7 +67,8 @@ start_receiver(Owner, Host, Port) ->
                     socket = Socket,
                     parser = Parser})
     after
-        exml_stream:free_parser(Parser)
+        exml_stream:free_parser(Parser),
+        gen_tcp:close(Socket)
     end.
 
 %%%===================================================================
