@@ -199,7 +199,8 @@ is_error(Type, Condition, Stanza) ->
     andalso
     exml_query:attr(Error, <<"type">>) == bin(Type)
     andalso
-    exml_query:subelement(Error, bin(Condition)) /= undefined.
+    exml_query:path(Error, [{element, bin(Condition)},
+                            {attr, <<"xmlns">>}]) == ?NS_STANZA_ERRORS.
 
 is_privacy_set(Stanza) ->
     is_iq(<<"set">>, ?NS_PRIVACY, Stanza).
