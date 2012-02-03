@@ -50,13 +50,11 @@
          is_error/3,
          is_privacy_set/1,
          has_type/2,
-
-         % TODO: ugly, rename
-         is_privacy_query_result/1,
-         is_privacy_query_result_with_active/1,
-         is_privacy_query_result_with_default/1,
-         is_privacy_query_result_with_active/2,
-         is_privacy_query_result_with_default/2,
+         is_privacy_result/1,
+         is_privacy_result_with_active/1,
+         is_privacy_result_with_default/1,
+         is_privacy_result_with_active/2,
+         is_privacy_result_with_default/2,
          is_privacy_list_nonexistent_error/1
      ]).
 
@@ -206,49 +204,32 @@ is_error(Type, Condition, Stanza) ->
 is_privacy_set(Stanza) ->
     is_iq(<<"set">>, ?NS_PRIVACY, Stanza).
 
-%%--------------------------------------------------------------------
-%% Helpers
-%%--------------------------------------------------------------------
-
-get_roster_items(Stanza) ->
-    escalus:assert(is_iq_with_ns, [?NS_ROSTER], Stanza),
-    Query = exml_query:subelement(Stanza, <<"query">>),
-    Query#xmlelement.body.
-
-has_path(Stanza, Path) ->
-    exml_query:path(Stanza, Path) /= undefined.
-
-%%--------------------------------------------------------------------
-%% Privacy ugliness
-%%--------------------------------------------------------------------
-%% TODO: cleanup names (get rid of _query)
-
-is_privacy_query_result(Stanza) ->
+is_privacy_result(Stanza) ->
     is_iq(<<"result">>, ?NS_PRIVACY, Stanza).
 
 is_privacy_result_with(Child, Stanza) ->
-    is_privacy_query_result(Stanza)
+    is_privacy_result(Stanza)
     andalso
     has_path(Stanza, [{element, <<"query">>},
                       {element, Child}]).
 
 is_privacy_result_with(Child, ChildName, Stanza) ->
-    is_privacy_query_result(Stanza)
+    is_privacy_result(Stanza)
     andalso
     ChildName == exml_query:path(Stanza, [{element, <<"query">>},
                                           {element, Child},
                                           {attr, <<"name">>}]).
 
-is_privacy_query_result_with_active(Stanza) ->
+is_privacy_result_with_active(Stanza) ->
     is_privacy_result_with(<<"active">>, Stanza).
 
-is_privacy_query_result_with_default(Stanza) ->
+is_privacy_result_with_default(Stanza) ->
     is_privacy_result_with(<<"default">>, Stanza).
 
-is_privacy_query_result_with_active(ActiveListName, Stanza) ->
+is_privacy_result_with_active(ActiveListName, Stanza) ->
     is_privacy_result_with(<<"active">>, ActiveListName, Stanza).
 
-is_privacy_query_result_with_default(DefaultListName, Stanza) ->
+is_privacy_result_with_default(DefaultListName, Stanza) ->
     is_privacy_result_with(<<"default">>, DefaultListName, Stanza).
 
 is_privacy_list_nonexistent_error(Stanza) ->
@@ -260,3 +241,15 @@ is_privacy_list_nonexistent_error(Stanza) ->
     andalso
     has_path(Stanza, [{element, <<"error">>},
                       {element, <<"item-not-found">>}]).
+
+%%--------------------------------------------------------------------
+%% Helpers
+%%--------------------------------------------------------------------
+
+get_roster_items(Stanza) ->
+    escalus:assert(is_iq_with_ns, [?NS_ROSTER], Stanza),
+    Query = exml_query:subelement(Stanza, <<"query">>),
+    Query#xmlelement.body.
+
+has_path(Stanza, Path) ->
+    exml_query:path(Stanza, Path) /= undefined.

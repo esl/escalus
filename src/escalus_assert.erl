@@ -60,13 +60,16 @@ has_no_stanzas(Client) ->
 %% Forward to new API
 %%===================================================================
 
--define(USE_NEW_API_1(F),
+-define(USE_NEW_API_1_EXT(F, P),
     F(Stanza) ->
-        escalus:assert(F, Stanza)).
+        escalus:assert(P, Stanza)).
 
--define(USE_NEW_API_2(F),
+-define(USE_NEW_API_2_EXT(F, P),
     F(Param, Stanza) ->
-        escalus:assert(F, [Param], Stanza)).
+        escalus:assert(P, [Param], Stanza)).
+
+-define(USE_NEW_API_1(F), ?USE_NEW_API_1_EXT(F, F)).
+-define(USE_NEW_API_2(F), ?USE_NEW_API_2_EXT(F, F)).
 
 ?USE_NEW_API_2(is_chat_message).
 ?USE_NEW_API_2(is_iq).
@@ -81,9 +84,14 @@ has_no_stanzas(Client) ->
 ?USE_NEW_API_1(is_result).
 ?USE_NEW_API_2(count_roster_items).
 ?USE_NEW_API_2(roster_contains).
-?USE_NEW_API_1(is_privacy_query_result).
-?USE_NEW_API_1(is_privacy_query_result_with_active).
-?USE_NEW_API_2(is_privacy_query_result_with_active).
-?USE_NEW_API_1(is_privacy_query_result_with_default).
-?USE_NEW_API_2(is_privacy_query_result_with_default).
+?USE_NEW_API_1_EXT(is_privacy_query_result,
+                   is_privacy_result).
+?USE_NEW_API_1_EXT(is_privacy_query_result_with_active,
+                   is_privacy_result_with_active).
+?USE_NEW_API_2_EXT(is_privacy_query_result_with_active,
+                   is_privacy_result_with_active).
+?USE_NEW_API_1_EXT(is_privacy_query_result_with_default,
+                   is_privacy_result_with_default).
+?USE_NEW_API_2_EXT(is_privacy_query_result_with_default,
+                   is_privacy_result_with_default).
 ?USE_NEW_API_1(is_privacy_list_nonexistent_error).
