@@ -1,5 +1,5 @@
 %%%===================================================================
-%%% @copyright (C) 2011, Erlang Solutions Ltd.
+%%% @copyright (C) 2011-2012, Erlang Solutions Ltd.
 %%% @doc Module for generating stanzas
 %%% @end
 %%%===================================================================

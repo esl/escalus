@@ -1,3 +1,8 @@
+%%%===================================================================
+%%% @copyright (C) 2011-2012, Erlang Solutions Ltd.
+%%% @doc lxmppc application
+%%% @end
+%%%===================================================================
 -module(lxmppc_app).
 
 -behaviour(application).
