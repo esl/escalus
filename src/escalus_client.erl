@@ -46,7 +46,13 @@
 %%--------------------------------------------------------------------
 
 start(Config, UserSpec, Resource) ->
-    case lxmppc:start([{resource, bin(Resource)} | UserSpec]) of
+    AuthMethod = escalus_config:get_config(auth_method, UserSpec,
+                                           escalus_auth_method, Config,
+                                           <<"PLAIN">>),
+    Props = [{resource, bin(Resource)},
+             {auth, auth_method(AuthMethod)}
+             | UserSpec],
+    case lxmppc:start(Props) of
         {ok, Conn, Props} ->
             Jid = make_jid(Props),
             Client = #client{jid = Jid, conn = Conn},
@@ -151,3 +157,10 @@ regexp_get(Jid, Regex) ->
     {match, [ShortJid]} =
         re:run(Jid, Regex, [{capture, all_but_first, binary}]),
     ShortJid.
+
+auth_method(<<"PLAIN">>) ->
+    {lxmppc_auth, auth_plain};
+auth_method(<<"DIGEST-MD5">>) ->
+    {lxmppc_auth, auth_digest_md5};
+auth_method(Other) ->
+    Other.

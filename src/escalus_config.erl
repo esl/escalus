@@ -50,10 +50,15 @@ get_config_with_fallback(Config, Option, Default) ->
             Value
     end.
 
-get_config(USName, UserSpec, CName, Config, Default) ->
-    case proplists:get_value(USName, UserSpec, Missing=make_ref()) of
-        Missing ->
-            proplists:get_value(CName, Config, Default);
-        Found ->
+get_config(USName, UserSpec, CName, _Config, Default) ->
+    case lists:keysearch(USName, 1, UserSpec) of
+        false ->
+            case ct:get_config(CName) of
+                undefined ->
+                    Default;
+                Found ->
+                    Found
+            end;
+        {value, Found} ->
             Found
     end.
