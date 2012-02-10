@@ -15,7 +15,7 @@
 %% Low-level API
 -export([connect/1,
          send/2,
-         reset_stream/1,
+         reset_parser/1,
          is_connected/1]).
 
 %%%===================================================================
@@ -53,8 +53,8 @@ send(#transport{module = lxmppc_socket_tcp, socket = Socket}, Elem) ->
     Data = exml:to_iolist(Elem),
     gen_tcp:send(Socket, Data).
 
-reset_stream(#transport{module = Mod} = Transport) ->
-    Mod:reset_stream(Transport).
+reset_parser(#transport{module = Mod} = Transport) ->
+    Mod:reset_parser(Transport).
 
 is_connected(#transport{rcv_pid = Pid}) ->
     erlang:is_process_alive(Pid).

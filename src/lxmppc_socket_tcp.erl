@@ -6,7 +6,7 @@
 -module(lxmppc_socket_tcp).
 
 %% API exports
--export([connect/1, reset_stream/1, stop/1]).
+-export([connect/1, reset_parser/1, stop/1]).
 
 %% spawn exports
 -export([start_receiver/3]).
@@ -43,8 +43,8 @@ connect(Args) ->
         {error, {couldnt_connect, {Host, Port}, timeout}}
     end.
 
-reset_stream(#transport{rcv_pid = Pid}) ->
-    Pid ! reset_stream,
+reset_parser(#transport{rcv_pid = Pid}) ->
+    Pid ! reset_parser,
     ok.
 
 -spec stop(#transport{}) -> ok.
@@ -85,7 +85,7 @@ loop(#state{owner = Owner, socket = Socket, parser = Parser} = State) ->
                 Owner ! stanza_msg(Socket, Stanza)
             end, Stanzas),
             loop(State#state{parser = NewParser});
-        reset_stream ->
+        reset_parser ->
             {ok, NewParser} = exml_stream:reset_parser(Parser),
             loop(State#state{parser = NewParser});
         stop ->

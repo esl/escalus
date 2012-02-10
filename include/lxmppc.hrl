@@ -11,5 +11,3 @@
         module :: atom(),
         socket :: term(),
         rcv_pid :: pid()}).
-
--define(LXMMPPC_XMLNS_SASL, <<"urn:ietf:params:xml:ns:xmpp-sasl">>).

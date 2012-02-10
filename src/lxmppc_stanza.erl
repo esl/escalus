@@ -14,7 +14,6 @@
 
 %% stanza - related exports
 -export([iq/2]).
--export([auth/1, auth_plain/2]).
 -export([bind/1, session/0]).
 
 %%--------------------------------------------------------------------
@@ -43,20 +42,6 @@ iq(Type, Body) ->
                        {<<"id">>, id()}],
                 body = Body}.
 
--spec auth(binary()) -> #xmlelement{}.
-auth(Mechanism) ->
-    #xmlelement{name = <<"auth">>,
-                attrs = [{<<"xmlns">>, ?LXMMPPC_XMLNS_SASL},
-                         {<<"mechanism">>, Mechanism}]}.
-
--spec auth_plain(binary(), binary()) -> #xmlelement{}.
-auth_plain(Username, Password) ->
-    Payload = <<0:8,Username/binary,0:8,Password/binary>>,
-    #xmlelement{name = <<"auth">>,
-                attrs = [{<<"xmlns">>, ?LXMMPPC_XMLNS_SASL},
-                         {<<"mechanism">>, <<"PLAIN">>}],
-                body = [#xmlcdata{content=base64:encode(Payload)}]}.
-
 -spec bind(binary()) -> #xmlelement{}.
 bind(Resource) ->
     NS = <<"urn:ietf:params:xml:ns:xmpp-bind">>,
@@ -76,9 +61,4 @@ session() ->
 
 -spec id() -> binary().
 id() ->
-    << <<(hex(N div 16)), (hex(N rem 16))>> || <<N>> <= crypto:rand_bytes(16) >>.
-
-hex(N) when N < 10 ->
-    N + $0;
-hex(N) when N < 16 ->
-    N + $a.
+    base16:encode(crypto:rand_bytes(16)).
