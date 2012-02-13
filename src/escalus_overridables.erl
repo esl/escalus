@@ -25,7 +25,7 @@ do(Config, OverrideName, Args, Default) ->
 
 -spec override([{atom(), term()}], atom(), {atom(), atom()}) -> [{atom(), term()}].
 override(Config, OverrideName, NewValue) ->
-    OldOverrides = escalus_config:get_config_with_fallback(Config, escalus_overrides),
+    OldOverrides = escalus_config:get_config(escalus_overrides, Config, []),
     NewOverrides = lists:keystore(OverrideName, 1, OldOverrides, {OverrideName, NewValue}),
     lists:keystore(escalus_overrides, 1, Config, {escalus_overrides, NewOverrides}).
 
@@ -34,7 +34,7 @@ override(Config, OverrideName, NewValue) ->
 %%==============================================================================
 
 get_mf(Config, OverrideName, Default) ->
-    case escalus_config:get_config_with_fallback(Config, escalus_overrides) of
+    case escalus_config:get_config(escalus_overrides, Config) of
         undefined ->
             Default;
         Hooks ->

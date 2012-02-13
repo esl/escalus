@@ -17,43 +17,34 @@
 -module(escalus_config).
 
 %% Public API
--export([get_property/2,
-         get_usp/1,
-         get_config_with_fallback/2,
-         get_config_with_fallback/3,
+-export([get_config/2,
+         get_config/3,
          get_config/5]).
 
 %%--------------------------------------------------------------------
 %% Public API
 %%--------------------------------------------------------------------
 
-get_property(Name, Config) ->
-    {Name, Value} = proplists:lookup(Name, Config),
-    Value.
+get_config(Option, Config) ->
+    get_config(Option, Config, undefined).
 
-get_usp(UserSpec) ->
-    escalus_users:get_usp(UserSpec).
-
-get_config_with_fallback(Config, Option) ->
-    get_config_with_fallback(Config, Option, undefined).
-
-get_config_with_fallback(Config, Option, Default) ->
-    case proplists:get_value(Option, Config) of
-        undefined ->
+get_config(Option, Config, Default) ->
+    case lists:keyfind(Option, 1, Config) of
+        {Option, Value} ->
+            Value;
+        false ->
             case ct:get_config(Option) of
                 undefined ->
                     Default;
                 Value ->
                     Value
-            end;
-        Value ->
-            Value
+            end
     end.
 
 get_config(USName, UserSpec, CName, Config, Default) ->
-    case proplists:get_value(USName, UserSpec, Missing=make_ref()) of
-        Missing ->
-            proplists:get_value(CName, Config, Default);
-        Found ->
-            Found
+    case lists:keysearch(USName, 1, UserSpec) of
+        {value, Value} ->
+            Value;
+        false ->
+            get_config(CName, Config, Default)
     end.
