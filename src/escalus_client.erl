@@ -74,8 +74,7 @@ stop(#client{conn = Conn}) ->
     lxmppc:stop(Conn).
 
 kill(#client{conn = Conn}) ->
-    %%~ FIXME
-    unimplemented().
+    lxmppc:kill(Conn).
 
 peek_stanzas(#client{conn = Conn}) ->
     {messages, Msgs} = process_info(self(), messages),
