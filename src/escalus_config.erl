@@ -42,8 +42,8 @@ get_config(Option, Config, Default) ->
     end.
 
 get_config(USName, UserSpec, CName, Config, Default) ->
-    case lists:keysearch(USName, 1, UserSpec) of
-        {value, Value} ->
+    case lists:keyfind(USName, 1, UserSpec) of
+        {USName, Value} ->
             Value;
         false ->
             get_config(CName, Config, Default)
