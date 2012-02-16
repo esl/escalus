@@ -5,8 +5,15 @@
 %%%===================================================================
 -module(lxmppc_auth).
 
+%% Public APi
 -export([auth_plain/2,
          auth_digest_md5/2]).
+
+%% Useful helpers for writing own mechanisms
+-export([auth_stanza/2,
+         get_challenge/2,
+         response_stanza/1,
+         wait_for_success/2]).
 
 -include_lib("exml/include/exml.hrl").
 
