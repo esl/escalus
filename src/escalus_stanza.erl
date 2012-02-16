@@ -177,10 +177,10 @@ roster_get() ->
 %% FIXME: there is a legacy issue here. This function should
 %% use get_jid function to let the caller make decision
 %% wether to use bare or full jid.
-roster_add_contact(Recipient, Groups, Nick) ->
+roster_add_contact(User, Groups, Nick) ->
     iq_set(?NS_ROSTER, [#xmlelement{
         name = <<"item">>,
-        attrs = [{<<"jid">>, escalus_utils:get_short_jid(Recipient)}, %% XXX
+        attrs = [{<<"jid">>, escalus_utils:get_short_jid(User)}, %% XXX
                  {<<"name">>, bin(Nick)}],
         body = [
             #xmlelement{name = <<"group">>,
@@ -189,10 +189,10 @@ roster_add_contact(Recipient, Groups, Nick) ->
     }]).
 
 %% FIXME: see roster_add_contact/3 comment
-roster_remove_contact(Recipient) ->
+roster_remove_contact(User) ->
     iq_set(?NS_ROSTER, [#xmlelement{
         name = <<"item">>,
-        attrs = [{<<"jid">>, escalus_utils:get_short_jid(Recipient)}, %% XXX
+        attrs = [{<<"jid">>, escalus_utils:get_short_jid(User)}, %% XXX
                  {<<"subscription">>, <<"remove">>}]
     }]).
 
@@ -204,8 +204,8 @@ private_get(NS, Name) ->
                           attrs = [{<<"xmlns">>, bin(NS)}]},
     iq_get(?NS_PRIVATE, [Element]).
 
-last_activity(Recipient) ->
-    to(iq_get(?NS_LAST_ACTIVITY, []), Recipient).
+last_activity(User) ->
+    to(iq_get(?NS_LAST_ACTIVITY, []), User).
 
 privacy_get_all() ->
     iq_get(?NS_PRIVACY, []).
