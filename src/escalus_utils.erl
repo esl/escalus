@@ -118,7 +118,7 @@ show_backtrace() ->
         error_logger:info_msg("Backtrace:~n~p~n", [tl(erlang:get_stacktrace())])
     end.
 
--spec get_jid(#client{} | atom() | binary() | string()) -> string().
+-spec get_jid(#client{} | atom() | binary() | string()) -> binary().
 get_jid(#client{jid=Jid}) ->
     Jid;
 get_jid(Username) when is_atom(Username) ->
@@ -128,15 +128,15 @@ get_jid(Jid) when is_list(Jid) ->
 get_jid(Jid) when is_binary(Jid) ->
     Jid.
 
--spec get_short_jid(#client{} | atom() | binary() | string()) -> string().
+-spec get_short_jid(#client{} | atom() | binary() | string()) -> binary().
 get_short_jid(#client{}=Recipient) ->
-    binary_to_list(escalus_client:short_jid(Recipient));
+    escalus_client:short_jid(Recipient);
 get_short_jid(Username) when is_atom(Username) ->
     escalus_users:get_jid(Username);
 get_short_jid(Jid) when is_list(Jid) ->
-    Jid;
+    list_to_binary(Jid);
 get_short_jid(Jid) when is_binary(Jid) ->
-    binary_to_list(Jid).
+    Jid.
 
 is_prefix(Prefix, Full) when is_binary(Prefix), is_binary(Full) ->
     LCP = binary:longest_common_prefix([Prefix, Full]),
