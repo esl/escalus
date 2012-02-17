@@ -30,6 +30,7 @@
          error_element/2,
          roster_get/0,
          roster_add_contact/3,
+         roster_add_contacts/1,
          roster_remove_contact/1,
          private_set/1,
          private_get/2,
@@ -176,19 +177,26 @@ roster_get() ->
 
 %% FIXME: there is a legacy issue here. This function should
 %% use get_jid function to let the caller make decision
-%% wether to use bare or full jid.
-roster_add_contact(User, Groups, Nick) ->
-    iq_set(?NS_ROSTER, [#xmlelement{
-        name = <<"item">>,
-        attrs = [{<<"jid">>, escalus_utils:get_short_jid(User)}, %% XXX
-                 {<<"name">>, bin(Nick)}],
-        body = [
-            #xmlelement{name = <<"group">>,
-                        body = [exml:escape_cdata(bin(Group))]}
-            || Group <- Groups]
-    }]).
+%% whether to use bare or full jid.
+roster_add_contacts(ItemSpecs) ->
+    Items = lists:map(
+        fun({User, Groups, Nick}) ->
+            #xmlelement{
+                name = <<"item">>,
+                attrs = [{<<"jid">>, escalus_utils:get_short_jid(User)}, %% XXX
+                         {<<"name">>, bin(Nick)}],
+                body = [
+                    #xmlelement{name = <<"group">>,
+                                body = [exml:escape_cdata(bin(Group))]}
+                    || Group <- Groups]}
+        end,
+        ItemSpecs),
+    iq_set(?NS_ROSTER, Items).
 
-%% FIXME: see roster_add_contact/3 comment
+roster_add_contact(User, Groups, Nick) ->
+    roster_add_contacts([{User, Groups, Nick}]).
+
+%% FIXME: see roster_add_contacts/1 comment
 roster_remove_contact(User) ->
     iq_set(?NS_ROSTER, [#xmlelement{
         name = <<"item">>,
