@@ -45,13 +45,25 @@
 %% Public API
 %%--------------------------------------------------------------------
 
+-define(CFG(USER_OPT, GLOBAL_OPT, DEFAULT),
+    escalus_config:get_config(USER_OPT, UserSpec,
+                              GLOBAL_OPT, Config,
+                              DEFAULT)).
+
 start(Config, UserSpec, Resource) ->
-    AuthMethod = escalus_config:get_config(auth_method, UserSpec,
-                                           escalus_auth_method, Config,
-                                           <<"PLAIN">>),
-    Props = [{resource, bin(Resource)},
-             {auth, auth_method(AuthMethod)}
-             | UserSpec],
+    {username, Username} = lists:keyfind(username, 1, UserSpec),
+    Server = ?CFG(server, escalus_server, <<"localhost">>),
+    AuthMethod = ?CFG(auth_method, escalus_auth_method, <<"PLAIN">>),
+    Host = ?CFG(host, escalus_host, Server),
+    Port = ?CFG(port, escalus_port, 5222),
+    Props = [
+        {username, Username},
+        {server, Server},
+        {resource, bin(Resource)},
+        {host, Host},
+        {port, Port},
+        {auth, auth_method(AuthMethod)}
+        | UserSpec],
     case lxmppc:start(Props) of
         {ok, Conn, Props} ->
             Jid = make_jid(Props),
