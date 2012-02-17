@@ -73,6 +73,10 @@ make_everyone_friends(Config0, Users) ->
     % return Config0
     [{everyone_is_friends, true} | Config0].
 
+call_start_ready_clients(Config, UserCDs) ->
+    escalus_overridables:do(Config, start_ready_clients, [Config, UserCDs],
+                            {?MODULE, start_ready_clients}).
+
 start_ready_clients(Config, FlatCDs) ->
     {_, RClients} = lists:foldl(fun({UserSpec, BaseResource}, {N, Acc}) ->
         Resource = escalus_overridables:do(Config, modify_resource, [BaseResource],
@@ -119,10 +123,10 @@ ensure_all_clean(Clients) ->
 start_clients(Config, ClientDescs) ->
     case proplists:get_bool(everyone_is_friends, Config) of
         true ->
-            start_ready_clients(Config, lists:append(ClientDescs));
+            call_start_ready_clients(Config, lists:append(ClientDescs));
         false ->
             lists:flatmap(fun(UserCDs) ->
-                start_ready_clients(Config, UserCDs)
+                call_start_ready_clients(Config, UserCDs)
             end, ClientDescs)
     end.
 
