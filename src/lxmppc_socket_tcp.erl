@@ -89,7 +89,8 @@ loop(#state{owner = Owner, socket = Socket, parser = Parser} = State) ->
             {ok, NewParser} = exml_stream:reset_parser(Parser),
             loop(State#state{parser = NewParser});
         stop ->
-            %% TODO: send </stream:stream>
+            StreamEnd = lxmppc_stanza:stream_end(),
+            gen_tcp:send(Socket, exml:to_iolist(StreamEnd)),
             stopped;
         {tcp_closed, Socket} ->
             stopped;
