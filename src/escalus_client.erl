@@ -85,8 +85,8 @@ start_session(Config, UserSpec, Resource) ->
 stop(#client{conn = Conn}) ->
     lxmppc:stop(Conn).
 
-kill(#client{conn = Conn}) ->
-    lxmppc:kill(Conn).
+kill(#client{conn = #transport{module = lxmppc_socket_tcp, rcv_pid = Pid}}) ->
+    erlang:exit(Pid, kill).
 
 peek_stanzas(#client{conn = Conn}) ->
     {messages, Msgs} = process_info(self(), messages),
