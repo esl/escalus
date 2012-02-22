@@ -29,7 +29,8 @@
          get_global_option/1,
          with_global_option/3,
          with_local_option/3,
-         get_c2s_status/1]).
+         get_c2s_status/1,
+         wait_for_session_count/1]).
 
 -include("escalus.hrl").
 
@@ -106,6 +107,21 @@ get_c2s_status(#client{jid=Jid}) ->
     {match, USR} = re:run(Jid, <<"([^@]*)@([^/]*)/(.*)">>, [{capture, all_but_first, list}]),
     Pid = rpc(ejabberd_sm, get_session_pid, USR),
     rpc(sys, get_status, [Pid]).
+
+wait_for_session_count(Count) ->
+    wait_for_session_count(Count, 0).
+
+wait_for_session_count(Count, TryNo) when TryNo < 20 ->
+    case escalus_ejabberd:rpc(ets, info, [session, size]) of
+        Count ->
+            ok;
+        _ ->
+            timer:sleep(TryNo * TryNo),
+            wait_for_session_count(Count, TryNo + 1)
+    end;
+wait_for_session_count(Count, _) ->
+    Sessions = escalus_ejabberd:rpc(ets, tab2list, [session]),
+    ct:fail({wait_for_session_count, Count, Sessions}).
 
 %%--------------------------------------------------------------------
 %% Helpers
