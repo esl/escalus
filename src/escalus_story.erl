@@ -153,12 +153,13 @@ zip_shortest(_, _) ->
 
 %% ResourceCounts is a list of tuples: [{alice,2}, {bob,1}]
 clients_from_resource_counts(Config, ResourceCounts = [{_, _} | _]) ->
+    NamedSpecs = escalus_config:get_config(escalus_users, Config),
     [ resources_per_spec(UserSpec, ResCount) ||
       {User, ResCount} <- ResourceCounts,
-      UserSpec <- [ct:get_config({escalus_users, User}, Config)] ];
+      {User, UserSpec} <- lists:keyfind(User, 1, NamedSpecs) ];
 %% Old-style ResourceCounts: [2, 1]
 clients_from_resource_counts(Config, ResourceCounts) ->
-    {escalus_users, NamedSpecs} = proplists:lookup(escalus_users, Config),
+    NamedSpecs = escalus_config:get_config(escalus_users, Config),
     [ resources_per_spec(UserSpec, ResCount) ||
       {{_, UserSpec}, ResCount} <- zip_shortest(NamedSpecs,
                                                 ResourceCounts) ].
