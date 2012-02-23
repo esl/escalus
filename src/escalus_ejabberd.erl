@@ -30,7 +30,8 @@
          with_global_option/3,
          with_local_option/3,
          get_c2s_status/1,
-         wait_for_session_count/1]).
+         get_remote_sessions/0,
+         wait_for_session_count/2]).
 
 -include("escalus.hrl").
 
@@ -108,20 +109,22 @@ get_c2s_status(#client{jid=Jid}) ->
     Pid = rpc(ejabberd_sm, get_session_pid, USR),
     rpc(sys, get_status, [Pid]).
 
-wait_for_session_count(Count) ->
-    wait_for_session_count(Count, 0).
+wait_for_session_count(Config, Count) ->
+    wait_for_session_count(Config, Count, 0).
 
-wait_for_session_count(Count, TryNo) when TryNo < 20 ->
-    case escalus_ejabberd:rpc(ets, info, [session, size]) of
+wait_for_session_count(Config, Count, TryNo) when TryNo < 20 ->
+    case length(call_get_remote_sessions(Config)) of
         Count ->
             ok;
         _ ->
             timer:sleep(TryNo * TryNo),
-            wait_for_session_count(Count, TryNo + 1)
+            wait_for_session_count(Config, Count, TryNo + 1)
     end;
-wait_for_session_count(Count, _) ->
-    Sessions = escalus_ejabberd:rpc(ets, tab2list, [session]),
-    ct:fail({wait_for_session_count, Count, Sessions}).
+wait_for_session_count(Config, Count, _) ->
+    ct:fail({wait_for_session_count, Count, call_get_remote_sessions(Config)}).
+
+get_remote_sessions() ->
+    rpc(ets, tab2list, [session]).
 
 %%--------------------------------------------------------------------
 %% Helpers
@@ -133,3 +136,7 @@ register_user(UserSpec) ->
 unregister_user(UserSpec) ->
     [U, S, _P] = escalus_users:get_usp(UserSpec),
     rpc(ejabberd_admin, unregister, [U, S]).
+
+call_get_remote_sessions(Config) ->
+    escalus_overridables:do(Config, get_remote_sessions, [],
+                            {?MODULE, get_remote_sessions}).
