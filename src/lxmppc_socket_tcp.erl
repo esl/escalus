@@ -3,106 +3,108 @@
 %%% @doc Module abstracting TCP connection to XMPP server
 %%% @end
 %%%===================================================================
+
 -module(lxmppc_socket_tcp).
-
-%% API exports
--export([connect/1, reset_parser/1, stop/1]).
-
-%% spawn exports
--export([start_receiver/3]).
+-behaviour(gen_server).
 
 -include_lib("exml/include/exml_stream.hrl").
 -include("lxmppc.hrl").
 
+%% API exports
+-export([connect/1, reset_parser/1, stop/1]).
+
+%% gen_server callbacks
+-export([init/1,
+         handle_call/3,
+         handle_cast/2,
+         handle_info/2,
+         terminate/2,
+         code_change/3]).
+
+-define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
+-define(SERVER, ?MODULE).
+
 -record(state, {owner, socket, parser}).
 
--define(CONNECT_TIMEOUT, 5000).
-
 %%%===================================================================
-%%% API exports
+%%% API
 %%%===================================================================
 
 -spec connect({binary(), integer()}) -> {ok, #transport{}}.
 connect(Args) ->
-    Host = proplists:get_value(host, Args, <<"localhost">>),
-    Port = proplists:get_value(port, Args, 5222),
-    {Pid, Mon} =
-            erlang:spawn_monitor(?MODULE,
-                                 start_receiver,
-                                 [self(), Host, Port]),
-    receive
-        {connected, Pid, Socket} ->
-            {ok, #transport{
-                    module = ?MODULE,
-                    socket = Socket,
-                    rcv_pid = Pid
-                 }};
-        {'DOWN', Mon, process, Pid, Reason} ->
-            {error, {couldnt_connect, {Host, Port}, Reason}}
-    after ?CONNECT_TIMEOUT ->
-        {error, {couldnt_connect, {Host, Port}, timeout}}
-    end.
+    {ok, Pid} = gen_server:start_link(?MODULE, [Args, self()], []),
+    Transport = gen_server:call(Pid, get_transport),
+    {ok, Transport}.
 
 reset_parser(#transport{rcv_pid = Pid}) ->
-    Pid ! reset_parser,
-    ok.
+    gen_server:cast(Pid, reset_parser).
 
--spec stop(#transport{}) -> ok.
-stop(#transport{rcv_pid=Pid}) ->
-    Pid ! stop,
-    ok.
+stop(#transport{rcv_pid = Pid}) ->
+    gen_server:call(Pid, stop).
 
 %%%===================================================================
-%%% spawn exports
+%%% gen_server callbacks
 %%%===================================================================
 
-start_receiver(Owner, Host, Port) ->
+init([Args, Owner]) ->
+    Host = proplists:get_value(host, Args, <<"localhost">>),
+    Port = proplists:get_value(port, Args, 5222),
     HostStr = binary_to_list(Host),
     Opts = [binary, {active, once}],
     {ok, Socket} = gen_tcp:connect(HostStr, Port, Opts),
     {ok, Parser} = exml_stream:new_parser(),
-    Owner ! {connected, self(), Socket},
-    try
-        loop(#state{owner = Owner,
-                    socket = Socket,
-                    parser = Parser})
-    after
-        exml_stream:free_parser(Parser),
-        gen_tcp:close(Socket)
-    end.
+    {ok, #state{owner = Owner,
+                socket = Socket,
+                parser = Parser}}.
+
+handle_call(get_transport, _From, State) ->
+    {reply, transport(State), State};
+handle_call(stop, _From, #state{socket = Socket} = State) ->
+    StreamEnd = lxmppc_stanza:stream_end(),
+    gen_tcp:send(Socket, exml:to_iolist(StreamEnd)),
+    wait_until_closed(State#state.socket),
+    {stop, normal, ok, State}.
+
+handle_cast(reset_parser, #state{parser = Parser} = State) ->
+    {ok, NewParser} = exml_stream:reset_parser(Parser),
+    {noreply, State#state{parser = NewParser}}.
+
+handle_info({tcp, Socket, Data}, #state{owner = Owner,
+                                        parser = Parser,
+                                        socket = Socket} = State) ->
+    inet:setopts(Socket, [{active, once}]),
+    {ok, NewParser, Stanzas} = exml_stream:parse(Parser, Data),
+    NewState = State#state{parser = NewParser},
+    lists:foreach(fun(Stanza) ->
+        Owner ! {stanza, transport(NewState), Stanza}
+    end, Stanzas),
+    case [StrEnd || #xmlstreamend{} = StrEnd <- Stanzas] of
+        [] -> {noreply, NewState};
+        __ -> {stop, normal, NewState}
+    end;
+handle_info({tcp_closed, Socket}, #state{socket = Socket} = State) ->
+    {stop, normal, State}.
+
+terminate(_Reason, #state{parser = Parser, socket = Socket}) ->
+    exml_stream:free_parser(Parser),
+    gen_tcp:close(Socket).
+
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
 
 %%%===================================================================
-%%% receiver implementation
+%%% Helpers
 %%%===================================================================
 
-loop(#state{owner = Owner, socket = Socket, parser = Parser} = State) ->
-    % TODO: add handling for receiving </stream:stream>
+transport(#state{socket = Socket}) ->
+    #transport{module = ?MODULE,
+               socket = Socket,
+               rcv_pid = self()}.
+
+wait_until_closed(Socket) ->
     receive
-        {tcp, Socket, Data} ->
-            inet:setopts(Socket, [{active, once}]),
-            {ok, NewParser, Stanzas} = exml_stream:parse(Parser, Data),
-            lists:foreach(fun(Stanza) ->
-                Owner ! stanza_msg(Socket, Stanza)
-            end, Stanzas),
-            loop(State#state{parser = NewParser});
-        reset_parser ->
-            {ok, NewParser} = exml_stream:reset_parser(Parser),
-            loop(State#state{parser = NewParser});
-        stop ->
-            StreamEnd = lxmppc_stanza:stream_end(),
-            gen_tcp:send(Socket, exml:to_iolist(StreamEnd)),
-            stopped;
         {tcp_closed, Socket} ->
-            stopped;
-        Other ->
-            %% TODO: implement
-            error_logger:info_msg("FIXME: unhandled message", [Other]),
-            exit({bad_msg, Other})
+            ok
+    after ?WAIT_FOR_SOCKET_CLOSE_TIMEOUT ->
+            ok
     end.
-
-stanza_msg(Socket, Stanza) ->
-    %% FIXME: fugly, will break when field is added to #transport
-    Transport = #transport{module = ?MODULE,
-                           socket = Socket,
-                           rcv_pid = self()},
-    {stanza, Transport, Stanza}.
