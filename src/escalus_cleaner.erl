@@ -25,46 +25,76 @@
 -module(escalus_cleaner).
 
 % Public API
--export([start/1, add_client/2, clean/1, stop/1]).
+-export([start/1,
+         add_client/2,
+         clean/1,
+         stop/1]).
 
-% spawn exports
--export([cleaner_loop/1]).
+-behaviour(gen_server).
 
--include_lib("test_server/include/test_server.hrl").
+%% gen_server callbacks
+-export([init/1,
+         handle_call/3,
+         handle_cast/2,
+         handle_info/2,
+         terminate/2,
+         code_change/3]).
 
-%%--------------------------------------------------------------------
-%% Public API
-%%--------------------------------------------------------------------
+-define(SERVER, ?MODULE).
+
+-record(state, {
+        clients = [] :: [pid()]
+}).
+
+%%%===================================================================
+%%% Public API
+%%%===================================================================
 
 start(Config) ->
-    Cleaner = spawn(?MODULE, cleaner_loop, [[]]),
-    [{escalus_cleaner, Cleaner} | Config].
+    {ok, Pid} = gen_server:start_link(?MODULE, [], []),
+    [{escalus_cleaner, Pid} | Config].
 
 add_client(Config, Client) ->
-    ?config(escalus_cleaner, Config) ! {add, Client}.
+    gen_server:cast(get_cleaner(Config), {add_client, Client}).
 
 clean(Config) ->
-    ?config(escalus_cleaner, Config) ! {clean, self()},
-    receive
-        done ->
-            ok
-    end.
+    gen_server:call(get_cleaner(Config), clean).
 
 stop(Config) ->
-    ?config(escalus_cleaner, Config) ! stop.
+    gen_server:cast(get_cleaner(Config), stop).
 
-%%--------------------------------------------------------------------
-%% cleaner
-%%--------------------------------------------------------------------
+%%%===================================================================
+%%% gen_server callbacks
+%%%===================================================================
 
-cleaner_loop(ClientList) ->
-    receive
-        {add, NewClient} ->
-            cleaner_loop([NewClient | ClientList]);
-        {clean, Pid} ->
-            lists:foreach(fun escalus_client:stop/1, ClientList),
-            Pid ! done,
-            cleaner_loop([]);
-        stop ->
-            stop
-    end.
+init([]) ->
+    {ok, #state{}}.
+
+handle_call(clean, _From, #state{clients = Clients} = State) ->
+    lists:foreach(fun escalus_client:stop/1, Clients),
+    {reply, ok, State#state{clients = []}}.
+
+handle_cast({add_client, Pid}, #state{clients = Clients} = State) ->
+    {noreply, State#state{clients = [Pid | Clients]}};
+handle_cast(stop, State) ->
+    {stop, normal, State}.
+
+handle_info(_Info, State) ->
+    {noreply, State}.
+
+terminate(_Reason, #state{clients = []}) ->
+    ok;
+terminate(_Reason, #state{clients = Clients}) ->
+    error_logger:warning_msg("cleaner finishes dirty: ~p~n", [Clients]),
+    ok.
+
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
+
+%%%===================================================================
+%%% helpers
+%%%===================================================================
+
+get_cleaner(Config) ->
+    {escalus_cleaner, Pid} = lists:keyfind(escalus_cleaner, 1, Config),
+    Pid.
