@@ -40,7 +40,12 @@ reset_parser(#transport{rcv_pid = Pid}) ->
     gen_server:cast(Pid, reset_parser).
 
 stop(#transport{rcv_pid = Pid}) ->
-    gen_server:call(Pid, stop).
+    try
+        gen_server:call(Pid, stop)
+    catch
+        exit:{noproc, {gen_server, call, _}} ->
+            already_stopped
+    end.
 
 %%%===================================================================
 %%% gen_server callbacks
