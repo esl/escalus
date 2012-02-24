@@ -88,7 +88,9 @@ handle_info({tcp, Socket, Data}, #state{owner = Owner,
         __ -> {stop, normal, NewState}
     end;
 handle_info({tcp_closed, Socket}, #state{socket = Socket} = State) ->
-    {stop, normal, State}.
+    {stop, normal, State};
+handle_info(_, State) ->
+    {noreply, State}.
 
 terminate(_Reason, #state{parser = Parser, socket = Socket}) ->
     exml_stream:free_parser(Parser),
