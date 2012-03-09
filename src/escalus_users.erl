@@ -107,7 +107,7 @@ verify_creation({error, Error, Raw}) ->
     exit(Error).
 
 delete_user({_Name, UserSpec}) ->
-    {ok, Conn, _} = lxmppc:start(UserSpec),
+    {ok, Conn, _} = lxmppc:start([{resource, <<"unregistering">>} | UserSpec]),
     lxmppc:send(Conn, escalus_stanza:remove_account()),
     Result = wait_for_result(Conn),
     lxmppc:stop(Conn),
