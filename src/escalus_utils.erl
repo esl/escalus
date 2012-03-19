@@ -29,7 +29,9 @@
          get_short_jid/1,
          drop_first_such/2,
          show_backtrace/0,
-         is_prefix/2]).
+         is_prefix/2,
+         start_clients/1,
+         start_clients/2]).
 
 -import(escalus_compat, [unimplemented/0, bin/1]).
 
@@ -141,3 +143,17 @@ get_short_jid(Jid) when is_binary(Jid) ->
 is_prefix(Prefix, Full) when is_binary(Prefix), is_binary(Full) ->
     LCP = binary:longest_common_prefix([Prefix, Full]),
     size(Prefix) =< size(Full) andalso LCP == size(Prefix).
+
+start_clients(Clients) ->
+    start_clients([], Clients).
+
+start_clients(Config0, ClientRecipes) ->
+    AllCDs = escalus_config:get_config(escalus_users, Config0),
+    FlatCDs = [{CD, Res} || {Username, Resources} <- ClientRecipes,
+                            {_, CD} <- [lists:keyfind(Username, 1, AllCDs)],
+                            Res <- Resources],
+    Config1 = [{_, Cleaner} | _] = escalus_cleaner:start(Config0),
+    Clients = escalus_overridables:do(Config0,
+                                      start_ready_clients, [Config1, FlatCDs],
+                                      {escalus_story, start_ready_clients}),
+    {Cleaner, Clients}.
