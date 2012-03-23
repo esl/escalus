@@ -17,8 +17,7 @@
 -module(escalus_client).
 
 % Public API
--export([start_session/3,
-         start_for/3,
+-export([start_for/3,
          start/3,
          send/2,
          stop/1,
@@ -61,10 +60,6 @@ start_for(Config, Username, Resource) ->
     %% due to escalus_client:get_user_option hack,
     %% those two are equivalent now
     start(Config, Username, Resource).
-
-start_session(Config, UserSpec, Resource) ->
-    %%~ FIXME
-    unimplemented().
 
 stop(#client{conn = Conn}) ->
     lxmppc:stop(Conn).

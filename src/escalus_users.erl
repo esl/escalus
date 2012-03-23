@@ -62,7 +62,7 @@ create_users(Config, Who) ->
     [{escalus_users, Users}] ++ Config.
 
 delete_users(Config) ->
-    {escalus_users, Users} = proplists:lookup(escalus_users, Config),
+    Users = escalus_config:get_config(escalus_users, Config),
     [delete_user(Config, User) || User <- Users].
 
 get_jid(Config, User) ->

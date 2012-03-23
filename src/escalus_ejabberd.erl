@@ -63,11 +63,11 @@ create_users(Config, Who) ->
     lists:foreach(fun({_Name, UserSpec}) ->
         register_user(Config, UserSpec)
     end, AllUsers),
-    [{escalus_users, AllUsers} | Config].
+    Config.
 
 % API - compatible with escalus_users:delete_users/1
 delete_users(Config) ->
-    {escalus_users, AllUsers} = proplists:lookup(escalus_users, Config),
+    AllUsers = escalus_config:get_config(escalus_users, Config),
     lists:foreach(fun({_Name, UserSpec}) ->
         unregister_user(Config, UserSpec)
     end, AllUsers).
