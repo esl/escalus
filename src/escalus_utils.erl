@@ -124,7 +124,7 @@ show_backtrace() ->
 get_jid(#client{jid=Jid}) ->
     Jid;
 get_jid(Username) when is_atom(Username) ->
-    bin(escalus_users:get_jid(Username));
+    bin(escalus_users:get_jid([], Username));
 get_jid(Jid) when is_list(Jid) ->
     bin(Jid);
 get_jid(Jid) when is_binary(Jid) ->
@@ -134,7 +134,7 @@ get_jid(Jid) when is_binary(Jid) ->
 get_short_jid(#client{}=Recipient) ->
     escalus_client:short_jid(Recipient);
 get_short_jid(Username) when is_atom(Username) ->
-    escalus_users:get_jid(Username);
+    escalus_users:get_jid([], Username);
 get_short_jid(Jid) when is_list(Jid) ->
     list_to_binary(Jid);
 get_short_jid(Jid) when is_binary(Jid) ->

@@ -19,6 +19,7 @@
 %% Public API
 -export([get_config/2,
          get_config/3,
+         get_config/4,
          get_config/5]).
 
 %%--------------------------------------------------------------------
@@ -40,6 +41,9 @@ get_config(Option, Config, Default) ->
                     Value
             end
     end.
+
+get_config(USName, UserSpec, CName, Config) ->
+    get_config(USName, UserSpec, CName, Config, undefined).
 
 get_config(USName, UserSpec, CName, Config, Default) ->
     case lists:keyfind(USName, 1, UserSpec) of

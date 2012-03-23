@@ -45,26 +45,9 @@
 %% Public API
 %%--------------------------------------------------------------------
 
--define(CFG(USER_OPT, GLOBAL_OPT, DEFAULT),
-    escalus_config:get_config(USER_OPT, UserSpec,
-                              GLOBAL_OPT, Config,
-                              DEFAULT)).
-
 start(Config, UserSpec, Resource) ->
-    {username, Username} = lists:keyfind(username, 1, UserSpec),
-    Server = ?CFG(server, escalus_server, <<"localhost">>),
-    AuthMethod = ?CFG(auth_method, escalus_auth_method, <<"PLAIN">>),
-    Host = ?CFG(host, escalus_host, Server),
-    Port = ?CFG(port, escalus_port, 5222),
-    Props = [
-        {username, Username},
-        {server, Server},
-        {resource, bin(Resource)},
-        {host, Host},
-        {port, Port},
-        {auth, auth_method(AuthMethod)}
-        | UserSpec],
-    case lxmppc:start(Props) of
+    Options = escalus_users:get_options(Config, UserSpec, Resource),
+    case lxmppc:start(Options) of
         {ok, Conn, Props} ->
             Jid = make_jid(Props),
             Client = #client{jid = Jid, conn = Conn},
@@ -75,8 +58,9 @@ start(Config, UserSpec, Resource) ->
     end.
 
 start_for(Config, Username, Resource) ->
-    {Username, UserSpec} = escalus_users:get_user_by_name(Username),
-    start(Config, UserSpec, Resource).
+    %% due to escalus_client:get_user_option hack,
+    %% those two are equivalent now
+    start(Config, Username, Resource).
 
 start_session(Config, UserSpec, Resource) ->
     %%~ FIXME
@@ -168,10 +152,3 @@ regexp_get(Jid, Regex) ->
     {match, [ShortJid]} =
         re:run(Jid, Regex, [{capture, all_but_first, binary}]),
     ShortJid.
-
-auth_method(<<"PLAIN">>) ->
-    {lxmppc_auth, auth_plain};
-auth_method(<<"DIGEST-MD5">>) ->
-    {lxmppc_auth, auth_digest_md5};
-auth_method(Other) ->
-    Other.

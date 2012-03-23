@@ -42,7 +42,7 @@ story(Config, ResourceCounts, Story) ->
     end.
 
 make_everyone_friends(Config) ->
-    {escalus_users, Users} = proplists:lookup(escalus_users, Config),
+    Users = escalus_config:get_config(escalus_users, Config),
     make_everyone_friends(Config, Users).
 
 make_everyone_friends(Config0, Users) ->

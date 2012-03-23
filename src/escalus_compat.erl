@@ -21,7 +21,11 @@
 -module(escalus_compat).
 
 %% Public API
--export([bin/1, deprecated/3, unimplemented/0, complain/1]).
+-export([bin/1,
+         deprecated/3,
+         unimplemented/0,
+         complain/1,
+         backtrace/1]).
 
 %%--------------------------------------------------------------------
 %% Public API
@@ -53,6 +57,12 @@ unimplemented() ->
 complain(What) ->
     error_logger:info_msg("~s at ~p~n", [What, backtrace(1)]).
 
+backtrace(N) ->
+    try exit(foo)
+        catch _:_ ->
+            lists:nthtail(N+1, erlang:get_stacktrace())
+    end.
+
 %%--------------------------------------------------------------------
 %% Helpers
 %%--------------------------------------------------------------------
@@ -60,9 +70,3 @@ complain(What) ->
 type_complain(Type, Value) ->
     error_logger:info_msg("expecting binary, got ~s ~p at ~p~n",
                           [Type, Value, backtrace(2)]).
-
-backtrace(N) ->
-    try exit(foo)
-        catch _:_ ->
-            lists:nthtail(N+1, erlang:get_stacktrace())
-    end.

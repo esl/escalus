@@ -61,7 +61,7 @@ create_users(Config) ->
 create_users(Config, Who) ->
     AllUsers = escalus_users:get_users(Who),
     lists:foreach(fun({_Name, UserSpec}) ->
-        register_user(UserSpec)
+        register_user(Config, UserSpec)
     end, AllUsers),
     [{escalus_users, AllUsers} | Config].
 
@@ -69,7 +69,7 @@ create_users(Config, Who) ->
 delete_users(Config) ->
     {escalus_users, AllUsers} = proplists:lookup(escalus_users, Config),
     lists:foreach(fun({_Name, UserSpec}) ->
-        unregister_user(UserSpec)
+        unregister_user(Config, UserSpec)
     end, AllUsers).
 
 -spec get_global_option(term()) -> term().
@@ -132,11 +132,11 @@ wait_for_session_count(Config, Count, _) ->
 %% Helpers
 %%--------------------------------------------------------------------
 
-register_user(UserSpec) ->
-    rpc(ejabberd_admin, register, escalus_users:get_usp(UserSpec)).
+register_user(Config, UserSpec) ->
+    rpc(ejabberd_admin, register, escalus_users:get_usp(Config, UserSpec)).
 
-unregister_user(UserSpec) ->
-    [U, S, _P] = escalus_users:get_usp(UserSpec),
+unregister_user(Config, UserSpec) ->
+    [U, S, _P] = escalus_users:get_usp(Config, UserSpec),
     rpc(ejabberd_admin, unregister, [U, S]).
 
 default_get_remote_sessions() ->
