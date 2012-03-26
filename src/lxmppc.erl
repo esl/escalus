@@ -47,7 +47,7 @@ connect(Props) ->
     NewProps = lists:keystore(host, 1, Props, {host, Host}),
     Mod = get_module(Transport),
     {ok, Conn} = Mod:connect(NewProps),
-    {ok, Conn, Props}.
+    {ok, Conn, NewProps}.
 
 send(#transport{module = lxmppc_socket_tcp, socket = Socket}, Elem) ->
     Data = exml:to_iolist(Elem),
