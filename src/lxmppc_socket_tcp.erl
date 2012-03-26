@@ -11,7 +11,11 @@
 -include("lxmppc.hrl").
 
 %% API exports
--export([connect/1, reset_parser/1, stop/1]).
+-export([connect/1,
+         send/2,
+         is_connected/1,
+         reset_parser/1,
+         stop/1]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -35,6 +39,12 @@ connect(Args) ->
     {ok, Pid} = gen_server:start_link(?MODULE, [Args, self()], []),
     Transport = gen_server:call(Pid, get_transport),
     {ok, Transport}.
+
+send(#transport{socket = Socket}, Elem) ->
+    gen_tcp:send(Socket, exml:to_iolist(Elem)).
+
+is_connected(#transport{rcv_pid = Pid}) ->
+    erlang:is_process_alive(Pid).
 
 reset_parser(#transport{rcv_pid = Pid}) ->
     gen_server:cast(Pid, reset_parser).

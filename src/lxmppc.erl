@@ -49,15 +49,14 @@ connect(Props) ->
     {ok, Conn} = Mod:connect(NewProps),
     {ok, Conn, NewProps}.
 
-send(#transport{module = lxmppc_socket_tcp, socket = Socket}, Elem) ->
-    Data = exml:to_iolist(Elem),
-    gen_tcp:send(Socket, Data).
+send(#transport{module = Mod} = Transport, Elem) ->
+    Mod:send(Transport, Elem).
 
 reset_parser(#transport{module = Mod} = Transport) ->
     Mod:reset_parser(Transport).
 
-is_connected(#transport{rcv_pid = Pid}) ->
-    erlang:is_process_alive(Pid).
+is_connected(#transport{module = Mod} = Transport) ->
+    Mod:is_connected(Transport).
 
 stop(#transport{module = Mod} = Transport) ->
     Mod:stop(Transport).
