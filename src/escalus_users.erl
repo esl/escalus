@@ -127,12 +127,12 @@ get_user_by_name(Name) ->
     get_user_by_name(Name, get_users(all)).
 
 create_user(Config, {_Name, UserSpec}) ->
-    Options = get_options(Config, UserSpec),
-    {ok, Conn, _} = lxmppc:connect(Options),
-    lxmppc_session:start_stream(Conn, []),
+    Options0 = get_options(Config, UserSpec),
+    {ok, Conn, Options1} = lxmppc:connect(Options0),
+    lxmppc_session:start_stream(Conn, Options1),
     lxmppc:send(Conn, escalus_stanza:get_registration_fields()),
     {ok, result, RegisterInstrs} = wait_for_result(Conn),
-    Answers = get_answers(Options, RegisterInstrs),
+    Answers = get_answers(Options1, RegisterInstrs),
     lxmppc:send(Conn, escalus_stanza:register_account(Answers)),
     Result = wait_for_result(Conn),
     lxmppc:stop(Conn),
