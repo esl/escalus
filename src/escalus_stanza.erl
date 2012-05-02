@@ -45,7 +45,9 @@
          privacy_activate/1,
          privacy_deactivate/0,
          privacy_set_default/1,
-         privacy_no_default/0
+         privacy_no_default/0,
+         adhoc_request/1,
+         adhoc_request/2
      ]).
 
 %% new ones
@@ -264,3 +266,15 @@ privacy_list_item(Order, Action, Type, Value, Content) ->
 privacy_list_jid_item(Order, Action, Who, Contents) ->
     privacy_list_item(Order, Action, <<"jid">>,
                       escalus_utils:get_jid(Who), Contents).
+
+adhoc_request(Node) ->
+    adhoc_request(Node, []).
+
+adhoc_request(Node, Payload) ->
+    lxmppc_stanza:iq(<<"set">>, [#xmlelement{
+                                    name = <<"command">>,
+                                    attrs = [{<<"xmlns">>, ?NS_ADHOC},
+                                             {<<"node">>, Node},
+                                             {<<"action">>, <<"execute">>}],
+                                    body = Payload
+                                   }]).

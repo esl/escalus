@@ -55,7 +55,8 @@
          is_privacy_result_with_default/1,
          is_privacy_result_with_active/2,
          is_privacy_result_with_default/2,
-         is_privacy_list_nonexistent_error/1
+         is_privacy_list_nonexistent_error/1,
+         is_adhoc_response/3
      ]).
 
 -include("escalus.hrl").
@@ -242,6 +243,18 @@ is_privacy_list_nonexistent_error(Stanza) ->
     andalso
     has_path(Stanza, [{element, <<"error">>},
                       {element, <<"item-not-found">>}]).
+
+is_adhoc_response(Node, Status, Stanza) ->
+    is_iq(Stanza)
+        andalso
+        ?NS_ADHOC == exml_query:path(Stanza, [{element, <<"command">>},
+                                              {attr, <<"xmlns">>}])
+        andalso
+        Node == exml_query:path(Stanza, [{element, <<"command">>},
+                                         {attr, <<"node">>}])
+        andalso
+        Status == exml_query:path(Stanza, [{element, <<"command">>},
+                                           {attr, <<"status">>}]).
 
 %%--------------------------------------------------------------------
 %% Helpers
