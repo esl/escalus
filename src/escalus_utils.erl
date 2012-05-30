@@ -27,11 +27,14 @@
          mix_match/3,
          get_jid/1,
          get_short_jid/1,
+         get_username/1,
+         get_server/1,
          drop_first_such/2,
          show_backtrace/0,
          is_prefix/2,
          start_clients/1,
-         start_clients/2]).
+         start_clients/2,
+         regexp_get/2]).
 
 -import(escalus_compat, [unimplemented/0, bin/1]).
 
@@ -140,6 +143,12 @@ get_short_jid(Jid) when is_list(Jid) ->
 get_short_jid(Jid) when is_binary(Jid) ->
     Jid.
 
+get_username(UserOrClient) ->
+    regexp_get(get_short_jid(UserOrClient), <<"^([^@]*)">>).
+
+get_server(UserOrClient) ->
+    regexp_get(get_short_jid(UserOrClient), <<"^[^@]*[@]([^/]*)">>).
+
 is_prefix(Prefix, Full) when is_binary(Prefix), is_binary(Full) ->
     LCP = binary:longest_common_prefix([Prefix, Full]),
     size(Prefix) =< size(Full) andalso LCP == size(Prefix).
@@ -157,3 +166,8 @@ start_clients(Config0, ClientRecipes) ->
                                       start_ready_clients, [Config1, FlatCDs],
                                       {escalus_story, start_ready_clients}),
     {Cleaner, Clients}.
+
+regexp_get(Jid, Regex) ->
+    {match, [ShortJid]} =
+        re:run(Jid, Regex, [{capture, all_but_first, binary}]),
+    ShortJid.

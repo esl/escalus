@@ -122,16 +122,16 @@ full_jid(#client{jid=Jid}) ->
     Jid.
 
 short_jid(Client) ->
-    regexp_get(full_jid(Client), <<"^([^/]*)">>).
+    escalus_utils:regexp_get(full_jid(Client), <<"^([^/]*)">>).
 
 username(Client) ->
-    regexp_get(full_jid(Client), <<"^([^@]*)">>).
+    escalus_utils:regexp_get(full_jid(Client), <<"^([^@]*)">>).
 
 server(Client) ->
-    regexp_get(full_jid(Client), <<"^[^@]*[@]([^/]*)">>).
+    escalus_utils:regexp_get(full_jid(Client), <<"^[^@]*[@]([^/]*)">>).
 
 resource(Client) ->
-    regexp_get(full_jid(Client), <<"^[^/]*[/](.*)">>).
+    escalus_utils:regexp_get(full_jid(Client), <<"^[^/]*[/](.*)">>).
 
 %%--------------------------------------------------------------------
 %% helpers
@@ -142,8 +142,3 @@ make_jid(Proplist) ->
     {server, S} = lists:keyfind(server, 1, Proplist),
     {resource, R} = lists:keyfind(resource, 1, Proplist),
     <<U/binary,"@",S/binary,"/",R/binary>>.
-
-regexp_get(Jid, Regex) ->
-    {match, [ShortJid]} =
-        re:run(Jid, Regex, [{capture, all_but_first, binary}]),
-    ShortJid.
