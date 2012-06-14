@@ -20,6 +20,7 @@
 -export([create_users/1,
          create_users/2,
          delete_users/1,
+         delete_users/2,
          get_jid/2,
          get_username/2,
          get_host/2,
@@ -62,7 +63,10 @@ create_users(Config, Who) ->
     [{escalus_users, Users}] ++ Config.
 
 delete_users(Config) ->
-    Users = escalus_config:get_config(escalus_users, Config),
+    delete_users(Config, all).
+
+delete_users(Config, Who) ->
+    Users = get_users(Who),
     [delete_user(Config, User) || User <- Users].
 
 get_jid(Config, User) ->
