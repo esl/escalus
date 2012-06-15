@@ -252,5 +252,7 @@ lxmppc_auth_method(<<"PLAIN">>) ->
     {lxmppc_auth, auth_plain};
 lxmppc_auth_method(<<"DIGEST-MD5">>) ->
     {lxmppc_auth, auth_digest_md5};
+lxmppc_auth_method(<<"SASL-ANON">>) ->
+    {lxmppc_auth, auth_sasl_anon};
 lxmppc_auth_method(Other) ->
     Other.
