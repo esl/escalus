@@ -7,7 +7,8 @@
 
 %% Public APi
 -export([auth_plain/2,
-         auth_digest_md5/2]).
+         auth_digest_md5/2,
+         auth_sasl_anon/2]).
 
 %% Useful helpers for writing own mechanisms
 -export([auth_stanza/2,
@@ -39,6 +40,12 @@ auth_digest_md5(Conn, Props) ->
     [{<<"rspauth">>, _}] = get_challenge(Conn, challenge2), %% TODO: validate
     ok = lxmppc:send(Conn, response_stanza([])),
     wait_for_success(get_property(username, Props), Conn).
+
+auth_sasl_anon(Conn, Props) ->
+    Stanza = auth_stanza(<<"ANONYMOUS">>, []),
+    ok = lxmppc:send(Conn, Stanza),
+    wait_for_success(get_property(username, Props), Conn).
+
 
 %%--------------------------------------------------------------------
 %% Helpers - implementation
