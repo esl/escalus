@@ -11,4 +11,6 @@
         module :: atom(),
         socket :: term(),
         ssl :: boolean(),
+        compress :: {zlib, {Zin::zlib:zstream(), Zout::zlib:zstream()}}
+                 |  false,
         rcv_pid :: pid()}).

@@ -27,19 +27,27 @@ start(Props0) ->
         {ok, Conn0, Props1} ->
             try
                 Props2 = lxmppc_session:start_stream(Conn0, Props1),
-                {Conn,Props21} = lxmppc_session:starttls(Conn0, Props2),
-                Props3 = lxmppc_session:authenticate(Conn, Props21),
-                Props4 = lxmppc_session:bind(Conn, Props3),
-                Props5 = lxmppc_session:session(Conn, Props4),
-                {ok, Conn, Props5}
-            catch Error ->
-                Mod = Conn0#transport.module,
-                Mod:stop(Conn0),
-                {error, Error}
+                {Conn1, Props3} = lxmppc_session:starttls(Conn0, Props2),
+                try
+                    Props4 = lxmppc_session:compress(Conn1, Props3),
+                    Props5 = lxmppc_session:authenticate(Conn1, Props4),
+                    Props6 = lxmppc_session:bind(Conn1, Props5),
+                    Props7 = lxmppc_session:session(Conn1, Props6),
+                    {ok, Conn1, Props7}
+                catch Error0 ->
+                    handle_start_error(Error0, Conn1)
+                end
+            catch Error1 ->
+                handle_start_error(Error1, Conn0)
             end;
         {error, Error} ->
             {error, Error}
     end.
+
+handle_start_error(Error, Conn) ->
+    Mod = Conn#transport.module,
+    Mod:stop(Conn),
+    {error, Error}.
 
 connect(Props) ->
     Transport = proplists:get_value(transport, Props, tcp),

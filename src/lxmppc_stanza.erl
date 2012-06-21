@@ -10,7 +10,10 @@
 -include_lib("exml/include/exml_stream.hrl").
 
 %% stream - related exports
--export([stream_start/1, stream_end/0, starttls/0]).
+-export([stream_start/1,
+         stream_end/0,
+         starttls/0,
+         compress/1]).
 
 %% stanza - related exports
 -export([iq/2]).
@@ -35,6 +38,15 @@ starttls() ->
     #xmlelement{name = <<"starttls">>, 
                 attrs=[
                     {<<"xmlns">>, <<"urn:ietf:params:xml:ns:xmpp-tls">>}
+                ]}.
+
+compress(Method) ->
+    #xmlelement{name = <<"compress">>,
+                attrs = [
+                    {<<"xmlns">>, <<"http://jabber.org/protocol/compress">>}
+                ],
+                body = [
+                    #xmlelement{name = <<"method">>, body = [exml:escape_cdata(Method)]}
                 ]}.
 
 %%--------------------------------------------------------------------

@@ -15,6 +15,7 @@
          send/2,
          is_connected/1,
          upgrade_to_tls/2,
+         use_zlib/2,
          get_transport/1,
          reset_parser/1,
          stop/1]).
@@ -30,7 +31,7 @@
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
 -define(SERVER, ?MODULE).
 
--record(state, {owner, socket, parser, ssl = false}).
+-record(state, {owner, socket, parser, ssl = false, compress = false}).
 
 %%%===================================================================
 %%% API
@@ -44,6 +45,8 @@ connect(Args) ->
 
 send(#transport{socket = Socket, ssl = true}, Elem) ->
     ssl:send(Socket, exml:to_iolist(Elem));
+send(#transport{socket = Socket, compress = {zlib, {_,Zout}}}, Elem) ->
+    gen_tcp:send(Socket, zlib:deflate(Zout, exml:to_iolist(Elem), sync));
 send(#transport{socket = Socket}, Elem) ->
     gen_tcp:send(Socket, exml:to_iolist(Elem)).
 
@@ -68,6 +71,14 @@ upgrade_to_tls(#transport{socket = Socket, rcv_pid = Pid} = Conn, Props) ->
     gen_server:call(Pid, upgrade_to_tls),
     Conn2 = get_transport(Conn),
     {Conn2, lxmppc_session:start_stream(Conn2, Props)}.
+
+use_zlib(#transport{rcv_pid = Pid} = Conn, Props) ->
+    lxmppc:send(Conn, lxmppc_stanza:compress(<<"zlib">>)),
+    Compressed = lxmppc_util:get_stanza(Conn, compressed),
+    %% FIXME: verify Compressed
+    gen_server:call(Pid, use_zlib),
+    Conn1 = get_transport(Conn),
+    {Conn1, lxmppc_session:start_stream(Conn1, Props)}.
 
 get_transport(#transport{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_transport).
@@ -94,15 +105,42 @@ handle_call(upgrade_to_tls, _From, #state{socket = Socket} = State) ->
     {ok, Socket2} = ssl:connect(Socket, [{protocol, tlsv1}, {reuse_sessions, true}]),
     {ok, Parser} = exml_stream:new_parser(),
     {reply, Socket2, State#state{socket = Socket2, parser = Parser, ssl=true}};
-handle_call(stop, _From, #state{socket = Socket, ssl = Ssl} = State) ->
+handle_call(use_zlib, _, #state{parser = Parser, socket = Socket} = State) ->
+    Zin = zlib:open(),
+    Zout = zlib:open(),
+    ok = zlib:inflateInit(Zin),
+    %ok = zlib:deflateInit(Zout, best_compression, deflated, -9, 9, default),
+    ok = zlib:deflateInit(Zout),
+    {ok, NewParser} = exml_stream:reset_parser(Parser),
+    {reply, Socket, State#state{parser = NewParser,
+                                compress = {zlib, {Zin,Zout}}}};
+handle_call(stop, _From, #state{socket = Socket, ssl = Ssl,
+                                compress = Compress} = State) ->
     StreamEnd = lxmppc_stanza:stream_end(),
-    TransportMod = case Ssl of
-        true -> ssl;
-        _ -> gen_tcp
+    case {Ssl, Compress} of
+        {true, _} ->
+            ssl:send(Socket, exml:to_iolist(StreamEnd));
+        {false, {zlib, {Zin, Zout}}} ->
+            try
+                strange_fun(zlib:inflate(Zin, <<>>)),
+                ok = zlib:inflateEnd(Zin)
+            catch
+                error:data_error -> ok
+            end,
+            ok = zlib:close(Zin),
+            gen_tcp:send(Socket, zlib:deflate(Zout,
+                                              exml:to_iolist(StreamEnd),
+                                              finish)),
+            ok = zlib:deflateEnd(Zout),
+            ok = zlib:close(Zout);
+        {false, false} ->
+            gen_tcp:send(Socket, exml:to_iolist(StreamEnd))
     end,
-    TransportMod:send(Socket, exml:to_iolist(StreamEnd)),
     wait_until_closed(State#state.socket),
     {stop, normal, ok, State}.
+
+strange_fun(I) ->
+    I.
 
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
@@ -133,9 +171,16 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Helpers
 %%%===================================================================
 handle_data(Socket, Data, #state{owner = Owner,
-                         parser = Parser,
-                         socket = Socket} = State) ->
-    {ok, NewParser, Stanzas} = exml_stream:parse(Parser, Data),
+                                 parser = Parser,
+                                 socket = Socket,
+                                 compress = Compress} = State) ->
+    {ok, NewParser, Stanzas} =
+        case Compress of
+            false ->
+                exml_stream:parse(Parser, Data);
+            {zlib, {Zin,_}} ->
+                exml_stream:parse(Parser, zlib:inflate(Zin, Data))
+        end,
     NewState = State#state{parser = NewParser},
     lists:foreach(fun(Stanza) ->
         Owner ! {stanza, transport(NewState), Stanza}
@@ -148,10 +193,11 @@ handle_data(Socket, Data, #state{owner = Owner,
 common_terminate(_Reason, #state{parser = Parser}) ->
     exml_stream:free_parser(Parser).
 
-transport(#state{socket = Socket, ssl = Ssl}) ->
+transport(#state{socket = Socket, ssl = Ssl, compress = Compress}) ->
     #transport{module = ?MODULE,
                socket = Socket,
                ssl = Ssl,
+               compress = Compress,
                rcv_pid = self()}.
 
 wait_until_closed(Socket) ->
