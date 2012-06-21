@@ -7,6 +7,7 @@
 -module(lxmppc_session).
 -export([start_stream/2,
          authenticate/2,
+         starttls/2,
          bind/2,
          session/2]).
 
@@ -25,6 +26,14 @@ start_stream(Conn, Props) ->
     StreamFeatures = lxmppc_util:get_stanza(Conn, wait_for_features),
     %% FIXME: verify StreamFeatures, add props
     Props.
+
+starttls(Conn, Props) ->
+    case proplists:get_value(ssl, Props, false) of
+        false ->
+            {Conn, Props};
+        _ ->
+            lxmppc_socket_tcp:upgrade_to_tls(Conn, Props)
+    end.
 
 authenticate(Conn, Props) ->
     %% FIXME: as default, select authentication scheme based on stream features

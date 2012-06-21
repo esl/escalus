@@ -14,6 +14,8 @@
 -export([connect/1,
          send/2,
          is_connected/1,
+         upgrade_to_tls/2,
+         get_transport/1,
          reset_parser/1,
          stop/1]).
 
@@ -28,7 +30,7 @@
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
 -define(SERVER, ?MODULE).
 
--record(state, {owner, socket, parser}).
+-record(state, {owner, socket, parser, ssl = false}).
 
 %%%===================================================================
 %%% API
@@ -40,6 +42,8 @@ connect(Args) ->
     Transport = gen_server:call(Pid, get_transport),
     {ok, Transport}.
 
+send(#transport{socket = Socket, ssl = true}, Elem) ->
+    ssl:send(Socket, exml:to_iolist(Elem));
 send(#transport{socket = Socket}, Elem) ->
     gen_tcp:send(Socket, exml:to_iolist(Elem)).
 
@@ -56,6 +60,17 @@ stop(#transport{rcv_pid = Pid}) ->
         exit:{noproc, {gen_server, call, _}} ->
             already_stopped
     end.
+
+upgrade_to_tls(#transport{socket = Socket, rcv_pid = Pid} = Conn, Props) ->
+    Starttls = lxmppc_stanza:starttls(),
+    gen_tcp:send(Socket, exml:to_iolist(Starttls)),
+    lxmppc_util:get_stanza(Conn, proceed),
+    gen_server:call(Pid, upgrade_to_tls),
+    Conn2 = get_transport(Conn),
+    {Conn2, lxmppc_session:start_stream(Conn2, Props)}.
+
+get_transport(#transport{rcv_pid = Pid}) ->
+    gen_server:call(Pid, get_transport).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -74,9 +89,18 @@ init([Args, Owner]) ->
 
 handle_call(get_transport, _From, State) ->
     {reply, transport(State), State};
-handle_call(stop, _From, #state{socket = Socket} = State) ->
+handle_call(upgrade_to_tls, _From, #state{socket = Socket} = State) ->
+    ssl:start(),
+    {ok, Socket2} = ssl:connect(Socket, [{protocol, tlsv1}, {reuse_sessions, true}]),
+    {ok, Parser} = exml_stream:new_parser(),
+    {reply, Socket2, State#state{socket = Socket2, parser = Parser, ssl=true}};
+handle_call(stop, _From, #state{socket = Socket, ssl = Ssl} = State) ->
     StreamEnd = lxmppc_stanza:stream_end(),
-    gen_tcp:send(Socket, exml:to_iolist(StreamEnd)),
+    TransportMod = case Ssl of
+        true -> ssl;
+        _ -> gen_tcp
+    end,
+    TransportMod:send(Socket, exml:to_iolist(StreamEnd)),
     wait_until_closed(State#state.socket),
     {stop, normal, ok, State}.
 
@@ -84,26 +108,22 @@ handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
     {noreply, State#state{parser = NewParser}}.
 
-handle_info({tcp, Socket, Data}, #state{owner = Owner,
-                                        parser = Parser,
-                                        socket = Socket} = State) ->
+handle_info({tcp, Socket, Data}, State) ->
     inet:setopts(Socket, [{active, once}]),
-    {ok, NewParser, Stanzas} = exml_stream:parse(Parser, Data),
-    NewState = State#state{parser = NewParser},
-    lists:foreach(fun(Stanza) ->
-        Owner ! {stanza, transport(NewState), Stanza}
-    end, Stanzas),
-    case [StrEnd || #xmlstreamend{} = StrEnd <- Stanzas] of
-        [] -> {noreply, NewState};
-        __ -> {stop, normal, NewState}
-    end;
+    handle_data(Socket, Data, State);
+handle_info({ssl, Socket, Data}, State) ->
+    ssl:setopts(Socket, [{active, once}]),
+    handle_data(Socket, Data, State);
 handle_info({tcp_closed, Socket}, #state{socket = Socket} = State) ->
     {stop, normal, State};
 handle_info(_, State) ->
     {noreply, State}.
 
-terminate(_Reason, #state{parser = Parser, socket = Socket}) ->
-    exml_stream:free_parser(Parser),
+terminate(_Reason, #state{socket = Socket, ssl = true} = State) ->
+    common_terminate(_Reason, State),
+    ssl:close(Socket);
+terminate(_Reason, #state{socket = Socket} = State) ->
+    common_terminate(_Reason, State),
     gen_tcp:close(Socket).
 
 code_change(_OldVsn, State, _Extra) ->
@@ -112,10 +132,26 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Helpers
 %%%===================================================================
+handle_data(Socket, Data, #state{owner = Owner,
+                         parser = Parser,
+                         socket = Socket} = State) ->
+    {ok, NewParser, Stanzas} = exml_stream:parse(Parser, Data),
+    NewState = State#state{parser = NewParser},
+    lists:foreach(fun(Stanza) ->
+        Owner ! {stanza, transport(NewState), Stanza}
+    end, Stanzas),
+    case [StrEnd || #xmlstreamend{} = StrEnd <- Stanzas] of
+        [] -> {noreply, NewState};
+        __ -> {stop, normal, NewState}
+    end.
 
-transport(#state{socket = Socket}) ->
+common_terminate(_Reason, #state{parser = Parser}) ->
+    exml_stream:free_parser(Parser).
+
+transport(#state{socket = Socket, ssl = Ssl}) ->
     #transport{module = ?MODULE,
                socket = Socket,
+               ssl = Ssl,
                rcv_pid = self()}.
 
 wait_until_closed(Socket) ->

@@ -10,4 +10,5 @@
 -record(transport, {
         module :: atom(),
         socket :: term(),
+        ssl :: boolean(),
         rcv_pid :: pid()}).

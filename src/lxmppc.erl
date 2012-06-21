@@ -24,16 +24,17 @@
 
 start(Props0) ->
     case connect(Props0) of
-        {ok, Conn, Props1} ->
+        {ok, Conn0, Props1} ->
             try
-                Props2 = lxmppc_session:start_stream(Conn, Props1),
-                Props3 = lxmppc_session:authenticate(Conn, Props2),
+                Props2 = lxmppc_session:start_stream(Conn0, Props1),
+                {Conn,Props21} = lxmppc_session:starttls(Conn0, Props2),
+                Props3 = lxmppc_session:authenticate(Conn, Props21),
                 Props4 = lxmppc_session:bind(Conn, Props3),
                 Props5 = lxmppc_session:session(Conn, Props4),
                 {ok, Conn, Props5}
             catch Error ->
-                Mod = Conn#transport.module,
-                Mod:stop(Conn),
+                Mod = Conn0#transport.module,
+                Mod:stop(Conn0),
                 {error, Error}
             end;
         {error, Error} ->

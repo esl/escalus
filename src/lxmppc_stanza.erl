@@ -10,7 +10,7 @@
 -include_lib("exml/include/exml_stream.hrl").
 
 %% stream - related exports
--export([stream_start/1, stream_end/0]).
+-export([stream_start/1, stream_end/0, starttls/0]).
 
 %% stanza - related exports
 -export([iq/2]).
@@ -30,6 +30,12 @@ stream_start(Server) ->
 
 stream_end() ->
     #xmlstreamend{name = <<"stream:stream">>}.
+
+starttls() -> 
+    #xmlelement{name = <<"starttls">>, 
+                attrs=[
+                    {<<"xmlns">>, <<"urn:ietf:params:xml:ns:xmpp-tls">>}
+                ]}.
 
 %%--------------------------------------------------------------------
 %% Stanza - related functions
