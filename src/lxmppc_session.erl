@@ -10,6 +10,8 @@
          starttls/2,
          bind/2,
          compress/2,
+         can_use_ssl/1,
+         can_use_compression/1,
          session/2]).
 
 -include_lib("exml/include/exml.hrl").
@@ -21,21 +23,6 @@
 %%%===================================================================
 
 start_stream(Conn, Props) ->
-    %%%'
-    dbg:tracer(),
-    dbg:p(all,call),
-    %dbg:tpl(?MODULE, get_stream_features, x),
-    %dbg:tpl(?MODULE, get_compression, x),
-    %dbg:tpl(lxmppc_socket_tcp, use_zlib, x),
-    %dbg:tpl(zlib, x),
-    dbg:tp(zlib, deflateInit, x),
-    dbg:tp(zlib, deflate, x),
-    dbg:tp(zlib, deflateEnd, x),
-    dbg:tp(zlib, inflateInit, x),
-    dbg:tp(zlib, inflate, x),
-    dbg:tp(zlib, inflateEnd, x),
-    dbg:tpl(lxmppc_socket_tcp, strange_fun, x),
-    %%%.
     Server = proplists:get_value(server, Props, <<"localhost">>),
     Host = proplists:get_value(host, Props, Server),
     ok = lxmppc:send(Conn, lxmppc_stanza:stream_start(Server)),
@@ -46,12 +33,7 @@ start_stream(Conn, Props) ->
     get_stream_features(StreamFeatures, Props).
 
 starttls(Conn, Props) ->
-    case proplists:get_value(ssl, Props, false) of
-        false ->
-            {Conn, Props};
-        _ ->
-            lxmppc_socket_tcp:upgrade_to_tls(Conn, Props)
-    end.
+    lxmppc_socket_tcp:upgrade_to_tls(Conn, Props).
 
 authenticate(Conn, Props) ->
     %% FIXME: as default, select authentication scheme based on stream features
@@ -71,7 +53,7 @@ bind(Conn, Props) ->
 compress(Conn, Props) ->
     case proplists:get_value(compression, Props, false) of
         false ->
-            Props;
+            {Conn, Props};
         [<<"zlib">>] ->
             lxmppc_socket_tcp:use_zlib(Conn, Props)
         %% TODO: someday maybe lzw too
@@ -83,15 +65,23 @@ session(Conn, Props) ->
     %% FIXME: verify SessionReply, add props
     Props.
 
+can_use_ssl(Props) ->
+    false /= proplists:get_value(ssl, Props, false).
+
+can_use_compression(Props) ->
+    false /= proplists:get_value(compression, Props, false).
 %%%===================================================================
 %%% Helpers
 %%%===================================================================
 
 get_stream_features(Features, Props) ->
+    io:format("props ~p~n~p~n", [Props, Features]),
     lists:keystore(compression, 1, Props,
                    {compression, get_compression(Features)}).
 
 get_compression(Features) ->
-    #xmlelement{body = MethodEls} = exml_query:subelement(Features,
-                                                          <<"compression">>),
-    Methods = [ exml_query:cdata(MethodEl) || MethodEl <- MethodEls ].
+    case exml_query:subelement(Features, <<"compression">>) of
+        #xmlelement{body = MethodEls} ->
+            Methods = [ exml_query:cdata(MethodEl) || MethodEl <- MethodEls ];
+        _ -> false
+    end.

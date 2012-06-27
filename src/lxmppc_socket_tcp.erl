@@ -45,8 +45,8 @@ connect(Args) ->
 
 send(#transport{socket = Socket, ssl = true}, Elem) ->
     ssl:send(Socket, exml:to_iolist(Elem));
-send(#transport{socket = Socket, compress = {zlib, {_,Zout}}}, Elem) ->
-    gen_tcp:send(Socket, zlib:deflate(Zout, exml:to_iolist(Elem), sync));
+send(#transport{socket = Socket, rcv_pid=Pid, compress = {zlib, {_,Zout}}}, Elem) ->
+    gen_server:cast(Pid, {send_compressed, Zout, Elem});
 send(#transport{socket = Socket}, Elem) ->
     gen_tcp:send(Socket, exml:to_iolist(Elem)).
 
@@ -109,7 +109,6 @@ handle_call(use_zlib, _, #state{parser = Parser, socket = Socket} = State) ->
     Zin = zlib:open(),
     Zout = zlib:open(),
     ok = zlib:inflateInit(Zin),
-    %ok = zlib:deflateInit(Zout, best_compression, deflated, -9, 9, default),
     ok = zlib:deflateInit(Zout),
     {ok, NewParser} = exml_stream:reset_parser(Parser),
     {reply, Socket, State#state{parser = NewParser,
@@ -142,6 +141,9 @@ handle_call(stop, _From, #state{socket = Socket, ssl = Ssl,
 strange_fun(I) ->
     I.
 
+handle_cast({send_compressed, Zout, Elem}, State) ->
+    gen_tcp:send(State#state.socket, zlib:deflate(Zout, exml:to_iolist(Elem), sync)),
+    {noreply, State};
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
     {noreply, State#state{parser = NewParser}}.
@@ -179,7 +181,8 @@ handle_data(Socket, Data, #state{owner = Owner,
             false ->
                 exml_stream:parse(Parser, Data);
             {zlib, {Zin,_}} ->
-                exml_stream:parse(Parser, zlib:inflate(Zin, Data))
+                [Decompressed | _] = zlib:inflate(Zin, Data),
+                exml_stream:parse(Parser, Decompressed)
         end,
     NewState = State#state{parser = NewParser},
     lists:foreach(fun(Stanza) ->

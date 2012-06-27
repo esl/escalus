@@ -27,10 +27,18 @@ start(Props0) ->
         {ok, Conn0, Props1} ->
             try
                 Props2 = lxmppc_session:start_stream(Conn0, Props1),
-                {Conn1, Props3} = lxmppc_session:starttls(Conn0, Props2),
+                CanUseSSL = lxmppc_session:can_use_ssl(Props2),
+                CanUseCompression = lxmppc_session:can_use_compression(Props2),
+                {Conn1, Props3} = if
+                    CanUseSSL ->
+                        lxmppc_session:starttls(Conn0, Props2);
+                    CanUseCompression ->
+                        lxmppc_session:compress(Conn0, Props2);
+                    true ->
+                        {Conn0, Props2}
+                end,
                 try
-                    Props4 = lxmppc_session:compress(Conn1, Props3),
-                    Props5 = lxmppc_session:authenticate(Conn1, Props4),
+                    Props5 = lxmppc_session:authenticate(Conn1, Props3),
                     Props6 = lxmppc_session:bind(Conn1, Props5),
                     Props7 = lxmppc_session:session(Conn1, Props6),
                     {ok, Conn1, Props7}
