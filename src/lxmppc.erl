@@ -26,9 +26,9 @@ start(Props0) ->
     case connect(Props0) of
         {ok, Conn0, Props1} ->
             try
-                Props2 = lxmppc_session:start_stream(Conn0, Props1),
-                CanUseSSL = lxmppc_session:can_use_ssl(Props2),
-                CanUseCompression = lxmppc_session:can_use_compression(Props2),
+                {Props2, Features} = lxmppc_session:start_stream(Conn0, Props1),
+                CanUseSSL = lxmppc_session:can_use_ssl(Props2, Features),
+                CanUseCompression = lxmppc_session:can_use_compression(Props2, Features),
                 {Conn1, Props3} = if
                     CanUseSSL ->
                         lxmppc_session:starttls(Conn0, Props2);

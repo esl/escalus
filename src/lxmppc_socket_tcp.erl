@@ -70,7 +70,8 @@ upgrade_to_tls(#transport{socket = Socket, rcv_pid = Pid} = Conn, Props) ->
     lxmppc_util:get_stanza(Conn, proceed),
     gen_server:call(Pid, upgrade_to_tls),
     Conn2 = get_transport(Conn),
-    {Conn2, lxmppc_session:start_stream(Conn2, Props)}.
+    {Props2, _} = lxmppc_session:start_stream(Conn2, Props),
+    {Conn2, Props2}.
 
 use_zlib(#transport{rcv_pid = Pid} = Conn, Props) ->
     lxmppc:send(Conn, lxmppc_stanza:compress(<<"zlib">>)),
@@ -78,7 +79,8 @@ use_zlib(#transport{rcv_pid = Pid} = Conn, Props) ->
     %% FIXME: verify Compressed
     gen_server:call(Pid, use_zlib),
     Conn1 = get_transport(Conn),
-    {Conn1, lxmppc_session:start_stream(Conn1, Props)}.
+    {Props2, _} = lxmppc_session:start_stream(Conn1, Props),
+    {Conn1, Props2}.
 
 get_transport(#transport{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_transport).
