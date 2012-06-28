@@ -123,7 +123,6 @@ handle_call(stop, _From, #state{socket = Socket, ssl = Ssl,
             ssl:send(Socket, exml:to_iolist(StreamEnd));
         {false, {zlib, {Zin, Zout}}} ->
             try
-                strange_fun(zlib:inflate(Zin, <<>>)),
                 ok = zlib:inflateEnd(Zin)
             catch
                 error:data_error -> ok
@@ -139,9 +138,6 @@ handle_call(stop, _From, #state{socket = Socket, ssl = Ssl,
     end,
     wait_until_closed(State#state.socket),
     {stop, normal, ok, State}.
-
-strange_fun(I) ->
-    I.
 
 handle_cast({send_compressed, Zout, Elem}, State) ->
     gen_tcp:send(State#state.socket, zlib:deflate(Zout, exml:to_iolist(Elem), sync)),
@@ -183,7 +179,7 @@ handle_data(Socket, Data, #state{owner = Owner,
             false ->
                 exml_stream:parse(Parser, Data);
             {zlib, {Zin,_}} ->
-                [Decompressed | _] = zlib:inflate(Zin, Data),
+                Decompressed = iolist_to_binary(zlib:inflate(Zin, Data)),
                 exml_stream:parse(Parser, Decompressed)
         end,
     NewState = State#state{parser = NewParser},

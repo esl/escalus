@@ -16,8 +16,6 @@
 
 -include_lib("exml/include/exml.hrl").
 
--compile([export_all]).
-
 %%%===================================================================
 %%% Public API
 %%%===================================================================
@@ -79,6 +77,7 @@ can_use_ssl(Props, Features) ->
 can_use_compression(Props, Features) ->
     false /= proplists:get_value(compression, Props, false) andalso
     false /= proplists:get_value(compression, Features).
+
 %%%===================================================================
 %%% Helpers
 %%%===================================================================
