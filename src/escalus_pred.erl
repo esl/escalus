@@ -56,7 +56,8 @@
          is_privacy_result_with_active/2,
          is_privacy_result_with_default/2,
          is_privacy_list_nonexistent_error/1,
-         is_adhoc_response/3
+         is_adhoc_response/3,
+         has_service/2
      ]).
 
 -include("escalus.hrl").
@@ -255,6 +256,12 @@ is_adhoc_response(Node, Status, Stanza) ->
         andalso
         Status == exml_query:path(Stanza, [{element, <<"command">>},
                                            {attr, <<"status">>}]).
+
+has_service(Service, #xmlelement{body = [ #xmlelement{body = Services} ]}) ->
+    Pred = fun(Item) ->
+               exml_query:attr(Item, <<"jid">>) =:= Service
+           end,
+    lists:any(Pred, Services).
 
 %%--------------------------------------------------------------------
 %% Helpers

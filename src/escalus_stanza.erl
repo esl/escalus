@@ -47,7 +47,8 @@
          privacy_set_default/1,
          privacy_no_default/0,
          adhoc_request/1,
-         adhoc_request/2
+         adhoc_request/2,
+         service_discovery/1
      ]).
 
 %% new ones
@@ -278,3 +279,7 @@ adhoc_request(Node, Payload) ->
                                              {<<"action">>, <<"execute">>}],
                                     body = Payload
                                    }]).
+
+service_discovery(Server) ->
+    escalus_stanza:setattr(escalus_stanza:iq_get(?NS_DISCO_ITEMS, []), <<"to">>,
+                           Server).
