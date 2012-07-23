@@ -83,4 +83,6 @@ stop(#transport{module = Mod} = Transport) ->
 %%%===================================================================
 
 get_module(tcp) ->
-    lxmppc_socket_tcp.
+    lxmppc_socket_tcp;
+get_module(bosh) ->
+    lxmppc_bosh.
