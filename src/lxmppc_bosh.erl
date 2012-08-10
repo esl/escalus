@@ -31,7 +31,7 @@
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
 -define(SERVER, ?MODULE).
 
--record(state, {owner, url, parser}).
+-record(state, {owner, url, parser, sid = nil}).
 
 %%%===================================================================
 %%% API
@@ -45,17 +45,8 @@ connect(Args) ->
     Transport = gen_server:call(Pid, get_transport),
     {ok, Transport}.
 
-send(#transport{socket = {Host, Port, Path}}, Elem0) ->
-    spawn(fun() ->
-            Headers = [{"Content-Type", "text/xml; charset-utf-8"}],
-            Elem = wrap_elem(Elem0),
-            {ok, {{StatusCode, Reason}, Hdrs, RespBody}} = 
-                lhttpc:request(Host, Port, false, Path, 'POST', 
-                               Headers, exml:to_iolist(Elem), infinity, []),
-            io:format("status ~p~nhdrs ~p~nresp ~p~n",[
-                {StatusCode, Reason}, Hdrs, RespBody
-                ])
-        end).
+send(#transport{rcv_pid = Pid} = Socket, Elem) ->
+    gen_server:cast(Pid, {send, Socket, Elem}).
 
 is_connected(#transport{rcv_pid = Pid}) ->
     erlang:is_process_alive(Pid).
@@ -99,12 +90,24 @@ handle_call(stop, _From, #state{url = Socket} = State) ->
     send(Socket, exml:to_iolist(StreamEnd)),
     {stop, normal, ok, State}.
 
+handle_cast({send, Transport, Elem}, #state{owner=Owner} = State) when
+        is_record(Elem, xmlstreamstart) ->
+        [InitBody] = send0(Transport, Elem, State),
+        NewState = State#state{sid = exml_query:attr(InitBody, <<"sid">>)},
+        %%fake stanza with features, clients waits for it
+        Owner ! {stanza, transport(State), #xmlelement{
+            name = <<"stream:features">>,
+            attrs= [], body = []}},
+        {noreply, NewState};
+handle_cast({send, Transport, Elem}, State) ->
+    spawn(fun() ->
+            send0(Transport, Elem, State)
+    end),
+    {noreply, State};
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
     {noreply, State#state{parser = NewParser}}.
 
-handle_info({tcp, Socket, Data}, State) ->
-    handle_data(Socket, Data, State);
 handle_info(_, State) ->
     {noreply, State}.
 
@@ -117,18 +120,27 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Helpers
 %%%===================================================================
-handle_data(Socket, Data, #state{owner = Owner,
+send0(#transport{socket = {Host, Port, Path}}, Elem0, #state{parser = Parser} = State) ->
+            Headers = [{"Content-Type", "text/xml; charset-utf-8"}],
+            Elem = wrap_elem(Elem0, State),
+            ct:print(default, "Sending element ~p~n", [Elem]),
+            {ok, {{StatusCode, Reason}, Hdrs, RespBody}} = 
+                lhttpc:request(Host, Port, false, Path, 'POST', 
+                               Headers, exml:to_iolist(Elem), infinity, []),
+            ct:print(default,"status ~p~nhdrs ~p~nresp ~p~n",[
+                {StatusCode, Reason}, Hdrs, RespBody
+                ]),
+            handle_data(RespBody, State). 
+
+handle_data(Data, #state{owner = Owner,
                                  parser = Parser} = State) ->
-    {ok, NewParser, Stanzas} =
-        exml_stream:parse(Parser, Data),
-    NewState = State#state{parser = NewParser},
+    {ok, Stanzas0} = exml:parse(Data),
+    Stanzas = [Stanzas0],
+    ct:print(default, "stanzas ~p", [Stanzas]),
     lists:foreach(fun(Stanza) ->
-        Owner ! {stanza, transport(NewState), Stanza}
+        Owner ! {stanza, transport(State), Stanza}
     end, Stanzas),
-    case [StrEnd || #xmlstreamend{} = StrEnd <- Stanzas] of
-        [] -> {noreply, NewState};
-        __ -> {stop, normal, NewState}
-    end.
+    Stanzas.
 
 transport(#state{url = Url}) ->
     #transport{module = ?MODULE,
@@ -137,7 +149,7 @@ transport(#state{url = Url}) ->
                compress = false,
                rcv_pid = self()}.
 
-wrap_elem(#xmlstreamstart{attrs=Attrs}) ->
+wrap_elem(#xmlstreamstart{attrs=Attrs}, _) ->
     Version = proplists:get_value(<<"version">>, Attrs, <<"1.0">>),
     Lang = proplists:get_value(<<"xml:lang">>, Attrs, <<"en">>),
     To = proplists:get_value(<<"to">>, Attrs, <<"localhost">>),
@@ -149,4 +161,12 @@ wrap_elem(#xmlstreamstart{attrs=Attrs}) ->
             {<<"wait">>, <<"60">>},
             {<<"xml:lang">>, Lang},
             {<<"to">>, To}
-            ]}.
+            ]};
+wrap_elem(Element, #state{sid = Sid}) ->
+    ct:print(default, "Sid ~p~n", [Sid]),
+    #xmlelement{name = <<"body">>, attrs=[
+            {<<"rid">>, <<"234234">>},
+            {<<"xmlns">>, <<"http://jabber.org/protocol/httpbind">>},
+            {<<"sid">>, Sid}
+            ],
+            body = [Element]}.
