@@ -31,7 +31,7 @@
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
 -define(SERVER, ?MODULE).
 
--record(state, {owner, url, parser, sid = nil}).
+-record(state, {owner, url, parser, sid = nil, rid = nil}).
 
 %%%===================================================================
 %%% API
@@ -78,32 +78,30 @@ init([Args, Owner]) ->
     Port = proplists:get_value(port, Args, 5280),
     Path = proplists:get_value(path, Args, <<"/http-bind">>),
     HostStr = binary_to_list(Host),
+    {MS, S, MMS} = now(),
+    InitRid = MS * 1000000 * 1000000 + S * 1000000 + MMS,
     {ok, Parser} = exml_stream:new_parser(),
     {ok, #state{owner = Owner,
                 url = {HostStr, Port, binary_to_list(Path)},
-                parser = Parser}}.
+                parser = Parser, rid=InitRid}}.
 
 handle_call(get_transport, _From, State) ->
     {reply, transport(State), State};
 handle_call(stop, _From, #state{url = Socket} = State) ->
     StreamEnd = lxmppc_stanza:stream_end(),
-    send(Socket, exml:to_iolist(StreamEnd)),
+    send0(transport(State), exml:to_iolist(StreamEnd), State),
     {stop, normal, ok, State}.
 
-handle_cast({send, Transport, Elem}, #state{owner=Owner} = State) when
+handle_cast({send, Transport, Elem}, #state{owner=Owner, rid=Rid} = State) when
         is_record(Elem, xmlstreamstart) ->
-        [InitBody] = send0(Transport, Elem, State),
-        NewState = State#state{sid = exml_query:attr(InitBody, <<"sid">>)},
+        InitBody = send0(Transport, Elem, State),
+        NewState = State#state{rid=Rid+1,
+                               sid = exml_query:attr(InitBody, <<"sid">>)},
         %%fake stanza with features, clients waits for it
-        Owner ! {stanza, transport(State), #xmlelement{
-            name = <<"stream:features">>,
-            attrs= [], body = []}},
         {noreply, NewState};
 handle_cast({send, Transport, Elem}, State) ->
-    spawn(fun() ->
-            send0(Transport, Elem, State)
-    end),
-    {noreply, State};
+    send0(Transport, Elem, State),
+    {noreply, State#state{rid=State#state.rid+1}};
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
     {noreply, State#state{parser = NewParser}}.
@@ -120,27 +118,22 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Helpers
 %%%===================================================================
-send0(#transport{socket = {Host, Port, Path}}, Elem0, #state{parser = Parser} = State) ->
-            Headers = [{"Content-Type", "text/xml; charset-utf-8"}],
-            Elem = wrap_elem(Elem0, State),
-            ct:print(default, "Sending element ~p~n", [Elem]),
-            {ok, {{StatusCode, Reason}, Hdrs, RespBody}} = 
-                lhttpc:request(Host, Port, false, Path, 'POST', 
-                               Headers, exml:to_iolist(Elem), infinity, []),
-            ct:print(default,"status ~p~nhdrs ~p~nresp ~p~n",[
-                {StatusCode, Reason}, Hdrs, RespBody
-                ]),
-            handle_data(RespBody, State). 
+send0(#transport{socket = {Host, Port, Path}} = Transport, Elem0, #state{parser = Parser} = State) ->
+    Headers = [{"Content-Type", "text/xml; charset-utf-8"}],
+    Elem = wrap_elem(Elem0, State),
+    {ok, {{StatusCode, Reason}, Hdrs, RespBody}} =
+        lhttpc:request(Host, Port, false, Path, 'POST',
+            Headers, exml:to_iolist(Elem), infinity, []),
+    handle_data(RespBody, State).
 
 handle_data(Data, #state{owner = Owner,
                                  parser = Parser} = State) ->
-    {ok, Stanzas0} = exml:parse(Data),
-    Stanzas = [Stanzas0],
-    ct:print(default, "stanzas ~p", [Stanzas]),
+    {ok, Body} = exml:parse(Data),
+    Stanzas = unwrap_elem(Body),
     lists:foreach(fun(Stanza) ->
         Owner ! {stanza, transport(State), Stanza}
     end, Stanzas),
-    Stanzas.
+    Body.
 
 transport(#state{url = Url}) ->
     #transport{module = ?MODULE,
@@ -149,24 +142,54 @@ transport(#state{url = Url}) ->
                compress = false,
                rcv_pid = self()}.
 
-wrap_elem(#xmlstreamstart{attrs=Attrs}, _) ->
+wrap_elem(#xmlstreamstart{attrs=Attrs}, #state{rid=Rid}) ->
     Version = proplists:get_value(<<"version">>, Attrs, <<"1.0">>),
     Lang = proplists:get_value(<<"xml:lang">>, Attrs, <<"en">>),
     To = proplists:get_value(<<"to">>, Attrs, <<"localhost">>),
-    #xmlelement{name = <<"body">>, attrs=[
+    #xmlelement{name = <<"body">>, attrs=common_attrs(Rid) ++ [
             {<<"content">>, <<"text/xml; charset=utf-8">>},
             {<<"hold">>, <<"1">>},
-            {<<"rid">>, <<"234234">>},
-            {<<"xmlns">>, <<"http://jabber.org/protocol/httpbind">>},
             {<<"wait">>, <<"60">>},
             {<<"xml:lang">>, Lang},
             {<<"to">>, To}
             ]};
-wrap_elem(Element, #state{sid = Sid}) ->
-    ct:print(default, "Sid ~p~n", [Sid]),
-    #xmlelement{name = <<"body">>, attrs=[
-            {<<"rid">>, <<"234234">>},
-            {<<"xmlns">>, <<"http://jabber.org/protocol/httpbind">>},
-            {<<"sid">>, Sid}
-            ],
+wrap_elem(["</", <<"stream:stream">>, ">"], #state{sid=Sid, rid=Rid}) ->
+    #xmlelement{name = <<"body">>, 
+                attrs = common_attrs(Rid, Sid) ++ [{<<"type">>, <<"terminate">>}],
+                body = [#xmlelement{name = <<"presence">>,
+                                   attrs = [
+                                        {<<"type">>, <<"unavailable">>},
+                                        {<<"xmlns">>, <<"jabber:client">>}
+                    ]}]};
+wrap_elem(Element, #state{sid = Sid, rid=Rid}) ->
+    #xmlelement{name = <<"body">>, 
+            attrs = common_attrs(Rid, Sid),
             body = [Element]}.
+
+common_attrs(Rid) ->
+    [{<<"rid">>, pack_rid(Rid)},
+     {<<"xmlns">>, <<"http://jabber.org/protocol/httpbind">>}].
+common_attrs(Rid, Sid) ->
+    common_attrs(Rid) ++ [{<<"sid">>, Sid}].
+
+pack_rid(Rid) ->
+    list_to_binary(integer_to_list(Rid)).
+
+unwrap_elem(#xmlelement{name = <<"body">>, body = [], attrs=Attrs}) ->
+    case proplists:get_value(<<"from">>, Attrs) of
+        undefined -> [];
+        Server ->
+            StreamStart = #xmlstreamstart{name = <<"stream:stream">>, attrs=[
+                        {<<"from">>, Server},
+                        {<<"version">>, <<"1.0">>},
+                        {<<"xml:lang">>, <<"en">>},
+                        {<<"xmlns">>, <<"jabber:client">>},
+                        {<<"xmlns:stream">>, <<"http://etherx.jabber.org/streams">>}]},
+            StreamFeatures = #xmlelement{
+                    name = <<"stream:features">>,
+                    attrs= [], body = []},
+            [StreamStart, StreamFeatures]
+    end;
+unwrap_elem(#xmlelement{name = <<"body">>, body = Body}) ->
+    Body.
+
