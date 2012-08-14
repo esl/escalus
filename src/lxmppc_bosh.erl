@@ -91,8 +91,9 @@ handle_call(stop, _From, #state{url = Socket} = State) ->
     StreamEnd = lxmppc_stanza:stream_end(),
     send0(transport(State), exml:to_iolist(StreamEnd), State),
     {stop, normal, ok, State}.
-
-handle_cast({send, Transport, Elem}, #state{owner=Owner, rid=Rid} = State) when
+handle_cast(stop, State) ->
+    {stop, normal, State};
+handle_cast({send, Transport, Elem}, #state{rid=Rid} = State) when
         is_record(Elem, xmlstreamstart) ->
         InitBody = send0(Transport, Elem, State),
         NewState = State#state{rid=Rid+1,
@@ -119,7 +120,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Helpers
 %%%===================================================================
 send0(#transport{socket = {Host, Port, Path}} = Transport, Elem0, #state{parser = Parser} = State) ->
-    Headers = [{"Content-Type", "text/xml; charset-utf-8"}],
+    Headers = [{"Content-Type", "text/xml; charset=utf-8"}],
     Elem = wrap_elem(Elem0, State),
     {ok, {{StatusCode, Reason}, Hdrs, RespBody}} =
         lhttpc:request(Host, Port, false, Path, 'POST',
@@ -133,6 +134,10 @@ handle_data(Data, #state{owner = Owner,
     lists:foreach(fun(Stanza) ->
         Owner ! {stanza, transport(State), Stanza}
     end, Stanzas),
+    case [StrEnd || #xmlstreamend{} = StrEnd <- Stanzas] of
+        [] -> ok;
+        _ -> gen_server:cast(self(), stop)
+    end,
     Body.
 
 transport(#state{url = Url}) ->
@@ -142,17 +147,20 @@ transport(#state{url = Url}) ->
                compress = false,
                rcv_pid = self()}.
 
-wrap_elem(#xmlstreamstart{attrs=Attrs}, #state{rid=Rid}) ->
+wrap_elem(#xmlstreamstart{attrs=Attrs}, #state{rid=Rid, sid=Sid}) ->
     Version = proplists:get_value(<<"version">>, Attrs, <<"1.0">>),
     Lang = proplists:get_value(<<"xml:lang">>, Attrs, <<"en">>),
     To = proplists:get_value(<<"to">>, Attrs, <<"localhost">>),
-    #xmlelement{name = <<"body">>, attrs=common_attrs(Rid) ++ [
+    #xmlelement{name = <<"body">>, attrs=common_attrs(Rid, Sid) ++ [
             {<<"content">>, <<"text/xml; charset=utf-8">>},
+            {<<"xmlns:xmpp">>, <<"urn:xmpp:xbosh">>},
+            {<<"xmpp:version">>, <<"1.0">>},
             {<<"hold">>, <<"1">>},
             {<<"wait">>, <<"60">>},
             {<<"xml:lang">>, Lang},
             {<<"to">>, To}
-            ]};
+            ] ++ [{<<"xmpp:restart">>, <<"true">>} || Sid =/= nil]};
+
 wrap_elem(["</", <<"stream:stream">>, ">"], #state{sid=Sid, rid=Rid}) ->
     #xmlelement{name = <<"body">>, 
                 attrs = common_attrs(Rid, Sid) ++ [{<<"type">>, <<"terminate">>}],
@@ -169,27 +177,42 @@ wrap_elem(Element, #state{sid = Sid, rid=Rid}) ->
 common_attrs(Rid) ->
     [{<<"rid">>, pack_rid(Rid)},
      {<<"xmlns">>, <<"http://jabber.org/protocol/httpbind">>}].
+common_attrs(Rid, nil) ->
+    common_attrs(Rid);
 common_attrs(Rid, Sid) ->
     common_attrs(Rid) ++ [{<<"sid">>, Sid}].
 
 pack_rid(Rid) ->
     list_to_binary(integer_to_list(Rid)).
 
-unwrap_elem(#xmlelement{name = <<"body">>, body = [], attrs=Attrs}) ->
-    case proplists:get_value(<<"from">>, Attrs) of
-        undefined -> [];
-        Server ->
+unwrap_elem(#xmlelement{name = <<"body">>, body = Body, attrs=Attrs}) ->
+    Type = detect_type(Attrs),
+    case Type of
+        {streamstart, Ver} ->
+            Server = proplists:get_value(<<"from">>, Attrs),
             StreamStart = #xmlstreamstart{name = <<"stream:stream">>, attrs=[
                         {<<"from">>, Server},
-                        {<<"version">>, <<"1.0">>},
+                        {<<"version">>, Ver},
                         {<<"xml:lang">>, <<"en">>},
                         {<<"xmlns">>, <<"jabber:client">>},
                         {<<"xmlns:stream">>, <<"http://etherx.jabber.org/streams">>}]},
-            StreamFeatures = #xmlelement{
-                    name = <<"stream:features">>,
-                    attrs= [], body = []},
-            [StreamStart, StreamFeatures]
-    end;
-unwrap_elem(#xmlelement{name = <<"body">>, body = Body}) ->
-    Body.
+            [StreamStart];
+        streamend ->
+            [lxmppc_stanza:stream_end()];
+        _ -> []
+    end ++ Body.
+
+detect_type(Attrs) ->
+    catch begin
+        case proplists:get_value(<<"type">>, Attrs) of
+            <<"terminate">> ->
+                throw(streamend);
+            _ -> normal
+        end,
+        case proplists:get_value(<<"xmpp:version">>, Attrs) of
+            undefined -> normal;
+            Version -> throw({streamstart, Version})
+        end
+    end.
+
 
