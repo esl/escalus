@@ -140,4 +140,4 @@ unregister_user(Config, UserSpec) ->
     rpc(ejabberd_admin, unregister, [U, S]).
 
 default_get_remote_sessions() ->
-    rpc(ets, tab2list, [session]).
+    rpc(ejabberd_sm, get_full_session_list, []).
