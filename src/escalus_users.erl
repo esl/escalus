@@ -47,7 +47,6 @@
 
 -include("include/escalus.hrl").
 -include_lib("exml/include/exml.hrl").
--include_lib("lxmppc/include/lxmppc.hrl").
 
 %%--------------------------------------------------------------------
 %% Public API
@@ -93,7 +92,16 @@ get_auth_method(Config, User) ->
     AuthMethod = get_user_option(auth_method, User,
                                  escalus_auth_method, Config,
                                  <<"PLAIN">>),
-    lxmppc_auth_method(AuthMethod).
+    get_auth_method(AuthMethod).
+
+get_auth_method(<<"PLAIN">>) ->
+    {escalus_auth, auth_plain};
+get_auth_method(<<"DIGEST-MD5">>) ->
+    {escalus_auth, auth_digest_md5};
+get_auth_method(<<"SASL-ANON">>) ->
+    {escalus_auth, auth_sasl_anon};
+get_auth_method(Other) ->
+    Other.
 
 get_usp(Config, User) ->
     [get_username(Config, User),
@@ -132,14 +140,14 @@ get_user_by_name(Name) ->
 
 create_user(Config, {_Name, UserSpec}) ->
     Options0 = get_options(Config, UserSpec),
-    {ok, Conn, Options1} = lxmppc:connect(Options0),
-    lxmppc_session:start_stream(Conn, Options1),
-    lxmppc:send(Conn, escalus_stanza:get_registration_fields()),
+    {ok, Conn, Options1} = escalus_connection:connect(Options0),
+    escalus_session:start_stream(Conn, Options1),
+    escalus_connection:send(Conn, escalus_stanza:get_registration_fields()),
     {ok, result, RegisterInstrs} = wait_for_result(Conn),
     Answers = get_answers(Options1, RegisterInstrs),
-    lxmppc:send(Conn, escalus_stanza:register_account(Answers)),
+    escalus_connection:send(Conn, escalus_stanza:register_account(Answers)),
     Result = wait_for_result(Conn),
-    lxmppc:stop(Conn),
+    escalus_connection:stop(Conn),
     Result.
 
 verify_creation({ok, result, _}) ->
@@ -154,10 +162,10 @@ verify_creation({error, Error, Raw}) ->
 
 delete_user(Config, {_Name, UserSpec}) ->
     Options = get_options(Config, UserSpec),
-    {ok, Conn, _} = lxmppc:start(Options),
-    lxmppc:send(Conn, escalus_stanza:remove_account()),
+    {ok, Conn, _} = escalus_connection:start(Options),
+    escalus_connection:send(Conn, escalus_stanza:remove_account()),
     Result = wait_for_result(Conn),
-    lxmppc:stop(Conn),
+    escalus_connection:stop(Conn),
     Result.
 
 %%--------------------------------------------------------------------
@@ -247,12 +255,3 @@ get_answers(UserSpec, InstrStanza) ->
     NoInstr = ChildrenNames -- [<<"instructions">>],
     [#xmlelement{name=K, body=[exml:escape_cdata(proplists:get_value(K, BinSpec))]}
      || K <- NoInstr].
-
-lxmppc_auth_method(<<"PLAIN">>) ->
-    {lxmppc_auth, auth_plain};
-lxmppc_auth_method(<<"DIGEST-MD5">>) ->
-    {lxmppc_auth, auth_digest_md5};
-lxmppc_auth_method(<<"SASL-ANON">>) ->
-    {lxmppc_auth, auth_sasl_anon};
-lxmppc_auth_method(Other) ->
-    Other.

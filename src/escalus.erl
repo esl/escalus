@@ -46,7 +46,6 @@ suite() ->
 
 init_per_suite(Config) ->
     application:start(exml),
-    application:start(lxmppc),
     Config.
 
 end_per_suite(_Config) ->

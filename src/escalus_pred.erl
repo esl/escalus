@@ -60,7 +60,7 @@
          has_service/2
      ]).
 
--include("escalus.hrl").
+-include("include/escalus.hrl").
 -include("escalus_xmlns.hrl").
 -include("escalus_deprecated.hrl").
 -include_lib("exml/include/exml.hrl").
