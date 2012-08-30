@@ -6,3 +6,4 @@ tags
 deps
 .eunit
 rebar
+test/*.beam

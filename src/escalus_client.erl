@@ -36,9 +36,8 @@
 
 -define(WAIT_FOR_STANZA_TIMEOUT, 1000).
 
--include("escalus.hrl").
+-include("include/escalus.hrl").
 -include_lib("exml/include/exml.hrl").
--include_lib("lxmppc/include/lxmppc.hrl").
 
 %%--------------------------------------------------------------------
 %% Public API
@@ -46,7 +45,7 @@
 
 start(Config, UserSpec, Resource) ->
     Options = escalus_users:get_options(Config, UserSpec, Resource),
-    case lxmppc:start(Options) of
+    case escalus_connection:start(Options) of
         {ok, Conn, Props} ->
             Jid = make_jid(Props),
             Client = #client{jid = Jid, conn = Conn},
@@ -62,9 +61,9 @@ start_for(Config, Username, Resource) ->
     start(Config, Username, Resource).
 
 stop(#client{conn = Conn}) ->
-    lxmppc:stop(Conn).
+    escalus_connection:stop(Conn).
 
-kill(#client{conn = #transport{module = lxmppc_socket_tcp, rcv_pid = Pid}}) ->
+kill(#client{conn = #transport{module = escalus_tcp, rcv_pid = Pid}}) ->
     erlang:exit(Pid, kill).
 
 peek_stanzas(#client{conn = Conn}) ->
@@ -111,7 +110,7 @@ wait_for_stanza(Client, Timeout) ->
     end.
 
 send(#client{conn = Conn}, Packet) ->
-    ok = lxmppc:send(Conn, Packet).
+    ok = escalus_connection:send(Conn, Packet).
 
 is_client(#client{}) ->
     true;
