@@ -162,17 +162,15 @@ wrap_elem(#xmlstreamstart{attrs=Attrs}, #state{rid=Rid, sid=Sid}) ->
             ] ++ [{<<"xmpp:restart">>, <<"true">>} || Sid =/= nil]};
 
 wrap_elem(["</", <<"stream:stream">>, ">"], #state{sid=Sid, rid=Rid}) ->
-    #xmlelement{name = <<"body">>, 
+    #xmlelement{name = <<"body">>,
                 attrs = common_attrs(Rid, Sid) ++ [{<<"type">>, <<"terminate">>}],
-                body = [#xmlelement{name = <<"presence">>,
-                                   attrs = [
-                                        {<<"type">>, <<"unavailable">>},
-                                        {<<"xmlns">>, <<"jabber:client">>}
-                    ]}]};
+                children = [#xmlelement{name = <<"presence">>,
+                                   attrs = [{<<"type">>, <<"unavailable">>},
+                                            {<<"xmlns">>, <<"jabber:client">>}]}]};
 wrap_elem(Element, #state{sid = Sid, rid=Rid}) ->
-    #xmlelement{name = <<"body">>, 
+    #xmlelement{name = <<"body">>,
             attrs = common_attrs(Rid, Sid),
-            body = [Element]}.
+            children = [Element]}.
 
 common_attrs(Rid) ->
     [{<<"rid">>, pack_rid(Rid)},
@@ -185,7 +183,7 @@ common_attrs(Rid, Sid) ->
 pack_rid(Rid) ->
     list_to_binary(integer_to_list(Rid)).
 
-unwrap_elem(#xmlelement{name = <<"body">>, body = Body, attrs=Attrs}) ->
+unwrap_elem(#xmlelement{name = <<"body">>, children = Body, attrs=Attrs}) ->
     Type = detect_type(Attrs),
     case Type of
         {streamstart, Ver} ->

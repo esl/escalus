@@ -98,8 +98,8 @@ compress(Method) ->
                 attrs = [
                     {<<"xmlns">>, <<"http://jabber.org/protocol/compress">>}
                 ],
-                body = [
-                    #xmlelement{name = <<"method">>, body = [exml:escape_cdata(Method)]}
+                children = [
+                    #xmlelement{name = <<"method">>, children = [exml:escape_cdata(Method)]}
                 ]}.
 
 -spec iq(binary(), [xmlterm()]) -> #xmlelement{}.
@@ -107,14 +107,14 @@ iq(Type, Body) ->
     #xmlelement{name = <<"iq">>,
                 attrs=[{<<"type">>, Type},
                        {<<"id">>, id()}],
-                body = Body}.
+                children = Body}.
 
 -spec bind(binary()) -> #xmlelement{}.
 bind(Resource) ->
     NS = <<"urn:ietf:params:xml:ns:xmpp-bind">>,
     iq(<<"set">>, [
-        #xmlelement{name = <<"bind">>, attrs = [{<<"xmlns">>, NS}], body=[
-            #xmlelement{name = <<"resource">>, body=[exml:escape_cdata(Resource)]}
+        #xmlelement{name = <<"bind">>, attrs = [{<<"xmlns">>, NS}], children=[
+            #xmlelement{name = <<"resource">>, children=[exml:escape_cdata(Resource)]}
         ]}]).
 
 -spec session() -> #xmlelement{}.
@@ -130,17 +130,17 @@ setattr(Stanza, Key, Val) ->
     Stanza#xmlelement{attrs = NewAttrs}.
 
 tags(KVs) ->
-    [#xmlelement{name = K, body = [exml:escape_cdata(V)]} || {K, V} <- KVs].
+    [#xmlelement{name = K, children = [exml:escape_cdata(V)]} || {K, V} <- KVs].
 
 presence(Type) ->
     presence(Type, []).
 
 presence(<<"available">>, Body) ->
-    #xmlelement{name = <<"presence">>, body = Body};
+    #xmlelement{name = <<"presence">>, children = Body};
 presence(Type, Body) ->
     #xmlelement{name = <<"presence">>,
                 attrs = [{<<"type">>, bin(Type)}],
-                body = Body}.
+                children = Body}.
 
 presence_direct(Recipient, Type) ->
     presence_direct(Recipient, Type, []).
@@ -167,7 +167,7 @@ error_element(Type, Condition) ->
     #xmlelement{
         name = <<"error">>,
         attrs = [{<<"type">>, Type}],
-        body = #xmlelement{
+        children = #xmlelement{
             name = Condition,
             attrs = [{<<"xmlns">>, ?NS_STANZA_ERRORS}]
         }}.
@@ -176,7 +176,7 @@ message_to(Recipient, Type, Msg) ->
     #xmlelement{name = <<"message">>, attrs = [
         {<<"type">>, Type},
         {<<"to">>, escalus_utils:get_jid(Recipient)}
-    ], body = [#xmlelement{name = <<"body">>, body = [
+    ], children = [#xmlelement{name = <<"body">>, children = [
         exml:escape_cdata(Msg)
     ]}]}.
 
@@ -200,14 +200,14 @@ register_account(Body) ->
     iq(<<"set">>, [
         #xmlelement{name = <<"query">>, attrs = [
             {<<"xmlns">>, <<"jabber:iq:register">>}
-        ], body = Body}
+        ], children = Body}
     ]).
 
 remove_account() ->
     iq(<<"set">>, [
         #xmlelement{name = <<"query">>, attrs = [
             {<<"xmlns">>, <<"jabber:iq:register">>}
-        ], body = [#xmlelement{name = <<"remove">>}]}
+        ], children = [#xmlelement{name = <<"remove">>}]}
     ]).
 
 iq_result(Request) ->
@@ -232,7 +232,7 @@ iq_with_type(Type, NS, Payload) ->
     iq(Type, [#xmlelement{
         name = <<"query">>,
         attrs = [{<<"xmlns">>, NS}],
-        body = Payload
+        children = Payload
     }]).
 
 roster_get() ->
@@ -248,9 +248,9 @@ roster_add_contacts(ItemSpecs) ->
                 name = <<"item">>,
                 attrs = [{<<"jid">>, escalus_utils:get_short_jid(User)}, %% XXX
                          {<<"name">>, bin(Nick)}],
-                body = [
+                children = [
                     #xmlelement{name = <<"group">>,
-                                body = [exml:escape_cdata(bin(Group))]}
+                                children = [exml:escape_cdata(bin(Group))]}
                     || Group <- Groups]}
         end,
         ItemSpecs),
@@ -308,13 +308,13 @@ privacy_set(What, Attrs) ->
 privacy_list(Name, Items) ->
     #xmlelement{name = <<"list">>,
                 attrs = [{<<"name">>, Name}],
-                body = Items}.
+                children = Items}.
 
 privacy_list_item(Order, Action, Content) ->
     #xmlelement{name = <<"item">>,
                 attrs = [{<<"order">>, Order},
                          {<<"action">>, Action}],
-                body = [#xmlelement{name = C} || C <- Content]}.
+                children = [#xmlelement{name = C} || C <- Content]}.
 
 privacy_list_item(Order, Action, Type, Value, Content) ->
     #xmlelement{name = <<"item">>,
@@ -322,7 +322,7 @@ privacy_list_item(Order, Action, Type, Value, Content) ->
                          {<<"type">>, Type},
                          {<<"value">>, Value},
                          {<<"action">>, Action}],
-                body = [#xmlelement{name = C} || C <- Content]}.
+                children = [#xmlelement{name = C} || C <- Content]}.
 
 privacy_list_jid_item(Order, Action, Who, Contents) ->
     privacy_list_item(Order, Action, <<"jid">>,
@@ -336,7 +336,7 @@ adhoc_request(Node, Payload) ->
                                attrs = [{<<"xmlns">>, ?NS_ADHOC},
                                         {<<"node">>, Node},
                                         {<<"action">>, <<"execute">>}],
-                               body = Payload}]).
+                               children = Payload}]).
 
 service_discovery(Server) ->
     escalus_stanza:setattr(escalus_stanza:iq_get(?NS_DISCO_ITEMS, []), <<"to">>,
@@ -346,12 +346,12 @@ auth_stanza(Mechanism, Body) ->
     #xmlelement{name = <<"auth">>,
                 attrs = [{<<"xmlns">>, ?NS_SASL},
                          {<<"mechanism">>, Mechanism}],
-                body = Body}.
+                children = Body}.
 
 auth_response_stanza(Body) ->
     #xmlelement{name = <<"response">>,
                 attrs = [{<<"xmlns">>, ?NS_SASL}],
-                body = Body}.
+                children = Body}.
 
 %%--------------------------------------------------------------------
 %% Helpers

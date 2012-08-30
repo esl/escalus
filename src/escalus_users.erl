@@ -251,7 +251,7 @@ response_type(_) ->
 get_answers(UserSpec, InstrStanza) ->
     BinSpec = [{list_to_binary(atom_to_list(K)), V} || {K, V} <- UserSpec],
     Query = exml_query:subelement(InstrStanza, <<"query">>),
-    ChildrenNames = [N || #xmlelement{name = N} <- Query#xmlelement.body],
+    ChildrenNames = [N || #xmlelement{name = N} <- Query#xmlelement.children],
     NoInstr = ChildrenNames -- [<<"instructions">>],
-    [#xmlelement{name=K, body=[exml:escape_cdata(proplists:get_value(K, BinSpec))]}
+    [#xmlelement{name=K, children=[exml:escape_cdata(proplists:get_value(K, BinSpec))]}
      || K <- NoInstr].
