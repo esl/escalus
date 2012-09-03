@@ -34,7 +34,7 @@
          default_get_remote_sessions/0,
          wait_for_session_count/2]).
 
--include("escalus.hrl").
+-include("include/escalus.hrl").
 
 rpc(M, F, A) ->
     Node = ct:get_config(ejabberd_node),

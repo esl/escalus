@@ -60,7 +60,7 @@
          has_service/2
      ]).
 
--include("escalus.hrl").
+-include("include/escalus.hrl").
 -include("escalus_xmlns.hrl").
 -include("escalus_deprecated.hrl").
 -include_lib("exml/include/exml.hrl").
@@ -257,7 +257,7 @@ is_adhoc_response(Node, Status, Stanza) ->
         Status == exml_query:path(Stanza, [{element, <<"command">>},
                                            {attr, <<"status">>}]).
 
-has_service(Service, #xmlelement{body = [ #xmlelement{body = Services} ]}) ->
+has_service(Service, #xmlelement{children = [ #xmlelement{children = Services} ]}) ->
     Pred = fun(Item) ->
                exml_query:attr(Item, <<"jid">>) =:= Service
            end,
@@ -270,7 +270,7 @@ has_service(Service, #xmlelement{body = [ #xmlelement{body = Services} ]}) ->
 get_roster_items(Stanza) ->
     escalus:assert(is_iq_with_ns, [?NS_ROSTER], Stanza),
     Query = exml_query:subelement(Stanza, <<"query">>),
-    Query#xmlelement.body.
+    Query#xmlelement.children.
 
 has_path(Stanza, Path) ->
     exml_query:path(Stanza, Path) /= undefined.

@@ -40,7 +40,6 @@
 
 -include("include/escalus.hrl").
 -include_lib("exml/include/exml.hrl").
--include_lib("lxmppc/include/lxmppc.hrl").
 
 -spec log_stanzas(iolist(), [#xmlelement{}]) -> any().
 log_stanzas(Comment, Stanzas) ->
