@@ -30,23 +30,25 @@ start(Props0) ->
         {ok, Conn0, Props1} ->
             try
                 {Props2, Features} = escalus_session:start_stream(Conn0, Props1),
-                CanUseSSL = escalus_session:can_use_ssl(Props2, Features),
                 CanUseCompression = escalus_session:can_use_compression(Props2, Features),
-                {Conn1, Props3} = if
-                    CanUseSSL ->
-                        escalus_session:starttls(Conn0, Props2);
+                {Conn1, Props3} = case escalus_session:use_ssl(Props2, Features) of
+                                      true ->
+                                          escalus_session:starttls(Conn0, Props2);
+                                      false -> {Conn0, Props2}
+                                  end,
+                {Conn2, Props4} = if
                     CanUseCompression ->
                         escalus_session:compress(Conn0, Props2);
                     true ->
-                        {Conn0, Props2}
+                        {Conn1, Props3}
                 end,
                 try
-                    Props5 = escalus_session:authenticate(Conn1, Props3),
-                    Props6 = escalus_session:bind(Conn1, Props5),
-                    Props7 = escalus_session:session(Conn1, Props6),
-                    {ok, Conn1, Props7}
+                    Props5 = escalus_session:authenticate(Conn2, Props4),
+                    Props6 = escalus_session:bind(Conn2, Props5),
+                    Props7 = escalus_session:session(Conn2, Props6),
+                    {ok, Conn2, Props7}
                 catch Error0 ->
-                    handle_start_error(Error0, Conn1)
+                    handle_start_error(Error0, Conn2)
                 end
             catch Error1 ->
                 handle_start_error(Error1, Conn0)

@@ -10,7 +10,7 @@
          starttls/2,
          bind/2,
          compress/2,
-         can_use_ssl/2,
+         use_ssl/2,
          can_use_compression/2,
          session/2]).
 
@@ -64,12 +64,13 @@ session(Conn, Props) ->
     %% FIXME: verify SessionReply, add props
     Props.
 
-can_use_ssl(Props, Features) ->
+use_ssl(Props, Features) ->
     UserNeedSSL = proplists:get_value(ssl, Props, false),
     StreamAllowSSL = proplists:get_value(starttls, Features),
     case {UserNeedSSL, StreamAllowSSL} of
         {required, true} -> true;
-        {required, false} -> false; %% FIXME raise error
+        {required, false} -> {error, "Client requires StartTLS "
+                                     "but server doesn't offer it"};
         {false, _ } -> false;
         {optional, true} -> true;
         _ -> false
