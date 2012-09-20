@@ -24,7 +24,12 @@
 start_stream(Conn, Props) ->
     Server = proplists:get_value(server, Props, <<"localhost">>),
     Host = proplists:get_value(host, Props, Server),
-    ok = escalus_connection:send(Conn, escalus_stanza:stream_start(Server)),
+    XMLNS = case proplists:get_value(endpoint, Props) of
+                {server, _} -> <<"jabber:server">>;
+                _ -> <<"jabber:client">>
+            end,
+    ok = escalus_connection:send(Conn, escalus_stanza:stream_start(
+                                         Server, XMLNS)),
     StreamStart = escalus_connection:get_stanza(Conn, wait_for_stream),
     %% FIXME: verify StreamStart
     StreamFeatures = escalus_connection:get_stanza(Conn, wait_for_features),

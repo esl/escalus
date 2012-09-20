@@ -68,7 +68,8 @@ upgrade_to_tls(#transport{socket = Socket, rcv_pid = Pid} = Conn, Props) ->
     Starttls = escalus_stanza:starttls(),
     gen_tcp:send(Socket, exml:to_iolist(Starttls)),
     escalus_connection:get_stanza(Conn, proceed),
-    gen_server:call(Pid, upgrade_to_tls),
+    SSLOpts = proplists:get_value(ssl_opts, Props, []),
+    gen_server:call(Pid, {upgrade_to_tls, SSLOpts}),
     Conn2 = get_transport(Conn),
     {Props2, _} = escalus_session:start_stream(Conn2, Props),
     {Conn2, Props2}.
@@ -102,9 +103,12 @@ init([Args, Owner]) ->
 
 handle_call(get_transport, _From, State) ->
     {reply, transport(State), State};
-handle_call(upgrade_to_tls, _From, #state{socket = Socket} = State) ->
+handle_call({upgrade_to_tls, SSLOpts}, _From, #state{socket = Socket} = State) ->
     ssl:start(),
-    {ok, Socket2} = ssl:connect(Socket, [{protocol, tlsv1}, {reuse_sessions, true}]),
+    SSLOpts1 = [{protocol, tlsv1}, {reuse_sessions, true}],
+    SSLOpts2 = lists:keymerge(1, lists:keysort(1, SSLOpts),
+                              lists:keysort(1, SSLOpts1)),
+    {ok, Socket2} = ssl:connect(Socket, SSLOpts2),
     {ok, Parser} = exml_stream:new_parser(),
     {reply, Socket2, State#state{socket = Socket2, parser = Parser, ssl=true}};
 handle_call(use_zlib, _, #state{parser = Parser, socket = Socket} = State) ->
