@@ -58,7 +58,7 @@
          starttls/0,
          compress/1]).
 
--export([iq/2]).
+-export([iq/2, iq/3]).
 -export([bind/1, session/0]).
 
 %% new ones
@@ -108,6 +108,10 @@ iq(Type, Body) ->
                 attrs=[{<<"type">>, Type},
                        {<<"id">>, id()}],
                 children = Body}.
+
+iq(To, Type, Body) ->
+    IQ = iq(Type, Body),
+    IQ#xmlelement{ attrs = [{<<"to">>, To} | IQ#xmlelement.attrs] }.
 
 -spec bind(binary()) -> #xmlelement{}.
 bind(Resource) ->
