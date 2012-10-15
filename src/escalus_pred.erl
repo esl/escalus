@@ -57,7 +57,11 @@
          is_privacy_result_with_default/2,
          is_privacy_list_nonexistent_error/1,
          is_adhoc_response/3,
-         has_service/2
+         has_service/2,
+         has_feature/2,
+         has_item/2,
+         has_no_such_item/2,
+         has_identity/3
      ]).
 
 -include("include/escalus.hrl").
@@ -263,6 +267,33 @@ has_service(Service, #xmlelement{children = [ #xmlelement{children = Services} ]
            end,
     lists:any(Pred, Services).
 
+has_feature(Feature, Stanza) ->
+    Features = exml_query:paths(Stanza, [{element, <<"query">>},
+                                         {element, <<"feature">>}]),
+    lists:any(fun(Item) ->
+                      exml_query:attr(Item, <<"var">>) == Feature
+              end,
+              Features).
+
+has_item(JID, Stanza) ->
+    Items = exml_query:paths(Stanza, [{element, <<"query">>},
+                                      {element, <<"item">>}]),
+    lists:any(fun(Item) ->
+                      exml_query:attr(Item, <<"jid">>) == JID
+              end,
+              Items).
+
+has_no_such_item(JID, Stanza) ->
+    not has_item(JID, Stanza).
+
+has_identity(Category, Type, Stanza) ->
+    Idents = exml_query:paths(Stanza, [{element, <<"query">>},
+                                       {element, <<"identity">>}]),
+    lists:any(fun(Ident) ->
+                      (exml_query:attr(Ident, <<"category">>) == Category)
+                          and (exml_query:attr(Ident, <<"type">>) == Type)
+              end,
+              Idents).
 %%--------------------------------------------------------------------
 %% Helpers
 %%--------------------------------------------------------------------

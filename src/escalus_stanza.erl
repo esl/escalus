@@ -50,7 +50,9 @@
          adhoc_request/2,
          service_discovery/1,
          auth_stanza/2,
-         auth_response_stanza/1
+         auth_response_stanza/1,
+         query_el/2,
+         x_data_form/2
      ]).
 
 -export([stream_start/1,
@@ -68,8 +70,8 @@
 
 -import(escalus_compat, [bin/1]).
 
--include("include/escalus.hrl").
--include("include/escalus_xmlns.hrl").
+-include("escalus.hrl").
+-include("escalus_xmlns.hrl").
 -include_lib("exml/include/exml_stream.hrl").
 
 %%--------------------------------------------------------------------
@@ -112,6 +114,22 @@ iq(Type, Body) ->
 iq(To, Type, Body) ->
     IQ = iq(Type, Body),
     IQ#xmlelement{ attrs = [{<<"to">>, To} | IQ#xmlelement.attrs] }.
+
+%% slightly naughty, this isn't a stanza but it will go in an <iq/>
+query_el(NS, Children) ->
+        #xmlelement{ name = <<"query">>,
+                     attrs = [{<<"xmlns">>, NS}],
+                     children = Children
+                   }.
+
+%% http://xmpp.org/extensions/xep-0004.html
+%% slightly naughty - this isn't a stanza but can be a child of various stanza types
+x_data_form(Type, Children) ->
+    #xmlelement{ name = <<"x">>,
+                 attrs = [{<<"xmlns">>,?NS_DATA_FORMS},
+                          {<<"type">>, Type}],
+                 children = Children
+               }.
 
 -spec bind(binary()) -> #xmlelement{}.
 bind(Resource) ->
