@@ -8,7 +8,8 @@
 %% Public APi
 -export([auth_plain/2,
          auth_digest_md5/2,
-         auth_sasl_anon/2]).
+         auth_sasl_anon/2,
+         auth_sasl_external/2]).
 
 %% Useful helpers for writing own mechanisms
 -export([get_challenge/2,
@@ -43,6 +44,13 @@ auth_sasl_anon(Conn, Props) ->
     Stanza = escalus_stanza:auth_stanza(<<"ANONYMOUS">>, []),
     ok = escalus_connection:send(Conn, Stanza),
     wait_for_success(get_property(username, Props), Conn).
+
+auth_sasl_external(Conn, Props) ->
+    {server, ThisServer} = get_property(endpoint, Props),
+    Stanza = escalus_stanza:auth_stanza(<<"EXTERNAL">>,
+                                        [base64_cdata(ThisServer)]),
+    ok = escalus_connection:send(Conn, Stanza),
+    wait_for_success(ThisServer, Conn).
 
 
 %%--------------------------------------------------------------------
