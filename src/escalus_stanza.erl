@@ -145,6 +145,8 @@ session() ->
     NS = <<"urn:ietf:params:xml:ns:xmpp-session">>,
     iq(<<"set">>, #xmlelement{name = <<"session">>, attrs = [{<<"xmlns">>, NS}]}).
 
+to(Stanza, Recipient) when is_binary(Recipient) ->
+    setattr(Stanza, <<"to">>, Recipient);
 to(Stanza, Recipient) ->
     setattr(Stanza, <<"to">>, escalus_utils:get_jid(Recipient)).
 
