@@ -88,6 +88,9 @@ get_port(Config, User) ->
 get_server(Config, User) ->
     get_user_option(server, User, escalus_server, Config, get_host(Config, User)).
 
+get_wspath(Config, User) ->
+    get_user_option(wspath, User, escalus_wspath, Config, undefined).
+
 get_auth_method(Config, User) ->
     AuthMethod = get_user_option(auth_method, User,
                                  escalus_auth_method, Config,
@@ -113,7 +116,8 @@ get_options(Config, User) ->
      {server, get_server(Config, User)},
      {host, get_host(Config, User)},
      {port, get_port(Config, User)},
-     {auth, get_auth_method(Config, User)}
+     {auth, get_auth_method(Config, User)},
+     {wspath, get_wspath(Config, User)}
      | get_userspec(Config, User)].
 
 get_options(Config, User, Resource) ->

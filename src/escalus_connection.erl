@@ -96,5 +96,7 @@ stop(#transport{module = Mod} = Transport) ->
 
 get_module(tcp) ->
     escalus_tcp;
+get_module(ws) ->
+    escalus_ws;
 get_module(bosh) ->
     escalus_bosh.
