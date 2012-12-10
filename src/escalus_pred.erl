@@ -57,7 +57,12 @@
          is_privacy_result_with_default/2,
          is_privacy_list_nonexistent_error/1,
          is_adhoc_response/3,
-         has_service/2
+         has_service/2,
+         has_feature/2,
+         has_item/2,
+         has_no_such_item/2,
+         has_identity/3,
+         stanza_timeout/1
      ]).
 
 -include("include/escalus.hrl").
@@ -262,6 +267,47 @@ has_service(Service, #xmlelement{children = [ #xmlelement{children = Services} ]
                exml_query:attr(Item, <<"jid">>) =:= Service
            end,
     lists:any(Pred, Services).
+
+has_feature(Feature, Stanza) ->
+    Features = exml_query:paths(Stanza, [{element, <<"query">>},
+                                         {element, <<"feature">>}]),
+    lists:any(fun(Item) ->
+                      exml_query:attr(Item, <<"var">>) == Feature
+              end,
+              Features).
+
+has_item(JID, Stanza) ->
+    Items = exml_query:paths(Stanza, [{element, <<"query">>},
+                                      {element, <<"item">>}]),
+    lists:any(fun(Item) ->
+                      exml_query:attr(Item, <<"jid">>) == JID
+              end,
+              Items).
+
+has_no_such_item(JID, Stanza) ->
+    not has_item(JID, Stanza).
+
+has_identity(Category, Type, Stanza) ->
+    Idents = exml_query:paths(Stanza, [{element, <<"query">>},
+                                       {element, <<"identity">>}]),
+    lists:any(fun(Ident) ->
+                      (exml_query:attr(Ident, <<"category">>) == Category)
+                          and (exml_query:attr(Ident, <<"type">>) == Type)
+              end,
+              Idents).
+
+stanza_timeout(Arg) ->
+    case element(1, Arg) of
+        'EXIT' ->
+            case element(1, element(2, Arg)) of
+                timeout_when_waiting_for_stanza ->
+                    true;
+                _ ->
+                    false
+            end;
+        _ ->
+            false
+    end.
 
 %%--------------------------------------------------------------------
 %% Helpers

@@ -18,6 +18,7 @@
 
 %% old ones
 -export([chat_to/2,
+         chat/3,
          chat_to_short_jid/2,
          groupchat_to/2,
          iq_result/1,
@@ -50,15 +51,28 @@
          adhoc_request/2,
          service_discovery/1,
          auth_stanza/2,
-         auth_response_stanza/1
+         auth_response_stanza/1,
+         query_el/2,
+         x_data_form/2
      ]).
 
--export([stream_start/1,
+-export([disco_info/1,
+         disco_items/1]).
+
+-export([vcard_update/1,
+         vcard_update/2,
+         vcard_request/0,
+         vcard_request/1,
+         search_fields/1,
+         search_fields_iq/1,
+         search_iq/2]).
+
+-export([stream_start/2,
          stream_end/0,
          starttls/0,
          compress/1]).
 
--export([iq/2]).
+-export([iq/2, iq/3]).
 -export([bind/1, session/0]).
 
 %% new ones
@@ -68,20 +82,20 @@
 
 -import(escalus_compat, [bin/1]).
 
--include("include/escalus.hrl").
--include("include/escalus_xmlns.hrl").
+-include("escalus.hrl").
+-include("escalus_xmlns.hrl").
 -include_lib("exml/include/exml_stream.hrl").
 
 %%--------------------------------------------------------------------
 %% Stream - related functions
 %%--------------------------------------------------------------------
 
-stream_start(Server) ->
+stream_start(Server, XMLNS) ->
     #xmlstreamstart{name = <<"stream:stream">>, attrs=[
             {<<"to">>, Server},
             {<<"version">>, <<"1.0">>},
             {<<"xml:lang">>, <<"en">>},
-            {<<"xmlns">>, <<"jabber:client">>},
+            {<<"xmlns">>, XMLNS},
             {<<"xmlns:stream">>, <<"http://etherx.jabber.org/streams">>}]}.
 
 stream_end() ->
@@ -109,6 +123,26 @@ iq(Type, Body) ->
                        {<<"id">>, id()}],
                 children = Body}.
 
+iq(To, Type, Body) ->
+    IQ = iq(Type, Body),
+    IQ#xmlelement{ attrs = [{<<"to">>, To} | IQ#xmlelement.attrs] }.
+
+%% slightly naughty, this isn't a stanza but it will go in an <iq/>
+query_el(NS, Children) ->
+        #xmlelement{ name = <<"query">>,
+                     attrs = [{<<"xmlns">>, NS}],
+                     children = Children
+                   }.
+
+%% http://xmpp.org/extensions/xep-0004.html
+%% slightly naughty - this isn't a stanza but can be a child of various stanza types
+x_data_form(Type, Children) ->
+    #xmlelement{ name = <<"x">>,
+                 attrs = [{<<"xmlns">>,?NS_DATA_FORMS},
+                          {<<"type">>, Type}],
+                 children = Children
+               }.
+
 -spec bind(binary()) -> #xmlelement{}.
 bind(Resource) ->
     NS = <<"urn:ietf:params:xml:ns:xmpp-bind">>,
@@ -122,6 +156,8 @@ session() ->
     NS = <<"urn:ietf:params:xml:ns:xmpp-session">>,
     iq(<<"set">>, #xmlelement{name = <<"session">>, attrs = [{<<"xmlns">>, NS}]}).
 
+to(Stanza, Recipient) when is_binary(Recipient) ->
+    setattr(Stanza, <<"to">>, Recipient);
 to(Stanza, Recipient) ->
     setattr(Stanza, <<"to">>, escalus_utils:get_jid(Recipient)).
 
@@ -172,22 +208,35 @@ error_element(Type, Condition) ->
             attrs = [{<<"xmlns">>, ?NS_STANZA_ERRORS}]
         }}.
 
-message_to(Recipient, Type, Msg) ->
-    #xmlelement{name = <<"message">>, attrs = [
-        {<<"type">>, Type},
-        {<<"to">>, escalus_utils:get_jid(Recipient)}
-    ], children = [#xmlelement{name = <<"body">>, children = [
-        exml:escape_cdata(Msg)
-    ]}]}.
+message(From, Recipient, Type, Msg) ->
+    FromAttr = case From of
+                   undefined -> [];
+                   _ -> [{<<"from">>, From}]
+               end,
+    #xmlelement{
+       name = <<"message">>,
+       attrs = FromAttr ++
+           [{<<"type">>, Type},
+            {<<"to">>, escalus_utils:get_jid(Recipient)}
+           ],
+       children = [#xmlelement{
+                      name = <<"body">>,
+                      children = [exml:escape_cdata(Msg)]
+                     }
+                  ]
+      }.
 
 chat_to(Recipient, Msg) ->
-    message_to(Recipient, <<"chat">>, Msg).
+    message(undefined, Recipient, <<"chat">>, Msg).
+
+chat(Sender, Recipient, Msg) ->
+    message(Sender, Recipient, <<"chat">>, Msg).
 
 chat_to_short_jid(Recipient, Msg) ->
     chat_to(escalus_utils:get_short_jid(Recipient), Msg).
 
 groupchat_to(Recipient, Msg) ->
-    message_to(Recipient, <<"groupchat">>, Msg).
+    message(undefined, Recipient, <<"groupchat">>, Msg).
 
 get_registration_fields() ->
     iq(<<"get">>, [
@@ -327,6 +376,77 @@ privacy_list_item(Order, Action, Type, Value, Content) ->
 privacy_list_jid_item(Order, Action, Who, Contents) ->
     privacy_list_item(Order, Action, <<"jid">>,
                       escalus_utils:get_jid(Who), Contents).
+
+disco_info(JID) ->
+    Query = query_el(?NS_DISCO_INFO, []),
+    iq(JID, <<"get">>, [Query]).
+
+disco_items(JID) ->
+    ItemsQuery = query_el(?NS_DISCO_ITEMS, []),
+    iq(JID, <<"get">>, [ItemsQuery]).
+
+search_fields([]) ->
+    [];
+search_fields([null|Rest]) ->
+    [#xmlelement{name = <<"field">>} | search_fields(Rest)];
+search_fields([{Key, Val}|Rest]) ->
+    [#xmlelement{
+            name = <<"field">>,
+            attrs = [{<<"var">>, Key}],
+            children = [
+                #xmlelement{
+                    name = <<"value">>,
+                    children = [
+                        {xmlcdata, Val}]}]}
+     | search_fields(Rest) ].
+
+search_fields_iq(JID) ->
+    iq(JID, <<"get">>, [
+        query_el(?NS_SEARCH, [])]).
+
+search_iq(JID, Fields) ->
+    Form = x_data_form(<<"submit">>, Fields),
+    Query = query_el(?NS_SEARCH, [Form]),
+    iq(JID, <<"set">>, [Query]).
+
+vcard_request() ->
+    iq(<<"get">>, [vcard([])]).
+
+vcard_request(JID) ->
+    iq(JID, <<"get">>, [vcard([])]).
+
+vcard_update(Fields) ->
+    iq(<<"set">>, [vcard(Fields)]).
+
+vcard_update(JID, Fields) ->
+    iq(JID, <<"set">>, [vcard(Fields)]).
+
+vcard([{_,_}|_] = Tuples) ->
+    vcard(tuples_to_fields(Tuples));
+vcard(Body) ->
+    #xmlelement{
+        name = <<"vCard">>,
+        attrs = [{<<"xmlns">>,<<"vcard-temp">>}],
+        children = Body
+    }.
+
+cdata_field(Name, Value) ->
+    #xmlelement{name = Name,
+                attrs = [],
+                children = [{xmlcdata, Value}]}.
+
+field(Name, Children) ->
+    #xmlelement{name = Name,
+                attrs = [],
+                children = Children}.
+
+tuples_to_fields([]) ->
+    [];
+tuples_to_fields([{Name, Value}|Rest]) when is_binary(Value) ->
+    [cdata_field(Name, Value) | tuples_to_fields(Rest)];
+tuples_to_fields([{Name, Children}|Rest]) when is_list(Children) ->
+    [field(Name, tuples_to_fields(Children))
+        | tuples_to_fields(Rest)].
 
 adhoc_request(Node) ->
     adhoc_request(Node, []).

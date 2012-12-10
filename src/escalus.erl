@@ -31,6 +31,7 @@
          assert/3,
          assert_many/2,
          send/2,
+         send_and_wait/2,
          wait_for_stanza/1,
          wait_for_stanza/2,
          wait_for_stanzas/2,
@@ -76,6 +77,7 @@ end_per_testcase(_CaseName, Config) ->
 ?FORWARD2(escalus_new_assert, assert_many).
 
 ?FORWARD2(escalus_client, send).
+?FORWARD2(escalus_client, send_and_wait).
 ?FORWARD1(escalus_client, wait_for_stanza).
 ?FORWARD2(escalus_client, wait_for_stanza).
 ?FORWARD2(escalus_client, wait_for_stanzas).

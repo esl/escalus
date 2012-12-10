@@ -65,7 +65,12 @@ delete_users(Config) ->
     delete_users(Config, all).
 
 delete_users(Config, Who) ->
-    Users = get_users(Who),
+    Users = case Who of
+        config ->
+            escalus_config:get_config(escalus_users, Config, []);
+        _ ->
+            get_users(Who)
+    end,
     [delete_user(Config, User) || User <- Users].
 
 get_jid(Config, User) ->
@@ -204,7 +209,12 @@ get_user_by_name(Name, Users) ->
 %% which can take either UserSpec (a proplist) or user name (atom)
 %% as the second argument
 get_user_option(Short, Name, Long, Config, Default) when is_atom(Name) ->
-    {Name, Spec} = get_user_by_name(Name),
+    {Name, Spec} = case lists:keysearch(escalus_users, 1, Config) of
+        false ->
+            get_user_by_name(Name);
+        {value, {_, Users}} ->
+            get_user_by_name(Name, Users)
+    end,
     get_user_option(Short, Spec, Long, Config, Default);
 get_user_option(Short, Spec, Long, Config, Default) ->
     escalus_config:get_config(Short, Spec, Long, Config, Default).
