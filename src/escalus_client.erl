@@ -20,6 +20,7 @@
 -export([start_for/3,
          start/3,
          send/2,
+         send_and_wait/2,
          stop/1,
          kill/1,
          peek_stanzas/1, has_stanzas/1,
@@ -111,6 +112,10 @@ wait_for_stanza(Client, Timeout) ->
 
 send(#client{conn = Conn}, Packet) ->
     ok = escalus_connection:send(Conn, Packet).
+
+send_and_wait(Client, Packet) ->
+    ok = send(Client, Packet),
+    wait_for_stanza(Client).
 
 is_client(#client{}) ->
     true;

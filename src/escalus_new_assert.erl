@@ -27,13 +27,13 @@
 
 assert(PredSpec, Arg) ->
     Fun = predspec_to_fun(PredSpec),
-    StanzaStr = exml:to_list(Arg),
+    StanzaStr = arg_to_list(Arg),
     assert_true(Fun(Arg),
         {assertion_failed, assert, PredSpec, Arg, StanzaStr}).
 
 assert(PredSpec, Params, Arg) ->
     Fun = predspec_to_fun(PredSpec, length(Params) + 1),
-    StanzaStr = exml:to_list(Arg),
+    StanzaStr = arg_to_list(Arg),
     assert_true(apply(Fun, Params ++ [Arg]),
         {assertion_failed, assert, PredSpec, Params, Arg, StanzaStr}).
 
@@ -55,6 +55,11 @@ mix_match(Predicates, Stanzas) ->
 %%==============================================================================
 %% Helpers
 %%==============================================================================
+
+arg_to_list({'EXIT', {Err, _}}) ->
+    "Exit:" ++ atom_to_list(Err);
+arg_to_list(Arg) ->
+    exml:to_list(Arg).
 
 predspec_to_fun(F) ->
     predspec_to_fun(F, 1).

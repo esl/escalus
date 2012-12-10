@@ -61,7 +61,8 @@
          has_feature/2,
          has_item/2,
          has_no_such_item/2,
-         has_identity/3
+         has_identity/3,
+         stanza_timeout/1
      ]).
 
 -include("include/escalus.hrl").
@@ -294,6 +295,20 @@ has_identity(Category, Type, Stanza) ->
                           and (exml_query:attr(Ident, <<"type">>) == Type)
               end,
               Idents).
+
+stanza_timeout(Arg) ->
+    case element(1, Arg) of
+        'EXIT' ->
+            case element(1, element(2, Arg)) of
+                timeout_when_waiting_for_stanza ->
+                    true;
+                _ ->
+                    false
+            end;
+        _ ->
+            false
+    end.
+
 %%--------------------------------------------------------------------
 %% Helpers
 %%--------------------------------------------------------------------
