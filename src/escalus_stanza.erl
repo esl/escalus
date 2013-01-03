@@ -30,6 +30,8 @@
          presence_direct/3,
          presence_show/1,
          error_element/2,
+         receipt_req/1,
+         receipt_conf/1,
          roster_get/0,
          roster_add_contact/3,
          roster_add_contacts/1,
@@ -244,6 +246,40 @@ chat(Sender, Recipient, Msg) ->
 
 chat_to_short_jid(Recipient, Msg) ->
     chat_to(escalus_utils:get_short_jid(Recipient), Msg).
+
+receipt_req(#xmlelement{ name = <<"message">>,
+                         attrs = Attrs,
+                         children = Children } = Msg) ->
+    ReqStanza = receipt_req_elem(),
+    Msg2 = case lists:keysearch(<<"id">>, 1, Attrs) of
+        {value, _} ->
+            Msg;
+        _ ->
+            Msg#xmlelement{ attrs = [{<<"id">>, id()} | Attrs] }
+    end,
+    Msg2#xmlelement{ children = [ReqStanza | Children] }.
+
+receipt_conf(#xmlelement{ attrs = Attrs }) ->
+    {value, {_, ID}} = lists:keysearch(<<"id">>, 1, Attrs),
+    {value, {_, From}} = lists:keysearch(<<"from">>, 1, Attrs),
+    #xmlelement{ name = <<"message">>,
+                 attrs = [{<<"to">>, From}],
+                 children = [receipt_conf_elem(ID)]
+               }.
+
+receipt_req_elem() ->
+    #xmlelement{
+        name = <<"request">>,
+        attrs = [{<<"xmlns">>, ?NS_RECEIPTS}],
+        children = []
+        }.
+
+receipt_conf_elem(ID) ->
+    #xmlelement{
+        name = <<"received">>,
+        attrs = [{<<"xmlns">>, ?NS_RECEIPTS}, {<<"id">>, ID}],
+        children = []
+        }.
 
 groupchat_to(Recipient, Msg) ->
     message(undefined, Recipient, <<"groupchat">>, Msg).
