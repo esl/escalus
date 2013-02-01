@@ -95,13 +95,9 @@ handle_call(stop, _From, #state{} = State) ->
     {stop, normal, ok, State}.
 handle_cast(stop, State) ->
     {stop, normal, State};
-handle_cast({send, Transport, Elem}, #state{rid=Rid} = State) when
-        is_record(Elem, xmlstreamstart) ->
-        InitBody = send0(Transport, Elem, State),
-        NewState = State#state{rid=Rid+1,
-                               sid = exml_query:attr(InitBody, <<"sid">>)},
-        %%fake stanza with features, clients waits for it
-        {noreply, NewState};
+handle_cast({send, Transport, #xmlstreamstart{} = Elem}, State) ->
+    send0(Transport, Elem, State),
+    {noreply, State};
 handle_cast({send, Transport, Elem}, State) ->
     send0(Transport, Elem, State),
     {noreply, State#state{rid=State#state.rid+1}};
@@ -109,6 +105,10 @@ handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
     {noreply, State#state{parser = NewParser}}.
 
+%% Handle async HTTP request replies.
+handle_info({http_reply, {{_StatusCode, _Reason}, _Hdrs, RespBody}}, State) ->
+    NewState = handle_data(RespBody, State),
+    {noreply, NewState};
 handle_info(_, State) ->
     {noreply, State}.
 
@@ -124,22 +124,36 @@ code_change(_OldVsn, State, _Extra) ->
 send0(#transport{socket = {Host, Port, Path}}, Elem0, State) ->
     Headers = [{"Content-Type", "text/xml; charset=utf-8"}],
     Elem = wrap_elem(Elem0, State),
-    {ok, {{_StatusCode, _Reason}, _Hdrs, RespBody}} =
-        lhttpc:request(Host, Port, false, Path, 'POST',
-            Headers, exml:to_iolist(Elem), infinity, []),
-    handle_data(RespBody, State).
+    Self = self(),
+    AsyncReq = fun() ->
+        {ok, Reply} =
+            lhttpc:request(Host, Port, false, Path, 'POST',
+                Headers, exml:to_iolist(Elem), infinity, []),
+        Self ! {http_reply, Reply}
+    end,
+    spawn_link(AsyncReq).
 
-handle_data(Data, #state{owner = Owner} = State) ->
+handle_data(Data, #state{owner = Owner, rid = Rid} = State) ->
     {ok, Body} = exml:parse(Data),
+    NewState = case State#state.sid of
+        %% First reply for this transport, set sid
+        nil ->
+            State#state{rid = Rid + 1,
+                        sid = exml_query:attr(Body, <<"sid">>)};
+        _ ->
+            State
+    end,
     Stanzas = unwrap_elem(Body),
     lists:foreach(fun(Stanza) ->
-        Owner ! {stanza, transport(State), Stanza}
+        Owner ! {stanza, transport(NewState), Stanza}
     end, Stanzas),
-    case [StrEnd || #xmlstreamend{} = StrEnd <- Stanzas] of
-        [] -> ok;
-        _ -> gen_server:cast(self(), stop)
+    case lists:keyfind(xmlstreamend, 1, Stanzas) of
+        false ->
+            ok;
+        _ ->
+            gen_server:cast(self(), stop)
     end,
-    Body.
+    NewState.
 
 transport(#state{url = Url}) ->
     #transport{module = ?MODULE,
