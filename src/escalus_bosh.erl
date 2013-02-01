@@ -62,10 +62,12 @@ stop(#transport{rcv_pid = Pid}) ->
             already_stopped
     end.
 
-upgrade_to_tls(#transport{socket = Socket, rcv_pid = Pid} = Conn, Props) ->
+upgrade_to_tls(#transport{} = _Conn, _Props) ->
     not_supported.
-use_zlib(#transport{rcv_pid = Pid} = Conn, Props) ->
+
+use_zlib(#transport{} = _Conn, _Props) ->
     not_supported.
+
 get_transport(#transport{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_transport).
 
@@ -87,7 +89,7 @@ init([Args, Owner]) ->
 
 handle_call(get_transport, _From, State) ->
     {reply, transport(State), State};
-handle_call(stop, _From, #state{url = Socket} = State) ->
+handle_call(stop, _From, #state{} = State) ->
     StreamEnd = escalus_stanza:stream_end(),
     send0(transport(State), exml:to_iolist(StreamEnd), State),
     {stop, normal, ok, State}.
@@ -119,16 +121,15 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Helpers
 %%%===================================================================
-send0(#transport{socket = {Host, Port, Path}} = Transport, Elem0, #state{parser = Parser} = State) ->
+send0(#transport{socket = {Host, Port, Path}}, Elem0, State) ->
     Headers = [{"Content-Type", "text/xml; charset=utf-8"}],
     Elem = wrap_elem(Elem0, State),
-    {ok, {{StatusCode, Reason}, Hdrs, RespBody}} =
+    {ok, {{_StatusCode, _Reason}, _Hdrs, RespBody}} =
         lhttpc:request(Host, Port, false, Path, 'POST',
             Headers, exml:to_iolist(Elem), infinity, []),
     handle_data(RespBody, State).
 
-handle_data(Data, #state{owner = Owner,
-                                 parser = Parser} = State) ->
+handle_data(Data, #state{owner = Owner} = State) ->
     {ok, Body} = exml:parse(Data),
     Stanzas = unwrap_elem(Body),
     lists:foreach(fun(Stanza) ->
@@ -154,7 +155,7 @@ wrap_elem(#xmlstreamstart{attrs=Attrs}, #state{rid=Rid, sid=Sid}) ->
     #xmlelement{name = <<"body">>, attrs=common_attrs(Rid, Sid) ++ [
             {<<"content">>, <<"text/xml; charset=utf-8">>},
             {<<"xmlns:xmpp">>, <<"urn:xmpp:xbosh">>},
-            {<<"xmpp:version">>, <<"1.0">>},
+            {<<"xmpp:version">>, Version},
             {<<"hold">>, <<"1">>},
             {<<"wait">>, <<"60">>},
             {<<"xml:lang">>, Lang},
