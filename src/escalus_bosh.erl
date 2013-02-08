@@ -91,16 +91,16 @@ handle_call(get_transport, _From, State) ->
     {reply, transport(State), State};
 handle_call(stop, _From, #state{} = State) ->
     StreamEnd = escalus_stanza:stream_end(),
-    send0(transport(State), exml:to_iolist(StreamEnd), State),
-    {stop, normal, ok, State}.
+    NewState = send0(transport(State), exml:to_iolist(StreamEnd), State),
+    {stop, normal, ok, NewState}.
 handle_cast(stop, State) ->
     {stop, normal, State};
 handle_cast({send, Transport, #xmlstreamstart{} = Elem}, State) ->
-    send0(Transport, Elem, State),
-    {noreply, State};
+    NewState = send0(Transport, Elem, State),
+    {noreply, NewState};
 handle_cast({send, Transport, Elem}, State) ->
-    send0(Transport, Elem, State),
-    {noreply, State#state{rid=State#state.rid+1}};
+    NewState = send0(Transport, Elem, State),
+    {noreply, NewState};
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
     {noreply, State#state{parser = NewParser}}.
@@ -131,15 +131,15 @@ send0(#transport{socket = {Host, Port, Path}}, Elem0, State) ->
                 Headers, exml:to_iolist(Elem), infinity, []),
         Self ! {http_reply, Reply}
     end,
-    spawn_link(AsyncReq).
+    spawn_link(AsyncReq),
+    State#state{rid=State#state.rid+1}.
 
-handle_data(Data, #state{owner = Owner, rid = Rid} = State) ->
+handle_data(Data, #state{owner = Owner} = State) ->
     {ok, Body} = exml:parse(Data),
     NewState = case State#state.sid of
         %% First reply for this transport, set sid
         nil ->
-            State#state{rid = Rid + 1,
-                        sid = exml_query:attr(Body, <<"sid">>)};
+            State#state{sid = exml_query:attr(Body, <<"sid">>)};
         _ ->
             State
     end,
