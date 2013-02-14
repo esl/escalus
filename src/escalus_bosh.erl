@@ -31,7 +31,12 @@
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
 -define(SERVER, ?MODULE).
 
--record(state, {owner, url, parser, sid = nil, rid = nil}).
+-record(state, {owner,
+                url,
+                parser,
+                sid = nil,
+                rid = nil,
+                requests = 0}).
 
 %%%===================================================================
 %%% API
@@ -106,9 +111,15 @@ handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {noreply, State#state{parser = NewParser}}.
 
 %% Handle async HTTP request replies.
-handle_info({http_reply, {{_StatusCode, _Reason}, _Hdrs, RespBody}}, State) ->
-    NewState = handle_data(RespBody, State),
-    {noreply, NewState};
+handle_info({http_reply, {_StatusAndReason, _Hdrs, Body}, Transport}, S) ->
+    NS = handle_data(Body, S#state{requests = S#state.requests - 1}),
+    NNS = case NS#state.requests == 0 of
+        true ->
+            send(Transport, empty_body(NS), NS);
+        false ->
+            NS
+    end,
+    {noreply, NNS};
 handle_info(_, State) ->
     {noreply, State}.
 
@@ -121,18 +132,22 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Helpers
 %%%===================================================================
-send0(#transport{socket = {Host, Port, Path}}, Elem0, State) ->
+send(#transport{socket = {Host, Port, Path}} = Transport, Body,
+     #state{requests = Requests} = State) ->
     Headers = [{"Content-Type", "text/xml; charset=utf-8"}],
-    Elem = wrap_elem(Elem0, State),
     Self = self(),
     AsyncReq = fun() ->
         {ok, Reply} =
             lhttpc:request(Host, Port, false, Path, 'POST',
-                Headers, exml:to_iolist(Elem), infinity, []),
-        Self ! {http_reply, Reply}
+                Headers, exml:to_iolist(Body), infinity, []),
+        Self ! {http_reply, Reply, Transport}
     end,
-    spawn_link(AsyncReq),
-    State#state{rid=State#state.rid+1}.
+    proc_lib:spawn_link(AsyncReq),
+    State#state{rid = State#state.rid+1,
+                requests = Requests + 1}.
+
+send0(Transport, Elem, State) ->
+    send(Transport, wrap_elem(Elem, State), State).
 
 handle_data(Data, #state{owner = Owner} = State) ->
     {ok, Body} = exml:parse(Data),
@@ -182,10 +197,15 @@ wrap_elem(["</", <<"stream:stream">>, ">"], #state{sid=Sid, rid=Rid}) ->
                 children = [#xmlelement{name = <<"presence">>,
                                    attrs = [{<<"type">>, <<"unavailable">>},
                                             {<<"xmlns">>, <<"jabber:client">>}]}]};
+
 wrap_elem(Element, #state{sid = Sid, rid=Rid}) ->
     #xmlelement{name = <<"body">>,
-            attrs = common_attrs(Rid, Sid),
-            children = [Element]}.
+                attrs = common_attrs(Rid, Sid),
+                children = [Element]}.
+
+empty_body(#state{sid = Sid, rid=Rid}) ->
+    #xmlelement{name = <<"body">>,
+                attrs = common_attrs(Rid, Sid)}.
 
 common_attrs(Rid) ->
     [{<<"rid">>, pack_rid(Rid)},
