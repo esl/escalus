@@ -51,7 +51,7 @@
 %%% API
 %%%===================================================================
 
--spec connect({binary(), integer()}) -> {ok, #transport{}}.
+-spec connect([{atom(), any()}]) -> {ok, #transport{}}.
 connect(Args) ->
     ssl:start(),
     lhttpc:start(),
