@@ -106,9 +106,6 @@ handle_call(stop, _From, #state{} = State) ->
     {stop, normal, ok, NewState}.
 handle_cast(stop, State) ->
     {stop, normal, State};
-handle_cast({send, Transport, #xmlstreamstart{} = Elem}, State) ->
-    NewState = send0(Transport, Elem, State),
-    {noreply, NewState};
 handle_cast({send, Transport, Elem}, State) ->
     NewState = send0(Transport, Elem, State),
     {noreply, NewState};
