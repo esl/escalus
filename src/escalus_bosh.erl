@@ -11,7 +11,7 @@
 -include("include/escalus.hrl").
 -include("include/escalus_xmlns.hrl").
 
-%% API exports
+%% Escalus transport callbacks
 -export([connect/1,
          send/2,
          is_connected/1,
@@ -81,6 +81,47 @@ use_zlib(#transport{} = _Conn, _Props) ->
 
 get_transport(#transport{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_transport).
+
+%%%===================================================================
+%%% BOSH XML elements
+%%%===================================================================
+
+session_creation_body(Rid, To) ->
+    session_creation_body(<<"1.0">>, <<"en">>, Rid, To, nil).
+
+session_creation_body(Version, Lang, Rid, To, Sid) ->
+    empty_body(Rid, Sid,
+               [{<<"content">>, <<"text/xml; charset=utf-8">>},
+                {<<"xmlns:xmpp">>, ?NS_BOSH},
+                {<<"xmpp:version">>, Version},
+                {<<"hold">>, <<"1">>},
+                {<<"wait">>, <<"60">>},
+                {<<"xml:lang">>, Lang},
+                {<<"to">>, To}]
+               ++ [{<<"xmpp:restart">>, <<"true">>} || Sid =/= nil]).
+
+session_termination_body(Rid, Sid) ->
+    Body = empty_body(Rid, Sid, [{<<"type">>, <<"terminate">>}]),
+    Body#xmlel{children = [escalus_stanza:presence(<<"unavailable">>)]}.
+
+empty_body(Rid, Sid) ->
+    empty_body(Rid, Sid, []).
+
+empty_body(Rid, Sid, ExtraAttrs) ->
+    #xmlel{name = <<"body">>,
+                attrs = common_attrs(Rid, Sid) ++ ExtraAttrs}.
+
+common_attrs(Rid) ->
+    [{<<"rid">>, pack_rid(Rid)},
+     {<<"xmlns">>, ?NS_HTTP_BIND}].
+
+common_attrs(Rid, nil) ->
+    common_attrs(Rid);
+common_attrs(Rid, Sid) ->
+    common_attrs(Rid) ++ [{<<"sid">>, Sid}].
+
+pack_rid(Rid) ->
+    list_to_binary(integer_to_list(Rid)).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -189,43 +230,6 @@ wrap_elem(["</", <<"stream:stream">>, ">"], #state{sid=Sid, rid=Rid}) ->
     session_termination_body(Rid, Sid);
 wrap_elem(Element, #state{sid = Sid, rid=Rid}) ->
     (empty_body(Rid, Sid))#xmlel{children = [Element]}.
-
-session_creation_body(Rid, To) ->
-    session_creation_body(<<"1.0">>, <<"en">>, Rid, To, nil).
-
-session_creation_body(Version, Lang, Rid, To, Sid) ->
-    empty_body(Rid, Sid,
-               [{<<"content">>, <<"text/xml; charset=utf-8">>},
-                {<<"xmlns:xmpp">>, ?NS_BOSH},
-                {<<"xmpp:version">>, Version},
-                {<<"hold">>, <<"1">>},
-                {<<"wait">>, <<"60">>},
-                {<<"xml:lang">>, Lang},
-                {<<"to">>, To}]
-               ++ [{<<"xmpp:restart">>, <<"true">>} || Sid =/= nil]).
-
-session_termination_body(Rid, Sid) ->
-    Body = empty_body(Rid, Sid, [{<<"type">>, <<"terminate">>}]),
-    Body#xmlel{children = [escalus_stanza:presence(<<"unavailable">>)]}.
-
-empty_body(Rid, Sid) ->
-    empty_body(Rid, Sid, []).
-
-empty_body(Rid, Sid, ExtraAttrs) ->
-    #xmlel{name = <<"body">>,
-                attrs = common_attrs(Rid, Sid) ++ ExtraAttrs}.
-
-common_attrs(Rid) ->
-    [{<<"rid">>, pack_rid(Rid)},
-     {<<"xmlns">>, ?NS_HTTP_BIND}].
-
-common_attrs(Rid, nil) ->
-    common_attrs(Rid);
-common_attrs(Rid, Sid) ->
-    common_attrs(Rid) ++ [{<<"sid">>, Sid}].
-
-pack_rid(Rid) ->
-    list_to_binary(integer_to_list(Rid)).
 
 unwrap_elem(#xmlel{name = <<"body">>, children = Body, attrs=Attrs}) ->
     Type = detect_type(Attrs),
