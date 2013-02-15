@@ -34,6 +34,9 @@
          session_termination_body/2,
          empty_body/2, empty_body/3]).
 
+%% Low level API
+-export([send_raw/2]).
+
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
 -define(SERVER, ?MODULE).
 
@@ -124,6 +127,13 @@ pack_rid(Rid) ->
     list_to_binary(integer_to_list(Rid)).
 
 %%%===================================================================
+%%% Low level API
+%%%===================================================================
+
+send_raw(#transport{rcv_pid = Pid} = Transport, Body) ->
+    gen_server:cast(Pid, {send_raw, Transport, Body}).
+
+%%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
 
@@ -149,6 +159,9 @@ handle_cast(stop, State) ->
     {stop, normal, State};
 handle_cast({send, Transport, Elem}, State) ->
     NewState = send0(Transport, Elem, State),
+    {noreply, NewState};
+handle_cast({send_raw, Transport, Body}, State) ->
+    NewState = send(Transport, Body, State),
     {noreply, NewState};
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
