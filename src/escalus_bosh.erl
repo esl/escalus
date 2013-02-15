@@ -9,6 +9,7 @@
 
 -include_lib("exml/include/exml_stream.hrl").
 -include("include/escalus.hrl").
+-include("include/escalus_xmlns.hrl").
 
 %% API exports
 -export([connect/1,
@@ -27,6 +28,11 @@
          handle_info/2,
          terminate/2,
          code_change/3]).
+
+%% BOSH XML elements
+-export([session_creation_body/2, session_creation_body/5,
+         session_termination_body/2,
+         empty_body/2, empty_body/3]).
 
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
 -define(SERVER, ?MODULE).
@@ -90,7 +96,7 @@ init([Args, Owner]) ->
     {ok, Parser} = exml_stream:new_parser(),
     {ok, #state{owner = Owner,
                 url = {HostStr, Port, binary_to_list(Path)},
-                parser = Parser, rid=InitRid}}.
+                parser = Parser, rid = InitRid}}.
 
 handle_call(get_transport, _From, State) ->
     {reply, transport(State), State};
@@ -115,7 +121,7 @@ handle_info({http_reply, {_StatusAndReason, _Hdrs, Body}, Transport}, S) ->
     NS = handle_data(Body, S#state{requests = S#state.requests - 1}),
     NNS = case NS#state.requests == 0 of
         true ->
-            send(Transport, empty_body(NS), NS);
+            send(Transport, empty_body(NS#state.rid, NS#state.sid), NS);
         false ->
             NS
     end,
@@ -181,35 +187,41 @@ wrap_elem(#xmlstreamstart{attrs=Attrs}, #state{rid=Rid, sid=Sid}) ->
     Version = proplists:get_value(<<"version">>, Attrs, <<"1.0">>),
     Lang = proplists:get_value(<<"xml:lang">>, Attrs, <<"en">>),
     To = proplists:get_value(<<"to">>, Attrs, <<"localhost">>),
-    #xmlel{name = <<"body">>, attrs=common_attrs(Rid, Sid) ++ [
-            {<<"content">>, <<"text/xml; charset=utf-8">>},
-            {<<"xmlns:xmpp">>, <<"urn:xmpp:xbosh">>},
-            {<<"xmpp:version">>, Version},
-            {<<"hold">>, <<"1">>},
-            {<<"wait">>, <<"60">>},
-            {<<"xml:lang">>, Lang},
-            {<<"to">>, To}
-            ] ++ [{<<"xmpp:restart">>, <<"true">>} || Sid =/= nil]};
-
+    session_creation_body(Version, Lang, Rid, To, Sid);
 wrap_elem(["</", <<"stream:stream">>, ">"], #state{sid=Sid, rid=Rid}) ->
-    #xmlel{name = <<"body">>,
-                attrs = common_attrs(Rid, Sid) ++ [{<<"type">>, <<"terminate">>}],
-                children = [#xmlel{name = <<"presence">>,
-                                   attrs = [{<<"type">>, <<"unavailable">>},
-                                            {<<"xmlns">>, <<"jabber:client">>}]}]};
-
+    session_termination_body(Rid, Sid);
 wrap_elem(Element, #state{sid = Sid, rid=Rid}) ->
-    #xmlel{name = <<"body">>,
-                attrs = common_attrs(Rid, Sid),
-                children = [Element]}.
+    (empty_body(Rid, Sid))#xmlel{children = [Element]}.
 
-empty_body(#state{sid = Sid, rid=Rid}) ->
+session_creation_body(Rid, To) ->
+    session_creation_body(<<"1.0">>, <<"en">>, Rid, To, nil).
+
+session_creation_body(Version, Lang, Rid, To, Sid) ->
+    empty_body(Rid, Sid,
+               [{<<"content">>, <<"text/xml; charset=utf-8">>},
+                {<<"xmlns:xmpp">>, ?NS_BOSH},
+                {<<"xmpp:version">>, Version},
+                {<<"hold">>, <<"1">>},
+                {<<"wait">>, <<"60">>},
+                {<<"xml:lang">>, Lang},
+                {<<"to">>, To}]
+               ++ [{<<"xmpp:restart">>, <<"true">>} || Sid =/= nil]).
+
+session_termination_body(Rid, Sid) ->
+    Body = empty_body(Rid, Sid, [{<<"type">>, <<"terminate">>}]),
+    Body#xmlel{children = [escalus_stanza:presence(<<"unavailable">>)]}.
+
+empty_body(Rid, Sid) ->
+    empty_body(Rid, Sid, []).
+
+empty_body(Rid, Sid, ExtraAttrs) ->
     #xmlel{name = <<"body">>,
-                attrs = common_attrs(Rid, Sid)}.
+                attrs = common_attrs(Rid, Sid) ++ ExtraAttrs}.
 
 common_attrs(Rid) ->
     [{<<"rid">>, pack_rid(Rid)},
-     {<<"xmlns">>, <<"http://jabber.org/protocol/httpbind">>}].
+     {<<"xmlns">>, ?NS_HTTP_BIND}].
+
 common_attrs(Rid, nil) ->
     common_attrs(Rid);
 common_attrs(Rid, Sid) ->
