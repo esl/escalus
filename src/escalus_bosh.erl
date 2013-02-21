@@ -35,7 +35,9 @@
          empty_body/2, empty_body/3]).
 
 %% Low level API
--export([send_raw/2]).
+-export([send_raw/2,
+         get_sid/1,
+         get_rid/1]).
 
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
 -define(SERVER, ?MODULE).
@@ -143,6 +145,12 @@ pack_rid(Rid) ->
 send_raw(#transport{rcv_pid = Pid} = Transport, Body) ->
     gen_server:cast(Pid, {send_raw, Transport, Body}).
 
+get_rid(#transport{rcv_pid = Pid}) ->
+    gen_server:call(Pid, get_rid).
+
+get_sid(#transport{rcv_pid = Pid}) ->
+    gen_server:call(Pid, get_sid).
+
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -161,10 +169,15 @@ init([Args, Owner]) ->
 
 handle_call(get_transport, _From, State) ->
     {reply, transport(State), State};
+handle_call(get_sid, _From, #state{sid = Sid} = State) ->
+    {reply, Sid, State};
+handle_call(get_rid, _From, #state{rid = Rid} = State) ->
+    {reply, Rid, State};
 handle_call(stop, _From, #state{} = State) ->
     StreamEnd = escalus_stanza:stream_end(),
     NewState = send0(transport(State), exml:to_iolist(StreamEnd), State),
     {stop, normal, ok, NewState}.
+
 handle_cast(stop, State) ->
     {stop, normal, State};
 handle_cast({send, Transport, Elem}, State) ->
