@@ -14,6 +14,14 @@
          can_use_compression/2,
          session/2]).
 
+%% New style connection initiation
+-export([start_stream/3,
+         maybe_use_ssl/3,
+         maybe_use_compression/3,
+         authenticate/3,
+         bind/3,
+         session/3]).
+
 -include_lib("exml/include/exml.hrl").
 -define(DEFAULT_RESOURCE, <<"escalus-default-resource">>).
 
@@ -74,8 +82,8 @@ use_ssl(Props, Features) ->
     StreamAllowSSL = proplists:get_value(starttls, Features),
     case {UserNeedSSL, StreamAllowSSL} of
         {required, true} -> true;
-        {required, false} -> {error, "Client requires StartTLS "
-                                     "but server doesn't offer it"};
+        {required, false} -> error("Client requires StartTLS "
+                                   "but server doesn't offer it");
         {false, _ } -> false;
         {optional, true} -> true;
         _ -> false
@@ -84,6 +92,41 @@ use_ssl(Props, Features) ->
 can_use_compression(Props, Features) ->
     false /= proplists:get_value(compression, Props, false) andalso
     false /= proplists:get_value(compression, Features).
+
+%%%===================================================================
+%%% New style connection initiation
+%%%===================================================================
+
+start_stream(Conn, Props, [] = _Features) ->
+    {Props1, Features} = start_stream(Conn, Props),
+    {Conn, Props1, Features}.
+
+maybe_use_ssl(Conn, Props, Features) ->
+    case use_ssl(Props, Features) of
+        true ->
+            {Conn1, Props1} = starttls(Conn, Props),
+            {Conn1, Props1, Features};
+        false ->
+            {Conn, Props, Features}
+    end.
+
+maybe_use_compression(Conn, Props, Features) ->
+    case can_use_compression(Props, Features) of
+        true ->
+            {Conn1, Props1} = compress(Conn, Props),
+            {Conn1, Props1, Features};
+        false ->
+            {Conn, Props, Features}
+    end.
+
+authenticate(Conn, Props, Features) ->
+    {Conn, authenticate(Conn, Props), Features}.
+
+bind(Conn, Props, Features) ->
+    {Conn, bind(Conn, Props), Features}.
+
+session(Conn, Props, Features) ->
+    {Conn, session(Conn, Props), Features}.
 
 %%%===================================================================
 %%% Helpers
