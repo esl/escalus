@@ -9,7 +9,7 @@
 -include("include/escalus.hrl").
 
 %% High-level API
--export([start/1,
+-export([start/1, start/2,
          stop/1]).
 
 %% Low-level API
@@ -19,48 +19,87 @@
          reset_parser/1,
          is_connected/1]).
 
+%% Private
+-export([connection_step/2]).
+
 -define(TIMEOUT, 1000).
 
 %%%===================================================================
 %%% Public API
 %%%===================================================================
 
-start(Props0) ->
+start(Props) ->
+    start(Props,
+          [start_stream,
+           maybe_use_ssl,
+           maybe_use_compression,
+           authenticate,
+           bind,
+           session]).
+
+%% Usage:
+%%
+%%     start(Props,
+%%           [start_stream,
+%%            maybe_use_ssl,
+%%            maybe_use_compression,
+%%            authenticate,
+%%            bind,
+%%            session])
+%%
+%%     or
+%%
+%%     start(Props,
+%%           [start_stream,
+%%            authenticate,
+%%            bind])
+%%     or
+%%
+%%     start(Props, [start_stream])
+%%
+%% 'maybe_*' will check allowed properties and features to see if it's possible
+%% to use a feature.
+%% Others will assume a feature is available and fail if it's not.
+start(Props0, Steps) ->
     case connect(Props0) of
-        {ok, Conn0, Props1} ->
+        {ok, Conn, Props} ->
             try
-                {Props2, Features} = escalus_session:start_stream(Conn0, Props1),
-                CanUseCompression = escalus_session:can_use_compression(Props2, Features),
-                {Conn1, Props3} = case escalus_session:use_ssl(Props2, Features) of
-                                      true ->
-                                          escalus_session:starttls(Conn0, Props2);
-                                      false -> {Conn0, Props2}
-                                  end,
-                {Conn2, Props4} = if
-                    CanUseCompression ->
-                        escalus_session:compress(Conn0, Props2);
-                    true ->
-                        {Conn1, Props3}
-                end,
-                try
-                    Props5 = escalus_session:authenticate(Conn2, Props4),
-                    Props6 = escalus_session:bind(Conn2, Props5),
-                    Props7 = escalus_session:session(Conn2, Props6),
-                    {ok, Conn2, Props7}
-                catch Error0 ->
-                    handle_start_error(Error0, Conn2)
-                end
-            catch Error1 ->
-                handle_start_error(Error1, Conn0)
+                {Conn1, Props1, _} = lists:foldl(fun connection_step/2,
+                                                 {Conn, Props, []},
+                                                 [prepare_step(Step)
+                                                  || Step <- Steps]),
+                {ok, Conn1, Props1}
+            catch
+                throw:{connection_step_failed, _Details, _Reason} = Error ->
+                    {error, Error}
             end;
         {error, Error} ->
             {error, Error}
     end.
 
-handle_start_error(Error, Conn) ->
-    Mod = Conn#transport.module,
-    Mod:stop(Conn),
-    {error, Error}.
+connection_step(Step, {Conn, Props, Features}) ->
+    try
+        case Step of
+            {Mod, Fun} ->
+                apply(Mod, Fun, [Conn, Props, Features]);
+            Fun ->
+                apply(Fun, [Conn, Props, Features])
+        end
+    catch
+        Error ->
+            (Conn#transport.module):stop(Conn),
+            throw({connection_step_failed, {Conn, Props, Features}, Error})
+    end.
+
+%% By default use predefined connection steps from escalus_session.
+prepare_step(Step) when is_atom(Step) ->
+    {escalus_session, Step};
+%% Accept functions defined in other modules.
+prepare_step({Mod, Fun}) when is_atom(Mod), is_atom(Fun) ->
+    {Mod, Fun};
+%% Accept funs of arity 3.
+prepare_step(Fun) when is_function(Fun, 3) ->
+    Fun.
 
 connect(Props) ->
     Transport = proplists:get_value(transport, Props, tcp),
