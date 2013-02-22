@@ -11,4 +11,4 @@ and don't verify correctness.
 Quick start
 ===========
 
-*   Read the [the intro file](escalus/blob/master/docs/intro.md) to get started.
+*   Read the [the intro file](docs/intro.md) to get started.
