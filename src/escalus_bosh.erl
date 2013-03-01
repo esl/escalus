@@ -229,6 +229,8 @@ send(#transport{socket = {Host, Port, Path}} = Transport, Body,
 send0(Transport, Elem, State) ->
     send(Transport, wrap_elem(Elem, State), State).
 
+handle_data(<<>>, State) ->
+    State;
 handle_data(Data, #state{owner = Owner} = State) ->
     {ok, Body} = exml:parse(Data),
     NewState = case State#state.sid of
