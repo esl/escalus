@@ -37,7 +37,9 @@
 %% Low level API
 -export([send_raw/2,
          get_sid/1,
-         get_rid/1]).
+         get_rid/1,
+         get_keepalive/1,
+         set_keepalive/2]).
 
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
 -define(SERVER, ?MODULE).
@@ -47,7 +49,8 @@
                 parser,
                 sid = nil,
                 rid = nil,
-                requests = 0}).
+                requests = 0,
+                keepalive = true}).
 
 %%%===================================================================
 %%% API
@@ -157,6 +160,12 @@ get_rid(#transport{rcv_pid = Pid}) ->
 get_sid(#transport{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_sid).
 
+get_keepalive(#transport{rcv_pid = Pid}) ->
+    gen_server:call(Pid, get_keepalive).
+
+set_keepalive(#transport{rcv_pid = Pid}, NewKeepalive) ->
+    gen_server:call(Pid, {set_keepalive, NewKeepalive}).
+
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -171,7 +180,9 @@ init([Args, Owner]) ->
     {ok, Parser} = exml_stream:new_parser(),
     {ok, #state{owner = Owner,
                 url = {HostStr, Port, binary_to_list(Path)},
-                parser = Parser, rid = InitRid}}.
+                parser = Parser,
+                rid = InitRid,
+                keepalive = proplists:get_value(keepalive, Args, true)}}.
 
 handle_call(get_transport, _From, State) ->
     {reply, transport(State), State};
@@ -179,6 +190,10 @@ handle_call(get_sid, _From, #state{sid = Sid} = State) ->
     {reply, Sid, State};
 handle_call(get_rid, _From, #state{rid = Rid} = State) ->
     {reply, Rid, State};
+handle_call(get_keepalive, _From, #state{keepalive = Keepalive} = State) ->
+    {reply, Keepalive, State};
+handle_call({set_keepalive, NewKeepalive}, _From, #state{keepalive = Keepalive} = State) ->
+    {reply, {ok, Keepalive, NewKeepalive}, State#state{keepalive = NewKeepalive}};
 handle_call(stop, _From, #state{} = State) ->
     StreamEnd = escalus_stanza:stream_end(),
     NewState = send0(transport(State), exml:to_iolist(StreamEnd), State),
@@ -199,10 +214,12 @@ handle_cast(reset_parser, #state{parser = Parser} = State) ->
 %% Handle async HTTP request replies.
 handle_info({http_reply, {_StatusAndReason, _Hdrs, Body}, Transport}, S) ->
     NS = handle_data(Body, S#state{requests = S#state.requests - 1}),
-    NNS = case NS#state.requests == 0 of
-        true ->
+    NNS = case {NS#state.keepalive, NS#state.requests == 0} of
+        {false, _} ->
+            NS;
+        {true, true} ->
             send(Transport, empty_body(NS#state.rid, NS#state.sid), NS);
-        false ->
+        {true, false} ->
             NS
     end,
     {noreply, NNS};
