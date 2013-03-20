@@ -133,14 +133,20 @@ pack_rid(Rid) ->
 %%%===================================================================
 
 %% Watch out for request IDs!
-%% In general, you should not use this function, as this transport takes
-%% care of wrapping ordinary XMPP stanzas for you.
-%% However, in case of the need for a low-level access don't interleave
-%% calls to send/2 and send_raw/2.
+%%
+%% In general, you should not use this function,
+%% as this transport (i.e. escalus_bosh) takes care
+%% of wrapping ordinary XMPP stanzas for you.
+%%
+%% However, in case of the need for a low-level access interleaving
+%% calls to send/2 and send_raw/2 is tricky.
 %% For send/2 the transport keeps track of an internal
 %% request ID which might not necessarily be consistent with the one supplied
 %% when manually building the BOSH body and sending it with send_raw/2.
-%% These non matching request IDs will
+%% Always use get_rid/1 which will give you a valid request ID to use
+%% when manually wrapping stanzas to send_raw/2.
+%%
+%% Otherwise, the non-matching request IDs will
 %% confuse the server and possibly cause errors.
 send_raw(#transport{rcv_pid = Pid} = Transport, Body) ->
     gen_server:cast(Pid, {send_raw, Transport, Body}).
