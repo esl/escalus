@@ -39,7 +39,8 @@
          get_sid/1,
          get_rid/1,
          get_keepalive/1,
-         set_keepalive/2]).
+         set_keepalive/2,
+         pause/2]).
 
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
 -define(SERVER, ?MODULE).
@@ -119,6 +120,11 @@ empty_body(Rid, Sid, ExtraAttrs) ->
     #xmlel{name = <<"body">>,
                 attrs = common_attrs(Rid, Sid) ++ ExtraAttrs}.
 
+pause_body(Rid, Sid, Seconds) ->
+    Empty = empty_body(Rid, Sid),
+    Pause = {<<"pause">>, list_to_binary(integer_to_list(Seconds))},
+    Empty#xmlelement{attrs = Empty#xmlelement.attrs ++ [Pause]}.
+
 common_attrs(Rid) ->
     [{<<"rid">>, pack_rid(Rid)},
      {<<"xmlns">>, ?NS_HTTP_BIND}].
@@ -166,6 +172,9 @@ get_keepalive(#transport{rcv_pid = Pid}) ->
 set_keepalive(#transport{rcv_pid = Pid}, NewKeepalive) ->
     gen_server:call(Pid, {set_keepalive, NewKeepalive}).
 
+pause(#transport{rcv_pid = Pid} = Transport, Seconds) ->
+    gen_server:cast(Pid, {pause, Transport, Seconds}).
+
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -206,6 +215,9 @@ handle_cast({send, Transport, Elem}, State) ->
     {noreply, NewState};
 handle_cast({send_raw, Transport, Body}, State) ->
     NewState = send(Transport, Body, State),
+    {noreply, NewState};
+handle_cast({pause, Transport, Seconds}, #state{rid = Rid, sid = Sid} = State) ->
+    NewState = send(Transport, pause_body(Rid, Sid, Seconds), State),
     {noreply, NewState};
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
