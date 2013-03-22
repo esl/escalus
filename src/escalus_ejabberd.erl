@@ -32,7 +32,9 @@
          get_c2s_status/1,
          get_remote_sessions/1,
          default_get_remote_sessions/0,
-         wait_for_session_count/2]).
+         wait_for_session_count/2,
+         setup_option/2,
+         reset_option/2]).
 
 -include("include/escalus.hrl").
 
@@ -127,6 +129,75 @@ wait_for_session_count(Config, Count, TryNo) when TryNo < 20 ->
     end;
 wait_for_session_count(Config, Count, _) ->
     ct:fail({wait_for_session_count, Count, get_remote_sessions(Config)}).
+
+%% Option setup / reset.
+%%
+%% These two functions are intended for situations where
+%% `with_global_option/3` and `with_local_option/3` do not apply
+%% because the access pattern to the option is non-uniform
+%% (e.g. it's not stored in `config`/`local_config` Mnesia table).
+%%
+%% Example:
+%%
+%% - define an `option()` instance in a helper function:
+%%
+%%     inactivity() ->
+%%         {inactivity,
+%%          fun() -> escalus_ejabberd:rpc(mod_bosh, get_inactivity, []) end,
+%%          fun(Value) -> escalus_ejabberd:rpc(mod_bosh,
+%%                                             set_inactivity, [Value]) end,
+%%          ?INACTIVITY}.
+%%
+%%   one can also easily imagine such a constructor to be parameterised:
+%%
+%%     inactivity(Value) ->
+%%         {inactivity,
+%%          fun() -> escalus_ejabberd:rpc(mod_bosh, get_inactivity, []) end,
+%%          fun(Value) -> escalus_ejabberd:rpc(mod_bosh,
+%%                                             set_inactivity, [Value]) end,
+%%          Value}.
+%%
+%% - use `setup_option/2` in `init_per_testcase/2`:
+%%
+%%     init_per_testcase(disconnect_inactive = CaseName, Config) ->
+%%         NewConfig = escalus_ejabberd:setup_option(inactivity(), Config),
+%%         escalus:init_per_testcase(CaseName, NewConfig);
+%%
+%% - use `reset_option/2` in `end_per_testcase/2`:
+%%
+%%     end_per_testcase(disconnect_inactive = CaseName, Config) ->
+%%         NewConfig = escalus_ejabberd:reset_option(inactivity(), Config),
+%%         escalus:end_per_testcase(CaseName, NewConfig);
+%%
+%% Inside `setup_option/2` the current value of `inactivity`,
+%% as returned by the RPC call, will be stored in `Config`.
+%% The value from `option()` instance will be used
+%% to set the new value on the server.
+%%
+%% `reset_option/2` will restore that saved value using the appropriate
+%% setter function and delete it from `Config`.
+
+-type option(Type) :: {Name   :: atom(),
+                       Getter :: fun(() -> Type),
+                       Setter :: fun((Type) -> any()),
+                       Value  :: Type}.
+-type option() :: option(_).
+
+-spec setup_option(option(), Config) -> Config.
+setup_option({Option, Get, Set, Value}, Config) ->
+    Saved = Get(),
+    Set(Value),
+    [{{saved, Option}, Saved} | Config].
+
+-spec reset_option(option(), Config) -> Config.
+reset_option({Option, _, Set, _}, Config) ->
+    case proplists:get_value({saved, Option}, Config) of
+        undefined ->
+            ok;
+        Saved ->
+            Set(Saved)
+    end,
+    proplists:delete({saved, Option}, Config).
 
 %%--------------------------------------------------------------------
 %% Helpers
