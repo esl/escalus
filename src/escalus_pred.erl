@@ -23,6 +23,9 @@
          is_chat_message/1,
          is_chat_message/2,
          is_headline_message/3,
+         is_0184_request/2,
+         is_0184_receipt/3,
+         is_0184_receipt/4,
          is_iq/1,
          is_iq/2,
          is_iq/3,
@@ -158,6 +161,43 @@ has_type(undefined, Stanza) ->
     undefined == exml_query:attr(Stanza, <<"type">>);
 has_type(Type, Stanza) ->
     bin(Type) == bin(exml_query:attr(Stanza, <<"type">>)).
+
+is_0184_request(#xmlelement{children = Els}, _) ->
+    #xmlelement{ name = <<"request">>,
+                 attrs = [{<<"xmlns">>, <<"urn:xmpp:receipts">>}],
+                 children = [] } =:= lists:keyfind(<<"request">>, 2, Els). 
+
+is_0184_receipt(#xmlelement{ attrs = ReqAttrs } = Request, Receipt, _) ->
+    {_, ReqTo} = lists:keyfind(<<"to">>, 1, ReqAttrs),
+    is_0184_receipt(Request, ReqTo, Receipt, []).
+
+is_0184_receipt(#xmlelement{ attrs = ReqAttrs } = _Request,
+                ProperResFrom,
+                #xmlelement{ attrs = ResAttrs,
+                            children = [#xmlelement{ name = <<"received">>,
+                                                     attrs = SubAttrs}]} = _Receipt, _) ->
+    {_, ResFrom} = lists:keyfind(<<"from">>, 1, ResAttrs),
+    {_, ReqID} = lists:keyfind(<<"id">>, 1, ReqAttrs),
+    {_, ResID} = lists:keyfind(<<"id">>, 1, SubAttrs),
+    {_, ResXmlns} = lists:keyfind(<<"xmlns">>, 1, SubAttrs),
+   
+    binary:longest_common_prefix([ProperResFrom, ResFrom]) == byte_size(ProperResFrom)
+    andalso
+    ReqID == ResID
+    andalso
+    ResXmlns == <<"urn:xmpp:receipts">>;
+is_0184_receipt(Request, ProperResFrom,
+                #xmlelement{ children = RecChildren } = Receipt, _)
+        when length(RecChildren) > 1 ->
+    case lists:keyfind(<<"received">>, #xmlelement.name, RecChildren) of
+        false ->
+            false;
+        Received ->
+            is_0184_receipt(Request, ProperResFrom,
+                            Receipt#xmlelement{ children = [Received] }, ok)
+    end;
+is_0184_receipt(_,_,_,_) ->
+    false.
 
 is_iq_set(Stanza) -> is_iq(<<"set">>, Stanza).
 is_iq_get(Stanza) -> is_iq(<<"get">>, Stanza).

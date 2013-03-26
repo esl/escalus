@@ -259,11 +259,20 @@ receipt_req(#xmlelement{ name = <<"message">>,
     end,
     Msg2#xmlelement{ children = [ReqStanza | Children] }.
 
-receipt_conf(#xmlelement{ attrs = Attrs }) ->
+receipt_conf(#xmlelement{ attrs = Attrs, children = Children }) ->
     {value, {_, ID}} = lists:keysearch(<<"id">>, 1, Attrs),
     {value, {_, From}} = lists:keysearch(<<"from">>, 1, Attrs),
+    To = case lists:keyfind(<<"received">>, #xmlelement.name, Children) of
+        #xmlelement{ name = <<"received">> } ->
+            [Bare|_] = binary:split(From, <<"/">>),
+            [_, Server] = binary:split(Bare, <<"@">>),
+            Server;
+        false ->
+            From
+    end,
+            
     #xmlelement{ name = <<"message">>,
-                 attrs = [{<<"to">>, From}],
+                 attrs = [{<<"to">>, To}, {<<"id">>, id()}],
                  children = [receipt_conf_elem(ID)]
                }.
 
