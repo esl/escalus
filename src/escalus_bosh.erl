@@ -201,8 +201,10 @@ handle_call(get_rid, _From, #state{rid = Rid} = State) ->
     {reply, Rid, State};
 handle_call(get_keepalive, _From, #state{keepalive = Keepalive} = State) ->
     {reply, Keepalive, State};
-handle_call({set_keepalive, NewKeepalive}, _From, #state{keepalive = Keepalive} = State) ->
-    {reply, {ok, Keepalive, NewKeepalive}, State#state{keepalive = NewKeepalive}};
+handle_call({set_keepalive, NewKeepalive}, _From,
+            #state{keepalive = Keepalive} = State) ->
+    {reply, {ok, Keepalive, NewKeepalive},
+     State#state{keepalive = NewKeepalive}};
 handle_call(stop, _From, #state{} = State) ->
     StreamEnd = escalus_stanza:stream_end(),
     NewState = send0(transport(State), exml:to_iolist(StreamEnd), State),
@@ -216,7 +218,8 @@ handle_cast({send, Transport, Elem}, State) ->
 handle_cast({send_raw, Transport, Body}, State) ->
     NewState = send(Transport, Body, State),
     {noreply, NewState};
-handle_cast({pause, Transport, Seconds}, #state{rid = Rid, sid = Sid} = State) ->
+handle_cast({pause, Transport, Seconds},
+            #state{rid = Rid, sid = Sid} = State) ->
     NewState = send(Transport, pause_body(Rid, Sid, Seconds), State),
     {noreply, NewState};
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
@@ -314,7 +317,8 @@ unwrap_elem(#xmlel{name = <<"body">>, children = Body, attrs=Attrs}) ->
                         {<<"version">>, Ver},
                         {<<"xml:lang">>, <<"en">>},
                         {<<"xmlns">>, <<"jabber:client">>},
-                        {<<"xmlns:stream">>, <<"http://etherx.jabber.org/streams">>}]},
+                        {<<"xmlns:stream">>,
+                         <<"http://etherx.jabber.org/streams">>}]},
             [StreamStart];
         streamend ->
             [escalus_stanza:stream_end()];
