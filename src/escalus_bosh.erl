@@ -30,7 +30,7 @@
          code_change/3]).
 
 %% BOSH XML elements
--export([session_creation_body/2, session_creation_body/5,
+-export([session_creation_body/2, session_creation_body/6,
          session_termination_body/2,
          empty_body/2, empty_body/3]).
 
@@ -44,6 +44,7 @@
 
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
 -define(SERVER, ?MODULE).
+-define(DEFAULT_WAIT, 60).
 
 -record(state, {owner,
                 url,
@@ -51,7 +52,8 @@
                 sid = nil,
                 rid = nil,
                 requests = 0,
-                keepalive = true}).
+                keepalive = true,
+                wait}).
 
 %%%===================================================================
 %%% API
@@ -96,15 +98,15 @@ get_transport(#transport{rcv_pid = Pid}) ->
 %%%===================================================================
 
 session_creation_body(Rid, To) ->
-    session_creation_body(<<"1.0">>, <<"en">>, Rid, To, nil).
+    session_creation_body(?DEFAULT_WAIT, <<"1.0">>, <<"en">>, Rid, To, nil).
 
-session_creation_body(Version, Lang, Rid, To, Sid) ->
+session_creation_body(Wait, Version, Lang, Rid, To, Sid) ->
     empty_body(Rid, Sid,
                [{<<"content">>, <<"text/xml; charset=utf-8">>},
                 {<<"xmlns:xmpp">>, ?NS_BOSH},
                 {<<"xmpp:version">>, Version},
                 {<<"hold">>, <<"1">>},
-                {<<"wait">>, <<"60">>},
+                {<<"wait">>, list_to_binary(integer_to_list(Wait))},
                 {<<"xml:lang">>, Lang},
                 {<<"to">>, To}]
                ++ [{<<"xmpp:restart">>, <<"true">>} || Sid =/= nil]).
@@ -183,6 +185,7 @@ init([Args, Owner]) ->
     Host = proplists:get_value(host, Args, <<"localhost">>),
     Port = proplists:get_value(port, Args, 5280),
     Path = proplists:get_value(path, Args, <<"/http-bind">>),
+    Wait = proplists:get_value(bosh_wait, Args, ?DEFAULT_WAIT),
     HostStr = binary_to_list(Host),
     {MS, S, MMS} = now(),
     InitRid = MS * 1000000 * 1000000 + S * 1000000 + MMS,
@@ -191,7 +194,8 @@ init([Args, Owner]) ->
                 url = {HostStr, Port, binary_to_list(Path)},
                 parser = Parser,
                 rid = InitRid,
-                keepalive = proplists:get_value(keepalive, Args, true)}}.
+                keepalive = proplists:get_value(keepalive, Args, true),
+                wait = Wait}}.
 
 handle_call(get_transport, _From, State) ->
     {reply, transport(State), State};
@@ -297,11 +301,12 @@ transport(#state{url = Url}) ->
                compress = false,
                rcv_pid = self()}.
 
-wrap_elem(#xmlstreamstart{attrs=Attrs}, #state{rid=Rid, sid=Sid}) ->
+wrap_elem(#xmlstreamstart{attrs = Attrs},
+          #state{rid = Rid, sid = Sid, wait = Wait}) ->
     Version = proplists:get_value(<<"version">>, Attrs, <<"1.0">>),
     Lang = proplists:get_value(<<"xml:lang">>, Attrs, <<"en">>),
     To = proplists:get_value(<<"to">>, Attrs, <<"localhost">>),
-    session_creation_body(Version, Lang, Rid, To, Sid);
+    session_creation_body(Wait, Version, Lang, Rid, To, Sid);
 wrap_elem(["</", <<"stream:stream">>, ">"], #state{sid=Sid, rid=Rid}) ->
     session_termination_body(Rid, Sid);
 wrap_elem(Element, #state{sid = Sid, rid=Rid}) ->
