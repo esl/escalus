@@ -26,6 +26,7 @@
          get_host/2,
          get_server/2,
          get_userspec/2,
+         update_userspec/4,
          get_options/2,
          get_options/3,
          get_users/1,
@@ -134,6 +135,13 @@ get_userspec(Config, Username) when is_atom(Username) ->
     UserSpec;
 get_userspec(_Config, UserSpec) when is_list(UserSpec) ->
     UserSpec.
+
+update_userspec(Config, UserName, Option, Value) ->
+    UserSpec = [{Option, Value}
+                | escalus_users:get_userspec(Config, UserName)],
+    Users = escalus_config:get_config(escalus_users, Config),
+    NewUsers = lists:keystore(UserName, 1, Users, {UserName, UserSpec}),
+    lists:keystore(escalus_users, 1, Config, {escalus_users, NewUsers}).
 
 %%% XXX: this is so ugly...
 get_users(all) ->
