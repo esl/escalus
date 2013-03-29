@@ -62,13 +62,14 @@
          has_item/2,
          has_no_such_item/2,
          has_identity/3,
-         stanza_timeout/1
+         stanza_timeout/1,
+         is_stream_end/1
      ]).
 
 -include("include/escalus.hrl").
 -include("escalus_xmlns.hrl").
 -include("escalus_deprecated.hrl").
--include_lib("exml/include/exml.hrl").
+-include_lib("exml/include/exml_stream.hrl").
 
 -import(escalus_compat, [bin/1]).
 
@@ -310,6 +311,11 @@ stanza_timeout(Arg) ->
         _ ->
             false
     end.
+
+is_stream_end(#xmlstreamend{}) ->
+    true;
+is_stream_end(_) ->
+    false.
 
 %%--------------------------------------------------------------------
 %% Helpers
