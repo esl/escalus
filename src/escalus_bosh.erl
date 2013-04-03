@@ -197,12 +197,16 @@ init([Args, Owner]) ->
                 keepalive = proplists:get_value(keepalive, Args, true),
                 wait = Wait}}.
 
+
 handle_call(get_transport, _From, State) ->
     {reply, transport(State), State};
+
 handle_call(get_sid, _From, #state{sid = Sid} = State) ->
     {reply, Sid, State};
+
 handle_call(get_rid, _From, #state{rid = Rid} = State) ->
     {reply, Rid, State};
+
 handle_call(get_keepalive, _From, #state{keepalive = Keepalive} = State) ->
     {reply, Keepalive, State};
 handle_call({set_keepalive, NewKeepalive}, _From,
@@ -213,6 +217,7 @@ handle_call(stop, _From, #state{} = State) ->
     StreamEnd = escalus_stanza:stream_end(),
     NewState = send0(transport(State), exml:to_iolist(StreamEnd), State),
     {stop, normal, ok, NewState}.
+
 
 handle_cast(stop, State) ->
     {stop, normal, State};
@@ -230,6 +235,7 @@ handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
     {noreply, State#state{parser = NewParser}}.
 
+
 %% Handle async HTTP request replies.
 handle_info({http_reply, {_StatusAndReason, _Hdrs, Body}, Transport}, S) ->
     NS = handle_data(Body, S#state{requests = S#state.requests - 1}),
@@ -245,11 +251,14 @@ handle_info({http_reply, {_StatusAndReason, _Hdrs, Body}, Transport}, S) ->
 handle_info(_, State) ->
     {noreply, State}.
 
+
 terminate(_Reason, #state{parser = Parser}) ->
     exml_stream:free_parser(Parser).
 
+
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
+
 
 %%%===================================================================
 %%% Helpers
