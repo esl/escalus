@@ -40,7 +40,10 @@
          get_rid/1,
          get_keepalive/1,
          set_keepalive/2,
-         pause/2]).
+         pause/2,
+         get_active/1,
+         set_active/2,
+         recv/1]).
 
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
 -define(SERVER, ?MODULE).
@@ -53,7 +56,9 @@
                 rid = nil,
                 requests = 0,
                 keepalive = true,
-                wait}).
+                wait,
+                active = true,
+                replies = []}).
 
 %%%===================================================================
 %%% API
@@ -177,6 +182,25 @@ set_keepalive(#transport{rcv_pid = Pid}, NewKeepalive) ->
 pause(#transport{rcv_pid = Pid} = Transport, Seconds) ->
     gen_server:cast(Pid, {pause, Transport, Seconds}).
 
+%% get_-/set_active tries to tap into the intuition gained from using
+%% inet socket option {active, true | false | once}.
+%% An active BOSH transport sends unpacked stanzas to an escalus client,
+%% where they can be received using wait_for_stanzas.
+%% An inactive BOSH transport buffers the stanzas in its state.
+%% They can be retrieved using escalus_bosh:recv.
+%%
+%% Sometimes it's necessary to intercept the whole BOSH wrapper
+%% not only the wrapped stanzas. That's when this mechanism proves useful.
+get_active(#transport{rcv_pid = Pid}) ->
+    gen_server:call(Pid, get_active).
+
+set_active(#transport{rcv_pid = Pid}, Active) ->
+    gen_server:call(Pid, {set_active, Active}).
+
+-spec recv(#transport{}) -> xmlstreamelement() | empty.
+recv(#transport{rcv_pid = Pid}) ->
+    gen_server:call(Pid, recv).
+
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -213,6 +237,16 @@ handle_call({set_keepalive, NewKeepalive}, _From,
             #state{keepalive = Keepalive} = State) ->
     {reply, {ok, Keepalive, NewKeepalive},
      State#state{keepalive = NewKeepalive}};
+
+handle_call(get_active, _From, #state{active = Active} = State) ->
+    {reply, Active, State};
+handle_call({set_active, Active}, _From, State) ->
+    {reply, ok, State#state{active = Active}};
+
+handle_call(recv, _From, State) ->
+    {Reply, NS} = handle_recv(State),
+    {reply, Reply, NS};
+
 handle_call(stop, _From, #state{} = State) ->
     StreamEnd = escalus_stanza:stream_end(),
     NewState = send0(transport(State), exml:to_iolist(StreamEnd), State),
@@ -282,7 +316,7 @@ send0(Transport, Elem, State) ->
 
 handle_data(<<>>, State) ->
     State;
-handle_data(Data, #state{owner = Owner} = State) ->
+handle_data(Data, #state{} = State) ->
     {ok, Body} = exml:parse(Data),
     NewState = case State#state.sid of
         %% First reply for this transport, set sid
@@ -292,16 +326,37 @@ handle_data(Data, #state{owner = Owner} = State) ->
             State
     end,
     Stanzas = unwrap_elem(Body),
+    case State#state.active of
+        true ->
+            forward_to_owner(Stanzas, NewState),
+            NewState;
+        false ->
+            store_reply(Body, NewState)
+    end.
+
+forward_to_owner(Stanzas, #state{owner = Owner} = S) ->
     lists:foreach(fun(Stanza) ->
-        Owner ! {stanza, transport(NewState), Stanza}
+        Owner ! {stanza, transport(S), Stanza}
     end, Stanzas),
     case lists:keyfind(xmlstreamend, 1, Stanzas) of
         false ->
             ok;
         _ ->
             gen_server:cast(self(), stop)
+    end.
+
+store_reply(Body, #state{replies = Replies} = S) ->
+    S#state{replies = Replies ++ [Body]}.
+
+handle_recv(#state{replies = []} = S) ->
+    {empty, S};
+handle_recv(#state{replies = [Reply | Replies]} = S) ->
+    case Reply of
+        #xmlstreamend{} ->
+            gen_server:cast(self(), stop);
+        _ -> ok
     end,
-    NewState.
+    {Reply, S#state{replies = Replies}}.
 
 transport(#state{url = Url}) ->
     #transport{module = ?MODULE,
