@@ -63,7 +63,8 @@
          has_no_such_item/2,
          has_identity/3,
          stanza_timeout/1,
-         is_stream_end/1
+         is_stream_end/1,
+         is_bosh_report/2
      ]).
 
 -include("include/escalus.hrl").
@@ -315,6 +316,13 @@ stanza_timeout(Arg) ->
 is_stream_end(#xmlstreamend{}) ->
     true;
 is_stream_end(_) ->
+    false.
+
+is_bosh_report(#xmlelement{name = <<"body">>} = Body, Rid) ->
+    Rid == exml_query:attr(Body, <<"report">>)
+    andalso
+    exml_query:attr(Body, <<"time">>) /= undefined;
+is_bosh_report(_, _) ->
     false.
 
 %%--------------------------------------------------------------------
