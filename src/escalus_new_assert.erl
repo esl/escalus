@@ -56,6 +56,8 @@ mix_match(Predicates, Stanzas) ->
 %% Helpers
 %%==============================================================================
 
+arg_to_list(A) when is_atom(A) ->
+    atom_to_list(A);
 arg_to_list({'EXIT', {Err, _}}) ->
     "Exit:" ++ atom_to_list(Err);
 arg_to_list(Arg) ->
