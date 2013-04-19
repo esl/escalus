@@ -90,7 +90,7 @@ is_presence(_) ->
     false.
 
 is_presence_with_type(<<"available">>, Pres) ->
-    is_presence_with_type(Pres, undefined);
+    is_presence_with_type(undefined, Pres);
 is_presence_with_type(Type, Pres) ->
     is_presence(Pres)
     andalso
