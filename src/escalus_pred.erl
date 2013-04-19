@@ -133,7 +133,7 @@ is_chat_message(Msg, Stanza) ->
     bin(Msg) == exml_query:path(Stanza, [{element, <<"body">>}, cdata]).
 
 has_type(Type, Stanza) ->
-    bin(Type) == exml_query:attr(Stanza, <<"type">>).
+    bin(Type) == bin(exml_query:attr(Stanza, <<"type">>)).
 
 is_iq_set(Stanza) -> is_iq(<<"set">>, Stanza).
 is_iq_get(Stanza) -> is_iq(<<"get">>, Stanza).
