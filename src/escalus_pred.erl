@@ -132,6 +132,8 @@ is_chat_message(Msg, Stanza) ->
     andalso
     bin(Msg) == exml_query:path(Stanza, [{element, <<"body">>}, cdata]).
 
+has_type(undefined, Stanza) ->
+    undefined == exml_query:attr(Stanza, <<"type">>);
 has_type(Type, Stanza) ->
     bin(Type) == bin(exml_query:attr(Stanza, <<"type">>)).
 
