@@ -43,7 +43,8 @@
          pause/2,
          get_active/1,
          set_active/2,
-         recv/1]).
+         recv/1,
+         get_requests/1]).
 
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
 -define(SERVER, ?MODULE).
@@ -54,7 +55,7 @@
                 parser,
                 sid = nil,
                 rid = nil,
-                requests = 0,
+                requests = [],
                 keepalive = true,
                 wait,
                 active = true,
@@ -201,6 +202,9 @@ set_active(#transport{rcv_pid = Pid}, Active) ->
 recv(#transport{rcv_pid = Pid}) ->
     gen_server:call(Pid, recv).
 
+get_requests(#transport{rcv_pid = Pid}) ->
+    gen_server:call(Pid, get_requests).
+
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -247,6 +251,9 @@ handle_call(recv, _From, State) ->
     {Reply, NS} = handle_recv(State),
     {reply, Reply, NS};
 
+handle_call(get_requests, _From, State) ->
+    {reply, length(State#state.requests), State};
+
 handle_call(stop, _From, #state{} = State) ->
     StreamEnd = escalus_stanza:stream_end(),
     NewState = send0(transport(State), exml:to_iolist(StreamEnd), State),
@@ -271,9 +278,11 @@ handle_cast(reset_parser, #state{parser = Parser} = State) ->
 
 
 %% Handle async HTTP request replies.
-handle_info({http_reply, {_StatusAndReason, _Hdrs, Body}, Transport}, S) ->
-    NS = handle_data(Body, S#state{requests = S#state.requests - 1}),
-    NNS = case {NS#state.keepalive, NS#state.requests == 0} of
+handle_info({http_reply, Ref, {_StatusAndReason, _Hdrs, Body},
+             Transport}, S) ->
+    NewRequests = lists:keydelete(Ref, 1, S#state.requests),
+    NS = handle_data(Body, S#state{requests = NewRequests}),
+    NNS = case {NS#state.keepalive, NS#state.requests == []} of
         {false, _} ->
             NS;
         {true, true} ->
@@ -298,18 +307,18 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Helpers
 %%%===================================================================
 send(#transport{socket = {Host, Port, Path}} = Transport, Body,
-     #state{requests = Requests} = State) ->
+     #state{requests = Requests} = S) ->
     Headers = [{"Content-Type", "text/xml; charset=utf-8"}],
+    Ref = make_ref(),
     Self = self(),
     AsyncReq = fun() ->
-        {ok, Reply} =
-            lhttpc:request(Host, Port, false, Path, 'POST',
-                Headers, exml:to_iolist(Body), infinity, []),
-        Self ! {http_reply, Reply, Transport}
+            {ok, Reply} = lhttpc:request(Host, Port, false, Path, 'POST',
+                                         Headers, exml:to_iolist(Body),
+                                         infinity, []),
+            Self ! {http_reply, Ref, Reply, Transport}
     end,
-    proc_lib:spawn_link(AsyncReq),
-    State#state{rid = State#state.rid+1,
-                requests = Requests + 1}.
+    NewRequests = [{Ref, proc_lib:spawn_link(AsyncReq)} | Requests],
+    S#state{rid = S#state.rid+1, requests = NewRequests}.
 
 send0(Transport, Elem, State) ->
     send(Transport, wrap_elem(Elem, State), State).
