@@ -181,7 +181,7 @@ wrap_elem(#xmlstreamstart{attrs=Attrs}, #state{rid=Rid, sid=Sid}) ->
     Version = proplists:get_value(<<"version">>, Attrs, <<"1.0">>),
     Lang = proplists:get_value(<<"xml:lang">>, Attrs, <<"en">>),
     To = proplists:get_value(<<"to">>, Attrs, <<"localhost">>),
-    #xmlelement{name = <<"body">>, attrs=common_attrs(Rid, Sid) ++ [
+    #xmlel{name = <<"body">>, attrs=common_attrs(Rid, Sid) ++ [
             {<<"content">>, <<"text/xml; charset=utf-8">>},
             {<<"xmlns:xmpp">>, <<"urn:xmpp:xbosh">>},
             {<<"xmpp:version">>, Version},
@@ -192,19 +192,19 @@ wrap_elem(#xmlstreamstart{attrs=Attrs}, #state{rid=Rid, sid=Sid}) ->
             ] ++ [{<<"xmpp:restart">>, <<"true">>} || Sid =/= nil]};
 
 wrap_elem(["</", <<"stream:stream">>, ">"], #state{sid=Sid, rid=Rid}) ->
-    #xmlelement{name = <<"body">>,
+    #xmlel{name = <<"body">>,
                 attrs = common_attrs(Rid, Sid) ++ [{<<"type">>, <<"terminate">>}],
-                children = [#xmlelement{name = <<"presence">>,
+                children = [#xmlel{name = <<"presence">>,
                                    attrs = [{<<"type">>, <<"unavailable">>},
                                             {<<"xmlns">>, <<"jabber:client">>}]}]};
 
 wrap_elem(Element, #state{sid = Sid, rid=Rid}) ->
-    #xmlelement{name = <<"body">>,
+    #xmlel{name = <<"body">>,
                 attrs = common_attrs(Rid, Sid),
                 children = [Element]}.
 
 empty_body(#state{sid = Sid, rid=Rid}) ->
-    #xmlelement{name = <<"body">>,
+    #xmlel{name = <<"body">>,
                 attrs = common_attrs(Rid, Sid)}.
 
 common_attrs(Rid) ->
@@ -218,7 +218,7 @@ common_attrs(Rid, Sid) ->
 pack_rid(Rid) ->
     list_to_binary(integer_to_list(Rid)).
 
-unwrap_elem(#xmlelement{name = <<"body">>, children = Body, attrs=Attrs}) ->
+unwrap_elem(#xmlel{name = <<"body">>, children = Body, attrs=Attrs}) ->
     Type = detect_type(Attrs),
     case Type of
         {streamstart, Ver} ->

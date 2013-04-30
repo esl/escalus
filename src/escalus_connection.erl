@@ -74,7 +74,7 @@ connect(Props) ->
 send(#transport{module = Mod} = Transport, Elem) ->
     Mod:send(Transport, Elem).
 
--spec get_stanza(#transport{}, any()) -> #xmlelement{}.
+-spec get_stanza(#transport{}, any()) -> #xmlel{}.
 get_stanza(Conn, Name) ->
     receive
         {stanza, Conn, Stanza} ->

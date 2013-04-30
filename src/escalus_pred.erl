@@ -84,7 +84,7 @@
 %% Public API
 %%--------------------------------------------------------------------
 
-is_presence(#xmlelement{name = <<"presence">>}) ->
+is_presence(#xmlel{name = <<"presence">>}) ->
     true;
 is_presence(_) ->
     false.
@@ -96,12 +96,12 @@ is_presence_with_type(Type, Pres) ->
     andalso
     has_type(Type, Pres).
 
-is_message(#xmlelement{name = <<"message">>}) ->
+is_message(#xmlel{name = <<"message">>}) ->
     true;
 is_message(_) ->
     false.
 
-is_iq(#xmlelement{name = <<"iq">>}) ->
+is_iq(#xmlel{name = <<"iq">>}) ->
     true;
 is_iq(_) ->
     false.
@@ -183,7 +183,7 @@ is_private_error(Stanza) ->
 roster_contains(Contact, Stanza) ->
     ExpectedJid = escalus_utils:get_jid(Contact),
     Items = get_roster_items(Stanza),
-    lists:any(fun (#xmlelement{} = Element) ->
+    lists:any(fun (#xmlel{} = Element) ->
                       ContactJid = exml_query:attr(Element, <<"jid">>),
                       Pref = escalus_utils:is_prefix(ContactJid, ExpectedJid),
                       if %% TODO: simplify to `ContactJid == ExpectedJid`
@@ -264,7 +264,7 @@ is_adhoc_response(Node, Status, Stanza) ->
         Status == exml_query:path(Stanza, [{element, <<"command">>},
                                            {attr, <<"status">>}]).
 
-has_service(Service, #xmlelement{children = [ #xmlelement{children = Services} ]}) ->
+has_service(Service, #xmlel{children = [ #xmlel{children = Services} ]}) ->
     Pred = fun(Item) ->
                exml_query:attr(Item, <<"jid">>) =:= Service
            end,
@@ -318,7 +318,7 @@ stanza_timeout(Arg) ->
 get_roster_items(Stanza) ->
     escalus:assert(is_iq_with_ns, [?NS_ROSTER], Stanza),
     Query = exml_query:subelement(Stanza, <<"query">>),
-    Query#xmlelement.children.
+    Query#xmlel.children.
 
 has_path(Stanza, Path) ->
     exml_query:path(Stanza, Path) /= undefined.

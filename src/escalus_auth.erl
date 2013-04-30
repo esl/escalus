@@ -104,7 +104,7 @@ hex_md5(Data) ->
 get_challenge(Conn, Descr) ->
     Challenge = escalus_connection:get_stanza(Conn, Descr),
     case Challenge of
-        #xmlelement{name = <<"challenge">>, children=[CData]} ->
+        #xmlel{name = <<"challenge">>, children=[CData]} ->
             csvkv:parse(base64:decode(exml:unescape_cdata(CData)));
         _ ->
             throw({expected_challenge, got, Challenge})
@@ -112,7 +112,7 @@ get_challenge(Conn, Descr) ->
 
 wait_for_success(Username, Conn) ->
     AuthReply = escalus_connection:get_stanza(Conn, auth_reply),
-    case AuthReply#xmlelement.name of
+    case AuthReply#xmlel.name of
         <<"success">> ->
             ok;
         <<"failure">> ->

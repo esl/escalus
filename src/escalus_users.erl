@@ -244,7 +244,7 @@ wait_for_result(Conn) ->
             {error, timeout, exml:escape_cdata(<<"timeout">>)}
     end.
 
-response_type(#xmlelement{name = <<"iq">>} = IQ) ->
+response_type(#xmlel{name = <<"iq">>} = IQ) ->
     case exml_query:attr(IQ, <<"type">>) of
         <<"result">> ->
             result;
@@ -265,7 +265,7 @@ response_type(_) ->
 get_answers(UserSpec, InstrStanza) ->
     BinSpec = [{list_to_binary(atom_to_list(K)), V} || {K, V} <- UserSpec],
     Query = exml_query:subelement(InstrStanza, <<"query">>),
-    ChildrenNames = [N || #xmlelement{name = N} <- Query#xmlelement.children],
+    ChildrenNames = [N || #xmlel{name = N} <- Query#xmlel.children],
     NoInstr = ChildrenNames -- [<<"instructions">>],
-    [#xmlelement{name=K, children=[exml:escape_cdata(proplists:get_value(K, BinSpec))]}
+    [#xmlel{name=K, children=[exml:escape_cdata(proplists:get_value(K, BinSpec))]}
      || K <- NoInstr].

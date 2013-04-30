@@ -41,11 +41,11 @@
 -include("include/escalus.hrl").
 -include_lib("exml/include/exml.hrl").
 
--spec log_stanzas(iolist(), [#xmlelement{}]) -> any().
+-spec log_stanzas(iolist(), [#xmlel{}]) -> any().
 log_stanzas(Comment, Stanzas) ->
     error_logger:info_msg("~s:~s~n", [Comment, stanza_lines("\n  * ", Stanzas)]).
 
--spec pretty_stanza_list([#xmlelement{}]) -> string().
+-spec pretty_stanza_list([#xmlel{}]) -> string().
 pretty_stanza_list(Stanzas) ->
     binary_to_list(list_to_binary(stanza_lines("     ", Stanzas))).
 
