@@ -126,12 +126,12 @@ empty_body(Rid, Sid) ->
 
 empty_body(Rid, Sid, ExtraAttrs) ->
     #xmlel{name = <<"body">>,
-                attrs = common_attrs(Rid, Sid) ++ ExtraAttrs}.
+           attrs = common_attrs(Rid, Sid) ++ ExtraAttrs}.
 
 pause_body(Rid, Sid, Seconds) ->
     Empty = empty_body(Rid, Sid),
     Pause = {<<"pause">>, list_to_binary(integer_to_list(Seconds))},
-    Empty#xmlelement{attrs = Empty#xmlelement.attrs ++ [Pause]}.
+    Empty#xmlel{attrs = Empty#xmlel.attrs ++ [Pause]}.
 
 common_attrs(Rid) ->
     [{<<"rid">>, pack_rid(Rid)},

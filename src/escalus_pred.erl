@@ -318,7 +318,7 @@ is_stream_end(#xmlstreamend{}) ->
 is_stream_end(_) ->
     false.
 
-is_bosh_report(Rid, #xmlelement{name = <<"body">>} = Body) ->
+is_bosh_report(Rid, #xmlel{name = <<"body">>} = Body) ->
     Rid == list_to_integer(binary_to_list(exml_query:attr(Body, <<"report">>)))
     andalso
     exml_query:attr(Body, <<"time">>) /= undefined;
