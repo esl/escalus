@@ -56,9 +56,11 @@ make_everyone_friends(Config0, Users) ->
         swallow_stanzas(C1, 1, 0),
         swallow_stanzas(C2, 0, 1),
         send_presence(C2, <<"subscribe">>, C1),
+        swallow_stanzas(C1, 1, 1),
+        swallow_stanzas(C2, 1, 0),
         send_presence(C2, <<"subscribed">>, C1),
-        swallow_stanzas(C1, 2, 3),
-        swallow_stanzas(C2, 2, 0),
+        swallow_stanzas(C1, 1, 2),
+        swallow_stanzas(C2, 1, 0),
         send_presence(C1, <<"subscribed">>, C2),
         swallow_stanzas(C1, 1, 0),
         swallow_stanzas(C2, 1, 2)
