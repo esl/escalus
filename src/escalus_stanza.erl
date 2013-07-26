@@ -28,6 +28,7 @@
          presence/2,
          presence_direct/2,
          presence_direct/3,
+         presence_show/1,
          error_element/2,
          roster_get/0,
          roster_add_contact/3,
@@ -198,6 +199,10 @@ presence_direct(#client{} = Recipient, Type, Body) ->
     end;
 presence_direct(Recipient, Type, Body) ->
     to(presence(Type, Body), Recipient).
+
+presence_show(Show) ->
+    presence(<<"available">>,
+             #xmlel{name = <<"show">>, children=[#xmlcdata{content = Show}]}).
 
 error_element(Type, Condition) ->
     #xmlel{
