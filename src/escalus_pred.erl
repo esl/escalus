@@ -48,6 +48,7 @@
          count_roster_items/2,
          roster_contains/2,
          is_error/3,
+         is_stream_error/3,
          is_privacy_set/1,
          has_type/2,
          is_privacy_result/1,
@@ -212,6 +213,17 @@ is_error(Type, Condition, Stanza) ->
     andalso
     exml_query:path(Error, [{element, bin(Condition)},
                             {attr, <<"xmlns">>}]) == ?NS_STANZA_ERRORS.
+
+is_stream_error(Type, Text, Stanza) ->
+    Stanza#xmlel.name =:= <<"stream:error">>
+    andalso
+    exml_query:subelement(Stanza, Type) =/= undefined
+    andalso
+    case Text of
+        <<>> -> true;
+        _ -> [#xmlcdata{content = Text}]
+             =:= (exml_query:subelement(Stanza, <<"text">>))#xmlel.children
+    end.
 
 is_privacy_set(Stanza) ->
     is_iq(<<"set">>, ?NS_PRIVACY, Stanza).
