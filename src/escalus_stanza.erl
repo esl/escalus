@@ -77,7 +77,7 @@
 -export([bind/1, session/0]).
 
 %% new ones
--export([setattr/3, to/2, tags/1]).
+-export([setattr/3, to/2, from/2, tags/1]).
 -export([get_registration_fields/0, register_account/1]).
 -export([remove_account/0]).
 
@@ -161,6 +161,11 @@ to(Stanza, Recipient) when is_binary(Recipient) ->
     setattr(Stanza, <<"to">>, Recipient);
 to(Stanza, Recipient) ->
     setattr(Stanza, <<"to">>, escalus_utils:get_jid(Recipient)).
+
+from(Stanza, Recipient) when is_binary(Recipient) ->
+    setattr(Stanza, <<"from">>, Recipient);
+from(Stanza, Recipient) ->
+    setattr(Stanza, <<"from">>, escalus_utils:get_jid(Recipient)).
 
 setattr(Stanza, Key, Val) ->
     NewAttrs = lists:keystore(Key, 1, Stanza#xmlel.attrs, {Key, Val}),
