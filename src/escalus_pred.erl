@@ -22,6 +22,7 @@
 -export([is_message/1,
          is_chat_message/1,
          is_chat_message/2,
+         is_headline_message/3,
          is_iq/1,
          is_iq/2,
          is_iq/3,
@@ -134,6 +135,15 @@ is_chat_message(Msg, Stanza) ->
     is_chat_message(Stanza)
     andalso
     bin(Msg) == exml_query:path(Stanza, [{element, <<"body">>}, cdata]).
+
+is_headline_message(Subject, Msg, Stanza) ->
+    is_message(Stanza)
+    andalso
+    has_type(<<"headline">>, Stanza)
+    andalso
+    bin(Msg) == exml_query:path(Stanza, [{element, <<"body">>}, cdata])
+    andalso
+    bin(Subject) == exml_query:path(Stanza, [{element, <<"subject">>}, cdata]).
 
 has_type(undefined, Stanza) ->
     undefined == exml_query:attr(Stanza, <<"type">>);
