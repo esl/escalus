@@ -1,7 +1,9 @@
-The [test/example_SUITE.erl](/goj/escalus/blob/master/test/example_SUITE.erl) file contains minimalistic example
-of Escalus test suite.
+The [test/example_SUITE.erl][example_SUITE] file contains a minimalistic
+example of an Escalus test suite.
 
-You should include escalus.hrl file and common test header.
+[example_SUITE]: /test/example_SUITE.erl
+
+You should include `escalus.hrl` file and the Common Test header:
 
     -include_lib("escalus/include/escalus.hrl").
     -include_lib("common_test/include/ct.hrl").
@@ -9,11 +11,11 @@ You should include escalus.hrl file and common test header.
 Escalus contains functions `escalus:init_per_suite/1`,
 `escalus:end_per_suite/1`, `escalus:init_per_testcase` and
 `escalus:end_per_testcase` which should be called in
-appropriate common test callback functions.
+appropriate Common Test callback functions.
 
 You can specify users that will take part in your tests
-in Common Test config files, look at [test/test.config](/goj/escalus/blob/master/test/test.config)
-file that comes with Escalus.
+in Common Test config files,
+look at [test/test.config][test_config] file that comes with Escalus:
 
     {escalus_users, [
         {alice, [
@@ -25,6 +27,8 @@ file that comes with Escalus.
             {server, "localhost"},
             {password, "bobcat"}]}
     ]}.
+
+[test_config]: /test/test.config
 
 Escalus can create and delete those users if
 server under test supports in-band registration
