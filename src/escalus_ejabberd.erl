@@ -20,6 +20,7 @@
 -module(escalus_ejabberd).
 
 -export([rpc/3,
+         rpc/4,
          remote_display/1,
          remote_format/1,
          remote_format/2,
@@ -37,8 +38,12 @@
 -include("include/escalus.hrl").
 
 rpc(M, F, A) ->
-    Node = ct:get_config(ejabberd_node),
-    Cookie = ct:get_config(ejabberd_cookie),
+    rpc(M, F, A, []).
+
+%% Variant expecting `node' and `cookie' to be passed in `Opts'.
+rpc(M, F, A, Opts) ->
+    Node = proplists:get_value(node, Opts, ct:get_config(ejabberd_node)),
+    Cookie = proplists:get_value(cookie, Opts, ct:get_config(ejabberd_cookie)),
     ct_rpc:call(Node, M, F, A, 3000, Cookie).
 
 remote_display(String) ->
