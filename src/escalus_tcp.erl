@@ -31,7 +31,12 @@
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
 -define(SERVER, ?MODULE).
 
--record(state, {owner, socket, parser, ssl = false, compress = false, event_client}).
+-record(state, {owner,
+                socket,
+                parser,
+                ssl = false,
+                compress = false,
+                event_client}).
 
 %%%===================================================================
 %%% API

@@ -59,7 +59,8 @@
                 keepalive = true,
                 wait,
                 active = true,
-                replies = []}).
+                replies = [],
+                event_client}).
 
 %%%===================================================================
 %%% API
@@ -214,6 +215,7 @@ init([Args, Owner]) ->
     Port = proplists:get_value(port, Args, 5280),
     Path = proplists:get_value(path, Args, <<"/http-bind">>),
     Wait = proplists:get_value(bosh_wait, Args, ?DEFAULT_WAIT),
+    EventClient = proplists:get_value(event_client, Args),
     HostStr = binary_to_list(Host),
     {MS, S, MMS} = now(),
     InitRid = MS * 1000000 * 1000000 + S * 1000000 + MMS,
@@ -223,7 +225,8 @@ init([Args, Owner]) ->
                 parser = Parser,
                 rid = InitRid,
                 keepalive = proplists:get_value(keepalive, Args, true),
-                wait = Wait}}.
+                wait = Wait,
+                event_client = EventClient}}.
 
 
 handle_call(get_transport, _From, State) ->
@@ -343,9 +346,11 @@ handle_data(Data, #state{} = State) ->
             store_reply(Body, NewState)
     end.
 
-forward_to_owner(Stanzas, #state{owner = Owner} = S) ->
+forward_to_owner(Stanzas, #state{owner = Owner,
+                                 event_client = EventClient} = S) ->
     lists:foreach(fun(Stanza) ->
-        Owner ! {stanza, transport(S), Stanza}
+        Owner ! {stanza, transport(S), Stanza},
+        escalus_event:incoming_stanza(EventClient, Stanza)
     end, Stanzas),
     case lists:keyfind(xmlstreamend, 1, Stanzas) of
         false ->

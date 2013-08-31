@@ -88,5 +88,5 @@ notify_stanza(Client, EventName, Stanza) ->
 jid(Client) ->
     Server   = proplists:get_value(server, Client),
     User     = proplists:get_value(username, Client),
-    Resource = proplists:get_value(server, Client),
+    Resource = proplists:get_value(resource, Client),
     {User, Server, Resource}.
