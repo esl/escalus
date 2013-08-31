@@ -55,10 +55,12 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_testcase(_CaseName, Config) ->
-    escalus_cleaner:start(Config).
+    Config1 = escalus_cleaner:start(Config),
+    escalus_event:start(Config1).
 
 end_per_testcase(_CaseName, Config) ->
-    escalus_cleaner:stop(Config).
+    Config1 = escalus_event:stop(Config),
+    escalus_cleaner:stop(Config1).
 
 %%--------------------------------------------------------------------
 %% Public API - forward functions from other modules

@@ -31,7 +31,7 @@
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
 -define(SERVER, ?MODULE).
 
--record(state, {owner, socket, parser, ssl = false, compress = false}).
+-record(state, {owner, socket, parser, ssl = false, compress = false, event_client}).
 
 %%%===================================================================
 %%% API
@@ -93,13 +93,15 @@ get_transport(#transport{rcv_pid = Pid}) ->
 init([Args, Owner]) ->
     Host = proplists:get_value(host, Args, <<"localhost">>),
     Port = proplists:get_value(port, Args, 5222),
+    EventClient = proplists:get_value(event_client, Args),
     HostStr = binary_to_list(Host),
     Opts = [binary, {active, once}],
     {ok, Socket} = gen_tcp:connect(HostStr, Port, Opts),
     {ok, Parser} = exml_stream:new_parser(),
     {ok, #state{owner = Owner,
                 socket = Socket,
-                parser = Parser}}.
+                parser = Parser,
+                event_client = EventClient}}.
 
 handle_call(get_transport, _From, State) ->
     {reply, transport(State), State};
@@ -177,7 +179,8 @@ code_change(_OldVsn, State, _Extra) ->
 handle_data(Socket, Data, #state{owner = Owner,
                                  parser = Parser,
                                  socket = Socket,
-                                 compress = Compress} = State) ->
+                                 compress = Compress,
+                                 event_client = EventClient} = State) ->
     {ok, NewParser, Stanzas} =
         case Compress of
             false ->
@@ -188,7 +191,8 @@ handle_data(Socket, Data, #state{owner = Owner,
         end,
     NewState = State#state{parser = NewParser},
     lists:foreach(fun(Stanza) ->
-        Owner ! {stanza, transport(NewState), Stanza}
+        Owner ! {stanza, transport(NewState), Stanza},
+        escalus_event:incoming_stanza(EventClient, Stanza)
     end, Stanzas),
     case [StrEnd || #xmlstreamend{} = StrEnd <- Stanzas] of
         [] -> {noreply, NewState};

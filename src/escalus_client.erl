@@ -45,11 +45,12 @@
 %%--------------------------------------------------------------------
 
 start(Config, UserSpec, Resource) ->
-    Options = escalus_users:get_options(Config, UserSpec, Resource),
+    EventClient = escalus_event:new_client(Config, UserSpec, Resource),
+    Options = escalus_users:get_options(Config, UserSpec, Resource, EventClient),
     case escalus_connection:start(Options) of
         {ok, Conn, Props} ->
             Jid = make_jid(Props),
-            Client = #client{jid = Jid, conn = Conn},
+            Client = #client{jid = Jid, conn = Conn, event_client = EventClient},
             escalus_cleaner:add_client(Config, Client),
             {ok, Client};
         {error, Error} ->
@@ -90,9 +91,11 @@ wait_for_stanzas(Client, Count, Timeout) ->
 
 do_wait_for_stanzas(_Client, 0, _TimeoutMsg, Acc) ->
     lists:reverse(Acc);
-do_wait_for_stanzas(#client{conn = Conn}=Client, Count, TimeoutMsg, Acc) ->
+do_wait_for_stanzas(#client{conn = Conn, event_client=EventClient}=Client,
+                    Count, TimeoutMsg, Acc) ->
     receive
         {stanza, Conn, Stanza} ->
+            escalus_event:pop_incoming_stanza(EventClient, Stanza),
             do_wait_for_stanzas(Client, Count - 1, TimeoutMsg, [Stanza|Acc]);
         %% FIXME: stream error
         TimeoutMsg ->
@@ -110,7 +113,8 @@ wait_for_stanza(Client, Timeout) ->
             exit({timeout_when_waiting_for_stanza, Client})
     end.
 
-send(#client{conn = Conn}, Packet) ->
+send(#client{conn = Conn, event_client = EventClient}, Packet) ->
+    escalus_event:outgoing_stanza(EventClient, Packet),
     ok = escalus_connection:send(Conn, Packet).
 
 send_and_wait(Client, Packet) ->

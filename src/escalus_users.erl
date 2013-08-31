@@ -29,6 +29,7 @@
          update_userspec/4,
          get_options/2,
          get_options/3,
+         get_options/4,
          get_users/1,
          get_user_by_name/1,
          create_user/2,
@@ -128,6 +129,9 @@ get_options(Config, User) ->
 
 get_options(Config, User, Resource) ->
     [{resource, bin(Resource)} | get_options(Config, User)].
+
+get_options(Config, User, Resource, EventClient) ->
+    [{event_client, EventClient} | get_options(Config, User, Resource)].
 
 get_userspec(Config, Username) when is_atom(Username) ->
     Users = escalus_config:get_config(escalus_users, Config),

@@ -16,7 +16,8 @@
 
 -record(client, {
         jid :: binary(),
-        conn :: any()
+        conn :: any(),
+        event_client :: any()
 }).
 
 -record(jid, {
@@ -30,4 +31,5 @@
         ssl :: boolean(),
         compress :: {zlib, {Zin::zlib:zstream(), Zout::zlib:zstream()}}
                  |  false,
-        rcv_pid :: pid()}).
+        rcv_pid :: pid(),
+        event_client :: any()}).

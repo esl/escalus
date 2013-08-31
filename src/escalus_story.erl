@@ -37,6 +37,10 @@ story(Config, ResourceCounts, Story) ->
         ensure_all_clean(Clients),
         apply(Story, Clients),
         post_story_checks(Config, Clients)
+    catch Class:Reason ->
+        Stacktrace = erlang:get_stacktrace(),
+        escalus_event:print_history(Config),
+        erlang:raise(Class, Reason, Stacktrace)
     after
         escalus_cleaner:clean(Config)
     end.
