@@ -259,7 +259,8 @@ handle_call(get_requests, _From, State) ->
 
 handle_call(stop, _From, #state{} = State) ->
     StreamEnd = escalus_stanza:stream_end(),
-    NewState = send0(transport(State), exml:to_iolist(StreamEnd), State),
+    {ok, _Reply, NewState} =
+    sync_send0(transport(State), exml:to_iolist(StreamEnd), State),
     {stop, normal, ok, NewState}.
 
 
@@ -309,22 +310,32 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Helpers
 %%%===================================================================
-send(#transport{socket = {Host, Port, Path}} = Transport, Body,
-     #state{requests = Requests} = S) ->
+
+request(#transport{socket = {Host, Port, Path}}, Body) ->
     Headers = [{"Content-Type", "text/xml; charset=utf-8"}],
+    lhttpc:request(Host, Port, false, Path, 'POST',
+                   Headers, exml:to_iolist(Body),
+                   infinity, []).
+
+send(Transport, Body, #state{requests = Requests} = S) ->
     Ref = make_ref(),
     Self = self(),
     AsyncReq = fun() ->
-            {ok, Reply} = lhttpc:request(Host, Port, false, Path, 'POST',
-                                         Headers, exml:to_iolist(Body),
-                                         infinity, []),
+            {ok, Reply} = request(Transport, Body),
             Self ! {http_reply, Ref, Reply, Transport}
     end,
     NewRequests = [{Ref, proc_lib:spawn_link(AsyncReq)} | Requests],
     S#state{rid = S#state.rid+1, requests = NewRequests}.
 
+sync_send(Transport, Body, S=#state{}) ->
+    {ok, Reply} = request(Transport, Body),
+    {ok, Reply, S#state{rid = S#state.rid+1}}.
+
 send0(Transport, Elem, State) ->
     send(Transport, wrap_elem(Elem, State), State).
+
+sync_send0(Transport, Elem, State) ->
+    sync_send(Transport, wrap_elem(Elem, State), State).
 
 handle_data(<<>>, State) ->
     State;
