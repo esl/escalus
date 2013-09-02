@@ -68,10 +68,13 @@ manager(Config) ->
     proplists:get_value(escalus_event_mgr, Config).
 
 %% @doc Create a new event emitter.
-new_client(Config, User, Resource)
-    when is_list(Config), is_binary(Resource) ->
+new_client(Config, User, MaybeResource) when is_list(Config) ->
     UserSpec = escalus_users:get_userspec(Config, User),
+    Resource = maybe_resource_to_binary(MaybeResource),
     new_client_1(manager(Config), UserSpec, Resource).
+
+maybe_resource_to_binary(undefined) -> <<>>;
+maybe_resource_to_binary(Resource) when is_binary(Resource) -> Resource.
 
 new_client_1(undefined, _UserSpec, _Resource) ->
     undefined;
