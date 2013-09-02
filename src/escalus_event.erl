@@ -68,8 +68,15 @@ manager(Config) ->
     proplists:get_value(escalus_event_mgr, Config).
 
 %% @doc Create a new event emitter.
-new_client(Config, UserSpec, Resource) ->
-    [{event_manager, manager(Config)},
+new_client(Config, User, Resource)
+    when is_list(Config), is_binary(Resource) ->
+    UserSpec = escalus_users:get_userspec(Config, User),
+    new_client_1(manager(Config), UserSpec, Resource).
+
+new_client_1(undefined, _UserSpec, _Resource) ->
+    undefined;
+new_client_1(Mgr, UserSpec, Resource) ->
+    [{event_manager, Mgr},
      {server, proplists:get_value(server, UserSpec)},
      {username, proplists:get_value(username, UserSpec)},
      {resource, Resource}].
