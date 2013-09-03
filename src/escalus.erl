@@ -54,9 +54,9 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
-init_per_testcase(_CaseName, Config) ->
+init_per_testcase(CaseName, Config) ->
     Config1 = escalus_cleaner:start(Config),
-    escalus_event:start(Config1).
+    escalus_event:start([{tc_name, CaseName}|Config1]).
 
 end_per_testcase(_CaseName, Config) ->
     Config1 = escalus_event:stop(Config),

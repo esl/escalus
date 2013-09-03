@@ -11,7 +11,8 @@
      code_change/3]).
 
 -record(state, {
-        events
+        events :: list(),
+        counters :: dict()
 }).
 
 get_history(Mgr) ->
@@ -48,6 +49,7 @@ terminate(_, _) ->
 %% Helpers
 %% ===================================================================
 
-save_stanza(Type, Jid, Stanza, State=#state{events=Events}) ->
-    State#state{events=[{Type, Jid, now(), Stanza}|Events]}.
+save_stanza(Type, Jid, Stanza, State=#state{events = Events}) ->
+    State#state{
+        events = [{Type, Jid, now(), Stanza}|Events]}.
 

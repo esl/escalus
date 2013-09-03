@@ -16,6 +16,8 @@
 -export([get_history/1,
          print_history/1]).
 
+-include_lib("exml/include/exml.hrl").
+
 -type manager() :: pid().
 
 %% =======================================================================
@@ -60,9 +62,57 @@ get_history(Config) ->
     escalus_history_h:get_history(manager(Config)).
 
 print_history(Config) ->
+    CaseName = proplists:get_value(tc_name, Config),
+    PrivDir  = proplists:get_value(priv_dir, Config),
+    FileName = atom_to_list(CaseName) ++ ".xml",
+    FullFileName = filename:join(PrivDir, FileName),
     Events = get_history(Config),
-    io:format("~p", [Events]),
+    write_events(Events, FullFileName),
+    % ct_logs:add_link(Heading, FileName, Type),
+    ct_logs:add_link("history.xml", FileName, ""),
     ok.
+
+write_events([], _) ->
+    ok;
+write_events(Events, OutFileName) ->
+    {ok, FD} = file:open(OutFileName, [write]),
+    BaseTime = base_time(Events),
+    file:write(FD, <<"<history xmlns:stream=\""
+                     "http://etherx.jabber.org/streams\">">>),
+    [file:write(FD, exml:to_iolist(build_event_elem(
+                    Type, JID, BaseTime, Time, Elem)))
+     || {Type, JID, Time, Elem} <-
+        collapse_incoming_events(filter_elements(Events))],
+    file:write(FD, <<"</history>">>),
+    file:close(FD).
+
+filter_elements(Events) ->
+    [{Type, JID, Time, Elem} ||
+     {Type, JID, Time, Elem} <- Events, is_element(Elem)].
+
+is_element(#xmlel{}) -> true;
+is_element(_)        -> false. %% xmlstreamstart and end
+
+base_time([{_Type, _JID, BaseTime, _Elem}|_]) ->
+    BaseTime.
+
+%% @doc Delete a duplicated `Elem'.
+collapse_incoming_events([{incoming_stanza, JID, Time1, Elem},
+                          {pop_incoming_stanza, JID, Time2, Elem}|T]) ->
+    [{incoming_stanza, JID, Time1, Elem},
+     {pop_incoming_stanza, JID, Time2, undefined}
+    | collapse_incoming_events(T)];
+collapse_incoming_events([H|T]) ->
+    [H|collapse_incoming_events(T)];
+collapse_incoming_events([]) ->
+    [].
+
+build_event_elem(Type, JID, BaseTime, Time, Elem) ->
+    #xmlel{
+        name = list_to_binary(atom_to_list(Type)),
+        attrs = [{<<"jid">>, jid_to_binary(JID)},
+                 {<<"offset">>, time_offset_binary(BaseTime, Time)}],
+        children = [Elem || Elem =/= undefined]}.
 
 manager(Config) ->
     proplists:get_value(escalus_event_mgr, Config).
@@ -100,3 +150,14 @@ jid(Client) ->
     User     = proplists:get_value(username, Client),
     Resource = proplists:get_value(resource, Client),
     {User, Server, Resource}.
+
+jid_to_binary({User, Server, Resource}) ->
+    <<User/binary,"@",Server/binary,"/",Resource/binary>>.
+
+now_to_microseconds({Mega, Secs, Micro}) ->
+    Mega * 1000000 * 1000000 + Secs * 1000000 + Micro.
+
+time_offset_binary(BaseTime, Time) ->
+    Offset = now_to_microseconds(Time) - now_to_microseconds(BaseTime),
+    list_to_binary(integer_to_list(Offset)).
+

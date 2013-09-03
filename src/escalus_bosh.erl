@@ -360,8 +360,8 @@ handle_data(Data, #state{} = State) ->
 forward_to_owner(Stanzas, #state{owner = Owner,
                                  event_client = EventClient} = S) ->
     lists:foreach(fun(Stanza) ->
-        Owner ! {stanza, transport(S), Stanza},
-        escalus_event:incoming_stanza(EventClient, Stanza)
+        escalus_event:incoming_stanza(EventClient, Stanza),
+        Owner ! {stanza, transport(S), Stanza}
     end, Stanzas),
     case lists:keyfind(xmlstreamend, 1, Stanzas) of
         false ->

@@ -196,8 +196,8 @@ handle_data(Socket, Data, #state{owner = Owner,
         end,
     NewState = State#state{parser = NewParser},
     lists:foreach(fun(Stanza) ->
-        Owner ! {stanza, transport(NewState), Stanza},
-        escalus_event:incoming_stanza(EventClient, Stanza)
+        escalus_event:incoming_stanza(EventClient, Stanza),
+        Owner ! {stanza, transport(NewState), Stanza}
     end, Stanzas),
     case [StrEnd || #xmlstreamend{} = StrEnd <- Stanzas] of
         [] -> {noreply, NewState};
