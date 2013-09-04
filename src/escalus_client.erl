@@ -113,8 +113,7 @@ wait_for_stanza(Client, Timeout) ->
             exit({timeout_when_waiting_for_stanza, Client})
     end.
 
-send(#client{conn = Conn, event_client = EventClient}, Packet) ->
-    escalus_event:outgoing_stanza(EventClient, Packet),
+send(#client{conn = Conn}, Packet) ->
     ok = escalus_connection:send(Conn, Packet).
 
 send_and_wait(Client, Packet) ->

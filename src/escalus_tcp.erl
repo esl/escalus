@@ -207,12 +207,16 @@ handle_data(Socket, Data, #state{owner = Owner,
 common_terminate(_Reason, #state{parser = Parser}) ->
     exml_stream:free_parser(Parser).
 
-transport(#state{socket = Socket, ssl = Ssl, compress = Compress}) ->
+transport(#state{socket = Socket,
+                 ssl = Ssl,
+                 compress = Compress,
+                 event_client = EventClient}) ->
     #transport{module = ?MODULE,
+               rcv_pid = self(),
                socket = Socket,
                ssl = Ssl,
                compress = Compress,
-               rcv_pid = self()}.
+               event_client = EventClient}.
 
 wait_until_closed(Socket) ->
     receive

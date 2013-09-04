@@ -110,7 +110,8 @@ connect(Props) ->
     {ok, Conn} = Mod:connect(NewProps),
     {ok, Conn, NewProps}.
 
-send(#transport{module = Mod} = Transport, Elem) ->
+send(#transport{module = Mod, event_client = EventClient} = Transport, Elem) ->
+    escalus_event:outgoing_stanza(EventClient, Elem),
     Mod:send(Transport, Elem).
 
 -spec get_stanza(#transport{}, any()) -> #xmlel{}.

@@ -383,12 +383,13 @@ handle_recv(#state{replies = [Reply | Replies]} = S) ->
     end,
     {Reply, S#state{replies = Replies}}.
 
-transport(#state{url = Url}) ->
+transport(#state{url = Url, event_client = EventClient}) ->
     #transport{module = ?MODULE,
-               socket = Url,
                ssl = false,
                compress = false,
-               rcv_pid = self()}.
+               rcv_pid = self(),
+               socket = Url,
+               event_client = EventClient}.
 
 wrap_elem(#xmlstreamstart{attrs = Attrs},
           #state{rid = Rid, sid = Sid, wait = Wait}) ->

@@ -32,7 +32,7 @@
 -define(HANDSHAKE_TIMEOUT, 3000).
 -define(SERVER, ?MODULE).
 
--record(state, {owner, socket, parser, compress = false}).
+-record(state, {owner, socket, parser, compress = false, event_client}).
 
 %%%===================================================================
 %%% API
@@ -86,6 +86,7 @@ init([Args, Owner]) ->
     Host = proplists:get_value(host, Args, <<"localhost">>),
     Port = proplists:get_value(port, Args, 5222),
     WSPath = proplists:get_value(wspath, Args, <<"ws-xmpp">>),
+    EventClient = proplists:get_value(event_client, Args),
     HostStr = binary_to_list(Host),
     {ok, Socket} = wsecli:start(HostStr, Port, WSPath, anon),
     Pid = self(),
@@ -97,7 +98,8 @@ init([Args, Owner]) ->
     {ok, Parser} = exml_stream:new_parser(),
     {ok, #state{owner = Owner,
                 socket = Socket,
-                parser = Parser}}.
+                parser = Parser,
+                event_client = EventClient}}.
 
 handle_call(get_transport, _From, State) ->
     {reply, transport(State), State};
@@ -162,10 +164,11 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Helpers
 %%%===================================================================
-handle_data(Data, #state{owner = Owner,
+handle_data(Data, State = #state{owner = Owner,
                                  parser = Parser,
                                  socket = Socket,
-                                 compress = Compress} = State) ->
+                                 compress = Compress,
+                                 event_client = EventClient}) ->
     {ok, NewParser, Stanzas} =
         case Compress of
             false ->
@@ -176,6 +179,7 @@ handle_data(Data, #state{owner = Owner,
         end,
     NewState = State#state{parser = NewParser},
     lists:foreach(fun(Stanza) ->
+        escalus_event:incoming_stanza(EventClient, Stanza),
         Owner ! {stanza, transport(NewState), Stanza}
     end, Stanzas),
     case [StrEnd || #xmlstreamend{} = StrEnd <- Stanzas] of
@@ -186,12 +190,15 @@ handle_data(Data, #state{owner = Owner,
 common_terminate(_Reason, #state{parser = Parser}) ->
     exml_stream:free_parser(Parser).
 
-transport(#state{socket = Socket, compress = Compress}) ->
+transport(#state{socket = Socket,
+                 compress = Compress,
+                 event_client = EventClient}) ->
     #transport{module = ?MODULE,
                socket = Socket,
                ssl = undefined,
                compress = Compress,
-               rcv_pid = self()}.
+               rcv_pid = self(),
+               event_client = EventClient}.
 
 wait_until_closed() ->
     receive
