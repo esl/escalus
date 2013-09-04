@@ -35,7 +35,9 @@ story(Config, ResourceCounts, Story) ->
     try
         Clients = start_clients(Config, ClientDescs),
         ensure_all_clean(Clients),
+        escalus_event:story_start(Config),
         apply(Story, Clients),
+        escalus_event:story_end(Config),
         post_story_checks(Config, Clients)
     catch Class:Reason ->
         Stacktrace = erlang:get_stacktrace(),

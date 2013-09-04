@@ -30,6 +30,10 @@ handle_event({outgoing_stanza, Jid, Stanza}, State) ->
     {ok, save_stanza(outgoing_stanza, Jid, Stanza, State)};
 handle_event({pop_incoming_stanza, Jid, Stanza}, State) ->
     {ok, save_stanza(pop_incoming_stanza, Jid, Stanza, State)};
+handle_event(story_start, State) ->
+    {ok, save_story_event(story_start, State)};
+handle_event(story_end, State) ->
+    {ok, save_story_event(story_end, State)};
 handle_event(_Event, State) ->
     {ok, State}.
 
@@ -51,5 +55,8 @@ terminate(_, _) ->
 
 save_stanza(Type, Jid, Stanza, State=#state{events = Events}) ->
     State#state{
-        events = [{Type, Jid, now(), Stanza}|Events]}.
+        events = [{stanza, Type, Jid, now(), Stanza}|Events]}.
 
+save_story_event(Type, State=#state{events = Events}) ->
+    State#state{
+        events = [{story, Type, now()}|Events]}.

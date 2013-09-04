@@ -10,7 +10,9 @@
 %% Notifications
 -export([incoming_stanza/2,
          outgoing_stanza/2,
-         pop_incoming_stanza/2]).
+         pop_incoming_stanza/2,
+         story_start/1,
+         story_end/1]).
 
 %% History
 -export([get_history/1,
@@ -42,6 +44,13 @@ pop_incoming_stanza(Client, Stanza) ->
 
 outgoing_stanza(Client, Stanza) ->
     notify_stanza(Client, outgoing_stanza, Stanza).
+
+story_start(Config) ->
+    gen_event:notify(manager(Config), story_start).
+
+story_end(Config) ->
+    gen_event:notify(manager(Config), story_end).
+
 
 %% ====================================================================
 
@@ -79,35 +88,53 @@ write_events(Events, OutFileName) ->
     BaseTime = base_time(Events),
     file:write(FD, <<"<history xmlns:stream=\""
                      "http://etherx.jabber.org/streams\">">>),
-    [file:write(FD, exml:to_iolist(build_event_elem(
-                    Type, JID, BaseTime, Time, Elem)))
-     || {Type, JID, Time, Elem} <-
-        collapse_incoming_events(filter_elements(Events))],
+    [file:write(FD, exml:to_iolist(build_elem_event(BaseTime, E)))
+     ||  E <- collapse_incoming_events(filter_elements(Events))],
     file:write(FD, <<"</history>">>),
     file:close(FD).
 
 filter_elements(Events) ->
-    [{Type, JID, Time, Elem} ||
-     {Type, JID, Time, Elem} <- Events, is_element(Elem)].
+    [E || E <- Events, not is_event_with_stream_border(E)].
+
+is_event_with_stream_border({stanza, _Type, _JID, _Time, Elem}) ->
+    not is_element(Elem);
+is_event_with_stream_border(_) ->
+    false.
 
 is_element(#xmlel{}) -> true;
 is_element(_)        -> false. %% xmlstreamstart and end
 
-base_time([{_Type, _JID, BaseTime, _Elem}|_]) ->
-    BaseTime.
+base_time([H|_]) ->
+    event_time(H).
+
+event_time({stanza, _Type, _JID, Time, _Elem}) ->
+    Time;
+event_time({story, _Type, Time}) ->
+    Time.
 
 %% @doc Delete a duplicated `Elem'.
-collapse_incoming_events([{incoming_stanza, JID, Time1, Elem},
-                          {pop_incoming_stanza, JID, Time2, Elem}|T]) ->
-    [{incoming_stanza, JID, Time1, Elem},
-     {pop_incoming_stanza, JID, Time2, undefined}
+collapse_incoming_events([{stanza, incoming_stanza, JID, Time1, Elem},
+                          {stanza, pop_incoming_stanza, JID, Time2, Elem}|T]) ->
+    [{stanza, incoming_stanza, JID, Time1, Elem},
+     {stanza, pop_incoming_stanza, JID, Time2, undefined}
     | collapse_incoming_events(T)];
 collapse_incoming_events([H|T]) ->
     [H|collapse_incoming_events(T)];
 collapse_incoming_events([]) ->
     [].
 
-build_event_elem(Type, JID, BaseTime, Time, Elem) ->
+build_elem_event(BaseTime, {stanza, Type, JID, Time, Elem}) ->
+    build_stanza_event_elem(Type, JID, BaseTime, Time, Elem);
+build_elem_event(BaseTime, {story, Type, Time}) ->
+    build_story_event_elem(Type, BaseTime, Time).
+
+build_story_event_elem(Type, BaseTime, Time) ->
+    #xmlel{
+        name = list_to_binary(atom_to_list(Type)),
+        attrs = [{<<"offset">>, time_offset_binary(BaseTime, Time)}]}.
+
+
+build_stanza_event_elem(Type, JID, BaseTime, Time, Elem) ->
     #xmlel{
         name = list_to_binary(atom_to_list(Type)),
         attrs = [{<<"jid">>, jid_to_binary(JID)},
