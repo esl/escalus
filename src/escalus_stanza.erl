@@ -83,6 +83,9 @@
 
 -export([reach/1]).
 
+-export([publish_iq/3,
+         pubsub_items/1]).
+
 -import(escalus_compat, [bin/1]).
 
 -include("escalus.hrl").
@@ -489,6 +492,27 @@ reach(Addrs) when is_list(Addrs) ->
     #xmlel{name = <<"reach">>,
            attrs = [{<<"xmlns">>, ?NS_REACH}],
            children = [addr(A) || A <- Addrs]}.
+
+publish_iq(From, Node, Items) when is_list(Items) ->
+    from(iq(<<"set">>, [pubsub([publish_items(Node, Items)])]),
+         escalus_utils:get_jid(From)).
+
+pubsub(Body) ->
+    #xmlel{name = <<"pubsub">>,
+           attrs = [{<<"xmlns">>, ?NS_PUBSUB}],
+           children = Body}.
+
+pubsub_items(Elements) ->
+    [pubsub_item(El) || El <- Elements].
+
+pubsub_item(Body) ->
+    #xmlel{name = <<"item">>,
+           children = Body}.
+
+publish_items(Node, Items) ->
+    #xmlel{name = <<"publish">>,
+           attrs = [{<<"node">>, Node}],
+           children = Items}.
 
 %%--------------------------------------------------------------------
 %% Helpers
