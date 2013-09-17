@@ -61,7 +61,8 @@
          is_adhoc_response/3,
          has_service/2,
          has_feature/2,
-         has_item/2,
+         has_item/2, has_item/3, has_item/4,
+         does_have_item/2,
          has_no_such_item/2,
          has_identity/3,
          stanza_timeout/1,
@@ -303,12 +304,33 @@ has_feature(Feature, Stanza) ->
               Features).
 
 has_item(JID, Stanza) ->
+    does_have_item(fun(Item) ->
+                           exml_query:attr(Item, <<"jid">>) == JID
+                   end,
+                   Stanza).
+
+has_item(JID, Node, Stanza) ->
+    does_have_item(fun(Item) ->
+                           exml_query:attr(Item, <<"jid">>) == JID
+                           andalso
+                           exml_query:attr(Item, <<"node">>) == Node
+                   end,
+                   Stanza).
+
+has_item(JID, Node, Name, Stanza) ->
+    does_have_item(fun(Item) ->
+                           exml_query:attr(Item, <<"jid">>) == JID
+                           andalso
+                           exml_query:attr(Item, <<"node">>) == Node
+                           andalso
+                           exml_query:attr(Item, <<"name">>) == Name
+                   end,
+                   Stanza).
+
+does_have_item(F, Stanza) when is_function(F, 1) ->
     Items = exml_query:paths(Stanza, [{element, <<"query">>},
                                       {element, <<"item">>}]),
-    lists:any(fun(Item) ->
-                      exml_query:attr(Item, <<"jid">>) == JID
-              end,
-              Items).
+    lists:any(F, Items).
 
 has_no_such_item(JID, Stanza) ->
     not has_item(JID, Stanza).
