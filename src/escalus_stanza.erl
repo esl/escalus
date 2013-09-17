@@ -81,6 +81,8 @@
 -export([get_registration_fields/0, register_account/1]).
 -export([remove_account/0]).
 
+-export([reach/1]).
+
 -import(escalus_compat, [bin/1]).
 
 -include("escalus.hrl").
@@ -483,6 +485,11 @@ auth_response_stanza(Body) ->
                 attrs = [{<<"xmlns">>, ?NS_SASL}],
                 children = Body}.
 
+reach(Addrs) when is_list(Addrs) ->
+    #xmlel{name = <<"reach">>,
+           attrs = [{<<"xmlns">>, ?NS_REACH}],
+           children = [addr(A) || A <- Addrs]}.
+
 %%--------------------------------------------------------------------
 %% Helpers
 %%--------------------------------------------------------------------
@@ -491,3 +498,6 @@ auth_response_stanza(Body) ->
 id() ->
     base16:encode(crypto:rand_bytes(16)).
 
+addr(URI) ->
+    #xmlel{name = <<"addr">>,
+           attrs = [{<<"uri">>, URI}]}.

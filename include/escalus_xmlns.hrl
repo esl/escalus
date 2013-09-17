@@ -274,6 +274,9 @@
 % Defined by XEP-0145: Annotations.
 -define(NS_ROSTER_NOTES, <<"storage:rosternotes">>).
 
+% Defined by XEP-0152: Reachability Addresses.
+-define(NS_REACH, <<"urn:xmpp:reach:0">>).
+
 % Defined by XEP-0153: vCard-Based Avatars.
 -define(NS_VCARD_UPDATE, <<"vcard-temp:x:update">>).
 
