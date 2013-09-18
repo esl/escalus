@@ -83,7 +83,8 @@
 
 -export([reach/1]).
 
--export([publish_iq/3,
+%% PubSub
+-export([publish/2,
          pubsub_items/1]).
 
 -import(escalus_compat, [bin/1]).
@@ -496,9 +497,8 @@ reach(Addrs) when is_list(Addrs) ->
            attrs = [{<<"xmlns">>, ?NS_REACH}],
            children = [addr(A) || A <- Addrs]}.
 
-publish_iq(From, Node, Items) when is_list(Items) ->
-    from(iq(<<"set">>, [pubsub([publish_items(Node, Items)])]),
-         escalus_utils:get_jid(From)).
+publish(Node, Items) ->
+    iq(<<"set">>, [pubsub([publish_items(Node, Items)])]).
 
 pubsub(Body) ->
     #xmlel{name = <<"pubsub">>,
