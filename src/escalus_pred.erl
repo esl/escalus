@@ -69,7 +69,8 @@
          is_stream_end/1,
          is_bosh_report/2,
          is_node_created/2,
-         is_pubsub_event/1
+         is_pubsub_event/1,
+         is_subscription/3
      ]).
 
 -include("include/escalus.hrl").
@@ -383,6 +384,17 @@ is_pubsub_event(Stanza) ->
     andalso
     ?NS_PUBSUB_EVENT == exml_query:path(Stanza, [{element, <<"event">>},
                                                  {attr, <<"xmlns">>}]).
+
+is_subscription(Node, Jid, Stanza) ->
+    is_iq_result(Stanza)
+    andalso
+    begin
+        Sub = exml_query:path(Stanza, [{element, <<"pubsub">>},
+                                       {element, <<"subscription">>}]),
+        Node == exml_query:attr(Sub, <<"node">>)
+        andalso
+        Jid == exml_query:attr(Sub, <<"jid">>)
+    end.
 
 %%--------------------------------------------------------------------
 %% Helpers
