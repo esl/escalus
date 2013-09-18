@@ -85,6 +85,7 @@
 
 %% PubSub
 -export([create_node/2,
+         subscribe/3,
          publish/2, publish/3,
          pubsub_items/1]).
 
@@ -525,6 +526,12 @@ create_node(To, Node) ->
     iq(To, <<"set">>,
        pubsub([#xmlel{name = <<"create">>,
                       attrs = [{<<"node">>, Node}]}])).
+
+subscribe(To, Node, Jid) ->
+    iq(To, <<"set">>,
+       pubsub([#xmlel{name = <<"subscribe">>,
+                      attrs = [{<<"node">>, Node},
+                               {<<"jid">>, Jid}]}])).
 
 %%--------------------------------------------------------------------
 %% Helpers
