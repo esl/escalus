@@ -84,7 +84,7 @@
 -export([reach/1]).
 
 %% PubSub
--export([publish/2,
+-export([publish/2, publish/3,
          pubsub_items/1]).
 
 -import(escalus_compat, [bin/1]).
@@ -499,6 +499,9 @@ reach(Addrs) when is_list(Addrs) ->
 
 publish(Node, Items) ->
     iq(<<"set">>, [pubsub([publish_items(Node, Items)])]).
+
+publish(To, Node, Items) ->
+    to(iq(<<"set">>, [pubsub([publish_items(Node, Items)])]), To).
 
 pubsub(Body) ->
     #xmlel{name = <<"pubsub">>,
