@@ -73,7 +73,7 @@
          starttls/0,
          compress/1]).
 
--export([iq/2, iq/3]).
+-export([iq/2, iq/3, iq/4]).
 -export([bind/1, session/0]).
 
 %% new ones
@@ -132,6 +132,9 @@ iq(Type, Body) ->
 iq(To, Type, Body) ->
     IQ = iq(Type, Body),
     IQ#xmlel{ attrs = [{<<"to">>, To} | IQ#xmlel.attrs] }.
+
+iq(From, To, Type, Body) ->
+    from(to(iq(Type, Body), To), From).
 
 %% slightly naughty, this isn't a stanza but it will go in an <iq/>
 query_el(NS, Children) ->
