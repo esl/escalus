@@ -499,29 +499,6 @@ reach(Addrs) when is_list(Addrs) ->
            attrs = [{<<"xmlns">>, ?NS_REACH}],
            children = [addr(A) || A <- Addrs]}.
 
-publish(Node, Items) ->
-    iq(<<"set">>, [pubsub([publish_items(Node, Items)])]).
-
-publish(To, Node, Items) ->
-    to(iq(<<"set">>, [pubsub([publish_items(Node, Items)])]), To).
-
-pubsub(Body) ->
-    #xmlel{name = <<"pubsub">>,
-           attrs = [{<<"xmlns">>, ?NS_PUBSUB}],
-           children = Body}.
-
-pubsub_items(Elements) ->
-    [pubsub_item(El) || El <- Elements].
-
-pubsub_item(Body) ->
-    #xmlel{name = <<"item">>,
-           children = Body}.
-
-publish_items(Node, Items) ->
-    #xmlel{name = <<"publish">>,
-           attrs = [{<<"node">>, Node}],
-           children = Items}.
-
 create_node(To, Node) ->
     iq(To, <<"set">>,
        pubsub([#xmlel{name = <<"create">>,
@@ -532,6 +509,29 @@ subscribe(To, Node, Jid) ->
        pubsub([#xmlel{name = <<"subscribe">>,
                       attrs = [{<<"node">>, Node},
                                {<<"jid">>, Jid}]}])).
+
+publish(Node, Items) ->
+    iq(<<"set">>, [pubsub([publish_items(Node, Items)])]).
+
+publish(To, Node, Items) ->
+    to(iq(<<"set">>, [pubsub([publish_items(Node, Items)])]), To).
+
+pubsub_items(Elements) ->
+    [pubsub_item(El) || El <- Elements].
+
+pubsub_item(Body) ->
+    #xmlel{name = <<"item">>,
+           children = Body}.
+
+pubsub(Body) ->
+    #xmlel{name = <<"pubsub">>,
+           attrs = [{<<"xmlns">>, ?NS_PUBSUB}],
+           children = Body}.
+
+publish_items(Node, Items) ->
+    #xmlel{name = <<"publish">>,
+           attrs = [{<<"node">>, Node}],
+           children = Items}.
 
 %%--------------------------------------------------------------------
 %% Helpers
