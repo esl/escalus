@@ -67,7 +67,8 @@
          has_identity/3,
          stanza_timeout/1,
          is_stream_end/1,
-         is_bosh_report/2
+         is_bosh_report/2,
+         is_node_created/2
      ]).
 
 -include("include/escalus.hrl").
@@ -368,6 +369,13 @@ is_bosh_report(Rid, #xmlel{name = <<"body">>} = Body) ->
     exml_query:attr(Body, <<"time">>) /= undefined;
 is_bosh_report(_, _) ->
     false.
+
+is_node_created(Node, Stanza) ->
+    is_iq_result(Stanza)
+    andalso
+    Node == exml_query:path(Stanza, [{element, <<"pubsub">>},
+                                     {element, <<"create">>},
+                                     {attr, <<"node">>}]).
 
 %%--------------------------------------------------------------------
 %% Helpers
