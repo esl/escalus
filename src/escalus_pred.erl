@@ -68,7 +68,8 @@
          stanza_timeout/1,
          is_stream_end/1,
          is_bosh_report/2,
-         is_node_created/2
+         is_node_created/2,
+         is_pubsub_event/1
      ]).
 
 -include("include/escalus.hrl").
@@ -376,6 +377,12 @@ is_node_created(Node, Stanza) ->
     Node == exml_query:path(Stanza, [{element, <<"pubsub">>},
                                      {element, <<"create">>},
                                      {attr, <<"node">>}]).
+
+is_pubsub_event(Stanza) ->
+    is_message(Stanza)
+    andalso
+    ?NS_PUBSUB_EVENT == exml_query:path(Stanza, [{element, <<"event">>},
+                                                 {attr, <<"xmlns">>}]).
 
 %%--------------------------------------------------------------------
 %% Helpers
