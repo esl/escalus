@@ -84,7 +84,8 @@
 -export([reach/1]).
 
 %% PubSub
--export([publish/2, publish/3,
+-export([create_node/2,
+         publish/2, publish/3,
          pubsub_items/1]).
 
 -import(escalus_compat, [bin/1]).
@@ -519,6 +520,11 @@ publish_items(Node, Items) ->
     #xmlel{name = <<"publish">>,
            attrs = [{<<"node">>, Node}],
            children = Items}.
+
+create_node(To, Node) ->
+    iq(To, <<"set">>,
+       pubsub([#xmlel{name = <<"create">>,
+                      attrs = [{<<"node">>, Node}]}])).
 
 %%--------------------------------------------------------------------
 %% Helpers
