@@ -71,7 +71,8 @@
          is_node_created/2,
          is_pubsub_event/1,
          is_subscription/3,
-         is_publish_result/2
+         is_publish_result/2,
+         is_disco_info/1
      ]).
 
 -include("include/escalus.hrl").
@@ -403,6 +404,12 @@ is_publish_result(Node, Stanza) ->
     Node == exml_query:path(Stanza, [{element, <<"pubsub">>},
                                      {element, <<"publish">>},
                                      {attr, <<"node">>}]).
+
+is_disco_info(Stanza) ->
+    is_iq_get(Stanza)
+    andalso
+    ?NS_DISCO_INFO == exml_query:path(Stanza, [{element, <<"query">>},
+                                               {attr, <<"xmlns">>}]).
 
 %%--------------------------------------------------------------------
 %% Helpers
