@@ -160,12 +160,13 @@ get_user_by_name(Name) ->
     get_user_by_name(Name, get_users(all)).
 
 create_user(Config, {_Name, UserSpec}) ->
-    Options0 = get_options(Config, UserSpec),
-    {ok, Conn, Options1} = escalus_connection:connect(Options0),
-    escalus_session:start_stream(Conn, Options1),
+    ClientProps = get_options(Config, UserSpec),
+    {ok, Conn, ClientProps} = escalus_connection:start(ClientProps,
+                                                       [start_stream,
+                                                        maybe_use_ssl]),
     escalus_connection:send(Conn, escalus_stanza:get_registration_fields()),
     {ok, result, RegisterInstrs} = wait_for_result(Conn),
-    Answers = get_answers(Options1, RegisterInstrs),
+    Answers = get_answers(ClientProps, RegisterInstrs),
     escalus_connection:send(Conn, escalus_stanza:register_account(Answers)),
     Result = wait_for_result(Conn),
     escalus_connection:stop(Conn),
