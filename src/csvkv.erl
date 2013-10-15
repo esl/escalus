@@ -5,7 +5,7 @@
 %%%===================================================================
 
 -module(csvkv).
--export([parse/1, format/1]).
+-export([parse/1, format/1, format/2]).
 
 %%--------------------------------------------------------------------
 %% Public API
@@ -17,7 +17,11 @@ parse(Text) ->
 
 -spec format([{binary(), binary()}]) -> binary().
 format(Items) ->
-    IOList = join([format_item(I) || I <- Items], $,),
+    format(Items,true).
+
+-spec format([{binary(), binary()}], boolean()) -> binary().
+format(Items, QMark) ->
+    IOList = join([format_item(I, QMark) || I <- Items], $,),
     list_to_binary(IOList).
 
 %%--------------------------------------------------------------------
@@ -67,6 +71,11 @@ join([], _) ->
 join(Items, Sep) ->
     tl(lists:append([[Sep, I] || I <- Items])).
 
-format_item({Key, Val}) ->
+format_item({Key, Val}, QMark) ->
     EscVal = re:replace(Val, "\"", "\\\"", [global]),
-    [Key, $=, $", EscVal, $"].
+    case QMark of
+        true ->
+            [Key, $=, $", EscVal, $"];
+        _ ->
+            [Key, $=, EscVal]
+    end.

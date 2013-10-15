@@ -9,7 +9,8 @@
 -export([auth_plain/2,
          auth_digest_md5/2,
          auth_sasl_anon/2,
-         auth_sasl_external/2]).
+         auth_sasl_external/2,
+         auth_sasl_scram_sha1/2]).
 
 %% Useful helpers for writing own mechanisms
 -export([get_challenge/2,
@@ -39,6 +40,40 @@ auth_digest_md5(Conn, Props) ->
     ResponseStanza2 = escalus_stanza:auth_response_stanza([]),
     ok = escalus_connection:send(Conn, ResponseStanza2),
     wait_for_success(get_property(username, Props), Conn).
+
+auth_sasl_scram_sha1(Conn, Props) ->
+    Username = get_property(username, Props),
+    Nonce = base64:encode(crypto:rand_bytes(16)),
+    ClientFirstMessageBare = csvkv:format([{<<"n">>, Username},
+                                           {<<"r">>, Nonce}],
+                                          false),
+    GS2Header = <<"n,,">>,
+    Payload = <<GS2Header/binary,ClientFirstMessageBare/binary>>,
+    Stanza = escalus_stanza:auth_stanza(<<"SCRAM-SHA-1">>,
+                                        base64_cdata(Payload)),
+
+    ok = escalus_connection:send(Conn, Stanza),
+
+    {Response, SaltedPassword, AuthMessage} = scram_sha1_response(Conn, GS2Header,
+                                                                  ClientFirstMessageBare, Props),
+    ResponseStanza = escalus_stanza:auth_response_stanza([Response]),
+
+
+    ok = escalus_connection:send(Conn, ResponseStanza),
+
+    AuthReply = escalus_connection:get_stanza(Conn, auth_reply),
+    case AuthReply of
+        #xmlel{name = <<"success">>, children=[CData]} ->
+           ok = scram_sha1_validate_server(SaltedPassword, AuthMessage,
+                                       base64:decode(
+                                         get_property(<<"v">>,
+                                                      csvkv:parse(
+                                                        base64:decode(
+                                                          exml:unescape_cdata(CData))))));
+        #xmlel{name = <<"failure">>} ->
+            throw({auth_failed, Username, AuthReply})
+    end.
+
 
 auth_sasl_anon(Conn, Props) ->
     Stanza = escalus_stanza:auth_stanza(<<"ANONYMOUS">>, []),
@@ -94,6 +129,40 @@ md5_digest_response(ChallengeData, Props) ->
         {<<"authzid">>, FullJid}
     ])).
 
+scram_sha1_response(Conn, GS2Headers, ClientFirstMessageBare, Props) ->
+    Challenge = get_challenge(Conn, challenge1, false),
+    ChallengeData = csvkv:parse(Challenge),
+    Password = get_property(password, Props),
+    Nonce = get_property(<<"r">>, ChallengeData),
+    Iteration = list_to_integer(
+                  binary_to_list(
+                    get_property(<<"i">>, ChallengeData))),
+    Salt = base64:decode(get_property(<<"s">>, ChallengeData)),
+    SaltedPassword = scram:salted_password(Password, Salt, Iteration),
+    ClientKey = scram:client_key(SaltedPassword),
+    StoredKey = scram:stored_key(ClientKey),
+    GS2Headers64 = base64:encode(GS2Headers),
+    ClientFinalMessageWithoutProof = <<"c=",GS2Headers64/binary,",r=", Nonce/binary>>,
+    AuthMessage = <<ClientFirstMessageBare/binary,$,,
+                    Challenge/binary,$,,
+                    ClientFinalMessageWithoutProof/binary>>,
+    ClientSignature = scram:client_signature(StoredKey, AuthMessage),
+    ClientProof = base64:encode(crypto:exor(ClientKey, ClientSignature)),
+    ClientFinalMessage = <<ClientFinalMessageWithoutProof/binary,
+                           ",p=", ClientProof/binary>>,
+    {base64_cdata(ClientFinalMessage),SaltedPassword, AuthMessage}.
+
+scram_sha1_validate_server(SaltedPassword, AuthMessage, ServerSignature) ->
+    ServerKey = scram:server_key(SaltedPassword),
+    ServerSignatureComputed = scram:server_signature(ServerKey, AuthMessage),
+    case ServerSignatureComputed == ServerSignature of
+        true ->
+            ok;
+        _ ->
+            false
+    end.
+
+
 hex_md5(Data) ->
     base16:encode(crypto:md5(Data)).
 
@@ -102,10 +171,19 @@ hex_md5(Data) ->
 %%--------------------------------------------------------------------
 
 get_challenge(Conn, Descr) ->
+    get_challenge(Conn, Descr, true).
+
+get_challenge(Conn, Descr, DecodeCsvkv) ->
     Challenge = escalus_connection:get_stanza(Conn, Descr),
     case Challenge of
         #xmlel{name = <<"challenge">>, children=[CData]} ->
-            csvkv:parse(base64:decode(exml:unescape_cdata(CData)));
+            ChallengeData = base64:decode(exml:unescape_cdata(CData)),
+            case DecodeCsvkv of
+                true ->
+                    csvkv:parse(ChallengeData);
+                _ ->
+                    ChallengeData
+            end;
         _ ->
             throw({expected_challenge, got, Challenge})
     end.

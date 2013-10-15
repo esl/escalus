@@ -110,6 +110,8 @@ get_auth_method(<<"DIGEST-MD5">>) ->
     {escalus_auth, auth_digest_md5};
 get_auth_method(<<"SASL-ANON">>) ->
     {escalus_auth, auth_sasl_anon};
+get_auth_method(<<"SCRAM-SHA-1">>) ->
+    {escalus_auth, auth_sasl_scram_sha1};
 get_auth_method(Other) ->
     Other.
 
