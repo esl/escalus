@@ -12,12 +12,14 @@
          compress/2,
          use_ssl/2,
          can_use_compression/2,
+         can_use_stream_management/2,
          session/2]).
 
 %% New style connection initiation
 -export([start_stream/3,
          maybe_use_ssl/3,
          maybe_use_compression/3,
+         stream_management/3,
          authenticate/3,
          bind/3,
          session/3]).
@@ -92,6 +94,10 @@ can_use_compression(Props, Features) ->
     false /= proplists:get_value(compression, Props, false) andalso
     false /= proplists:get_value(compression, Features).
 
+can_use_stream_management(Props, Features) ->
+    false /= proplists:get_value(stream_management, Props, false) andalso
+    false /= proplists:get_value(stream_management, Features).
+
 %%%===================================================================
 %%% New style connection initiation
 %%%===================================================================
@@ -118,6 +124,12 @@ maybe_use_compression(Conn, Props, Features) ->
             {Conn, Props, Features}
     end.
 
+stream_management(Conn, Props, Features) ->
+    escalus_connection:send(Conn, escalus_stanza:enable_sm()),
+    Enabled = escalus_connection:get_stanza(Conn, stream_management),
+    true = escalus_pred:is_enabled(Enabled),
+    {Conn, Props, Features}.
+
 authenticate(Conn, Props, Features) ->
     {Conn, authenticate(Conn, Props), Features}.
 
@@ -132,20 +144,26 @@ session(Conn, Props, Features) ->
 %%%===================================================================
 
 get_stream_features(Features) ->
-    [
-        {compression, get_compression(Features)},
-        {starttls, get_starttls(Features)}
-    ].
+    [{compression, get_compression(Features)},
+     {starttls, get_starttls(Features)},
+     {stream_management, get_stream_management(Features)}].
 
 get_compression(Features) ->
     case exml_query:subelement(Features, <<"compression">>) of
         #xmlel{children = MethodEls} ->
-            [ exml_query:cdata(MethodEl) || MethodEl <- MethodEls ];
+            [exml_query:cdata(MethodEl) || MethodEl <- MethodEls];
         _ -> false
     end.
 
 get_starttls(Features) ->
     case exml_query:subelement(Features, <<"starttls">>) of
+        undefined ->
+            false;
+        _ -> true
+    end.
+
+get_stream_management(Features) ->
+    case exml_query:subelement(Features, <<"sm">>) of
         undefined ->
             false;
         _ -> true
