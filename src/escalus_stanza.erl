@@ -54,8 +54,7 @@
          auth_stanza/2,
          auth_response_stanza/1,
          query_el/2,
-         x_data_form/2
-     ]).
+         x_data_form/2]).
 
 -export([disco_info/1,
          disco_items/1]).
@@ -74,11 +73,18 @@
          compress/1]).
 
 -export([iq/2, iq/3]).
--export([bind/1, session/0]).
 
-%% new ones
--export([setattr/3, to/2, from/2, tags/1]).
--export([get_registration_fields/0, register_account/1]).
+-export([bind/1,
+         session/0]).
+
+-export([setattr/3,
+         to/2,
+         from/2,
+         tags/1]).
+
+-export([get_registration_fields/0,
+         register_account/1]).
+
 -export([remove_account/0]).
 
 -import(escalus_compat, [bin/1]).
@@ -92,70 +98,65 @@
 %%--------------------------------------------------------------------
 
 stream_start(Server, XMLNS) ->
-    #xmlstreamstart{name = <<"stream:stream">>, attrs=[
-            {<<"to">>, Server},
-            {<<"version">>, <<"1.0">>},
-            {<<"xml:lang">>, <<"en">>},
-            {<<"xmlns">>, XMLNS},
-            {<<"xmlns:stream">>, <<"http://etherx.jabber.org/streams">>}]}.
+    #xmlstreamstart{name = <<"stream:stream">>,
+                    attrs = [{<<"to">>, Server},
+                             {<<"version">>, <<"1.0">>},
+                             {<<"xml:lang">>, <<"en">>},
+                             {<<"xmlns">>, XMLNS},
+                             {<<"xmlns:stream">>,
+                              <<"http://etherx.jabber.org/streams">>}]}.
 
 stream_end() ->
     #xmlstreamend{name = <<"stream:stream">>}.
 
 starttls() ->
     #xmlel{name = <<"starttls">>,
-                attrs=[
-                    {<<"xmlns">>, <<"urn:ietf:params:xml:ns:xmpp-tls">>}
-                ]}.
+           attrs = [{<<"xmlns">>, <<"urn:ietf:params:xml:ns:xmpp-tls">>}]}.
 
 compress(Method) ->
     #xmlel{name = <<"compress">>,
-                attrs = [
-                    {<<"xmlns">>, <<"http://jabber.org/protocol/compress">>}
-                ],
-                children = [
-                    #xmlel{name = <<"method">>, children = [exml:escape_cdata(Method)]}
-                ]}.
+           attrs = [{<<"xmlns">>, <<"http://jabber.org/protocol/compress">>}],
+           children = [#xmlel{name = <<"method">>,
+                              children = [exml:escape_cdata(Method)]}]}.
 
 -spec iq(binary(), [xmlterm()]) -> #xmlel{}.
 iq(Type, Body) ->
     #xmlel{name = <<"iq">>,
-                attrs=[{<<"type">>, Type},
-                       {<<"id">>, id()}],
-                children = Body}.
+           attrs=[{<<"type">>, Type},
+                  {<<"id">>, id()}],
+           children = Body}.
 
 iq(To, Type, Body) ->
     IQ = iq(Type, Body),
-    IQ#xmlel{ attrs = [{<<"to">>, To} | IQ#xmlel.attrs] }.
+    IQ#xmlel{attrs = [{<<"to">>, To} | IQ#xmlel.attrs]}.
 
 %% slightly naughty, this isn't a stanza but it will go in an <iq/>
 query_el(NS, Children) ->
-        #xmlel{ name = <<"query">>,
-                     attrs = [{<<"xmlns">>, NS}],
-                     children = Children
-                   }.
+    #xmlel{name = <<"query">>,
+           attrs = [{<<"xmlns">>, NS}],
+           children = Children}.
 
 %% http://xmpp.org/extensions/xep-0004.html
 %% slightly naughty - this isn't a stanza but can be a child of various stanza types
 x_data_form(Type, Children) ->
-    #xmlel{ name = <<"x">>,
-                 attrs = [{<<"xmlns">>,?NS_DATA_FORMS},
-                          {<<"type">>, Type}],
-                 children = Children
-               }.
+    #xmlel{name = <<"x">>,
+           attrs = [{<<"xmlns">>,?NS_DATA_FORMS},
+                    {<<"type">>, Type}],
+           children = Children}.
 
 -spec bind(binary()) -> #xmlel{}.
 bind(Resource) ->
-    NS = <<"urn:ietf:params:xml:ns:xmpp-bind">>,
-    iq(<<"set">>, [
-        #xmlel{name = <<"bind">>, attrs = [{<<"xmlns">>, NS}], children=[
-            #xmlel{name = <<"resource">>, children=[exml:escape_cdata(Resource)]}
-        ]}]).
+    iq(<<"set">>,
+       [#xmlel{name = <<"bind">>,
+               attrs = [{<<"xmlns">>, <<"urn:ietf:params:xml:ns:xmpp-bind">>}],
+               children = [#xmlel{name = <<"resource">>,
+                                  children = [exml:escape_cdata(Resource)]}]}]).
 
 -spec session() -> #xmlel{}.
 session() ->
     NS = <<"urn:ietf:params:xml:ns:xmpp-session">>,
-    iq(<<"set">>, #xmlel{name = <<"session">>, attrs = [{<<"xmlns">>, NS}]}).
+    iq(<<"set">>, #xmlel{name = <<"session">>,
+                         attrs = [{<<"xmlns">>, NS}]}).
 
 to(Stanza, Recipient) when is_binary(Recipient) ->
     setattr(Stanza, <<"to">>, Recipient);
@@ -172,7 +173,8 @@ setattr(Stanza, Key, Val) ->
     Stanza#xmlel{attrs = NewAttrs}.
 
 tags(KVs) ->
-    [#xmlel{name = K, children = [exml:escape_cdata(V)]} || {K, V} <- KVs].
+    [#xmlel{name = K,
+            children = [exml:escape_cdata(V)]} || {K, V} <- KVs].
 
 presence(Type) ->
     presence(Type, []).
@@ -181,8 +183,8 @@ presence(<<"available">>, Body) ->
     #xmlel{name = <<"presence">>, children = Body};
 presence(Type, Body) ->
     #xmlel{name = <<"presence">>,
-                attrs = [{<<"type">>, bin(Type)}],
-                children = Body}.
+           attrs = [{<<"type">>, bin(Type)}],
+           children = Body}.
 
 presence_direct(Recipient, Type) ->
     presence_direct(Recipient, Type, []).
@@ -207,34 +209,25 @@ presence_direct(Recipient, Type, Body) ->
 
 presence_show(Show) ->
     presence(<<"available">>,
-             #xmlel{name = <<"show">>, children=[#xmlcdata{content = Show}]}).
+             #xmlel{name = <<"show">>,
+                    children = [#xmlcdata{content = Show}]}).
 
 error_element(Type, Condition) ->
-    #xmlel{
-        name = <<"error">>,
-        attrs = [{<<"type">>, Type}],
-        children = #xmlel{
-            name = Condition,
-            attrs = [{<<"xmlns">>, ?NS_STANZA_ERRORS}]
-        }}.
+    #xmlel{name = <<"error">>,
+           attrs = [{<<"type">>, Type}],
+           children = #xmlel{name = Condition,
+                             attrs = [{<<"xmlns">>, ?NS_STANZA_ERRORS}]}}.
 
 message(From, Recipient, Type, Msg) ->
     FromAttr = case From of
                    undefined -> [];
                    _ -> [{<<"from">>, From}]
                end,
-    #xmlel{
-       name = <<"message">>,
-       attrs = FromAttr ++
-           [{<<"type">>, Type},
-            {<<"to">>, escalus_utils:get_jid(Recipient)}
-           ],
-       children = [#xmlel{
-                      name = <<"body">>,
-                      children = [exml:escape_cdata(Msg)]
-                     }
-                  ]
-      }.
+    #xmlel{name = <<"message">>,
+           attrs = FromAttr ++ [{<<"type">>, Type},
+                                {<<"to">>, escalus_utils:get_jid(Recipient)}],
+           children = [#xmlel{name = <<"body">>,
+                              children = [exml:escape_cdata(Msg)]}]}.
 
 chat_to(Recipient, Msg) ->
     message(undefined, Recipient, <<"chat">>, Msg).
@@ -249,25 +242,18 @@ groupchat_to(Recipient, Msg) ->
     message(undefined, Recipient, <<"groupchat">>, Msg).
 
 get_registration_fields() ->
-    iq(<<"get">>, [
-        #xmlel{name = <<"query">>, attrs = [
-            {<<"xmlns">>, <<"jabber:iq:register">>}
-        ]}
-    ]).
+    iq(<<"get">>, [#xmlel{name = <<"query">>,
+                          attrs = [{<<"xmlns">>, <<"jabber:iq:register">>}]}]).
 
 register_account(Body) ->
-    iq(<<"set">>, [
-        #xmlel{name = <<"query">>, attrs = [
-            {<<"xmlns">>, <<"jabber:iq:register">>}
-        ], children = Body}
-    ]).
+    iq(<<"set">>, [#xmlel{name = <<"query">>,
+                          attrs = [{<<"xmlns">>, <<"jabber:iq:register">>}],
+                          children = Body}]).
 
 remove_account() ->
-    iq(<<"set">>, [
-        #xmlel{name = <<"query">>, attrs = [
-            {<<"xmlns">>, <<"jabber:iq:register">>}
-        ], children = [#xmlel{name = <<"remove">>}]}
-    ]).
+    iq(<<"set">>, [#xmlel{name = <<"query">>,
+                          attrs = [{<<"xmlns">>, <<"jabber:iq:register">>}],
+                          children = [#xmlel{name = <<"remove">>}]}]).
 
 iq_result(Request) ->
     ToAttr = case exml_query:attr(Request, <<"from">>) of
@@ -279,7 +265,7 @@ iq_result(Request) ->
     Id = exml_query:attr(Request, <<"id">>),
     Attrs = ToAttr ++ [{<<"id">>, Id}, {<<"type">>, <<"result">>}],
     #xmlel{name = <<"iq">>,
-                attrs = Attrs}.
+           attrs = Attrs}.
 
 iq_get(NS, Payload) ->
     iq_with_type(<<"get">>, NS, Payload).
@@ -288,50 +274,45 @@ iq_set(NS, Payload) ->
     iq_with_type(<<"set">>, NS, Payload).
 
 iq_with_type(Type, NS, Payload) ->
-    iq(Type, [#xmlel{
-        name = <<"query">>,
-        attrs = [{<<"xmlns">>, NS}],
-        children = Payload
-    }]).
+    iq(Type, [#xmlel{name = <<"query">>,
+                     attrs = [{<<"xmlns">>, NS}],
+                     children = Payload}]).
 
 roster_get() ->
     iq_get(?NS_ROSTER, []).
 
+roster_add_contacts(ItemSpecs) ->
+    iq_set(?NS_ROSTER, lists:map(fun contact_item/1, ItemSpecs)).
+
 %% FIXME: there is a legacy issue here. This function should
 %% use get_jid function to let the caller make decision
 %% whether to use bare or full jid.
-roster_add_contacts(ItemSpecs) ->
-    Items = lists:map(
-        fun({User, Groups, Nick}) ->
-            #xmlel{
-                name = <<"item">>,
-                attrs = [{<<"jid">>, escalus_utils:get_short_jid(User)}, %% XXX
-                         {<<"name">>, bin(Nick)}],
-                children = [
-                    #xmlel{name = <<"group">>,
-                                children = [exml:escape_cdata(bin(Group))]}
-                    || Group <- Groups]}
-        end,
-        ItemSpecs),
-    iq_set(?NS_ROSTER, Items).
+contact_item({User, Groups, Nick}) ->
+    #xmlel{name = <<"item">>,
+           attrs = [%% XXX
+                    {<<"jid">>, escalus_utils:get_short_jid(User)},
+                    {<<"name">>, bin(Nick)}],
+           children = [#xmlel{name = <<"group">>,
+                              children = [exml:escape_cdata(bin(Group))]}
+                       || Group <- Groups]}.
 
 roster_add_contact(User, Groups, Nick) ->
     roster_add_contacts([{User, Groups, Nick}]).
 
-%% FIXME: see roster_add_contacts/1 comment
+%% FIXME: see contact_item/1 comment
 roster_remove_contact(User) ->
-    iq_set(?NS_ROSTER, [#xmlel{
-        name = <<"item">>,
-        attrs = [{<<"jid">>, escalus_utils:get_short_jid(User)}, %% XXX
-                 {<<"subscription">>, <<"remove">>}]
-    }]).
+    iq_set(?NS_ROSTER,
+           [#xmlel{name = <<"item">>,
+                   attrs = [%% XXX
+                            {<<"jid">>, escalus_utils:get_short_jid(User)},
+                            {<<"subscription">>, <<"remove">>}]}]).
 
 private_set(Element) ->
     iq_set(?NS_PRIVATE, [Element]).
 
 private_get(NS, Name) ->
     Element = #xmlel{name = bin(Name),
-                          attrs = [{<<"xmlns">>, bin(NS)}]},
+                     attrs = [{<<"xmlns">>, bin(NS)}]},
     iq_get(?NS_PRIVATE, [Element]).
 
 last_activity(User) ->
@@ -342,7 +323,7 @@ privacy_get_all() ->
 
 privacy_get_lists(ListNames) ->
     iq_get(?NS_PRIVACY, [#xmlel{name = <<"list">>,
-                                     attrs = [{<<"name">>, bin(Name)}]}
+                                attrs = [{<<"name">>, bin(Name)}]}
                          || Name <- ListNames]).
 
 privacy_set_list(PrivacyList) ->
@@ -366,22 +347,22 @@ privacy_set(What, Attrs) ->
 %% Create empty list element with given name.
 privacy_list(Name, Items) ->
     #xmlel{name = <<"list">>,
-                attrs = [{<<"name">>, Name}],
-                children = Items}.
+           attrs = [{<<"name">>, Name}],
+           children = Items}.
 
 privacy_list_item(Order, Action, Content) ->
     #xmlel{name = <<"item">>,
-                attrs = [{<<"order">>, Order},
-                         {<<"action">>, Action}],
-                children = [#xmlel{name = C} || C <- Content]}.
+           attrs = [{<<"order">>, Order},
+                    {<<"action">>, Action}],
+           children = [#xmlel{name = C} || C <- Content]}.
 
 privacy_list_item(Order, Action, Type, Value, Content) ->
     #xmlel{name = <<"item">>,
-                attrs = [{<<"order">>, Order},
-                         {<<"type">>, Type},
-                         {<<"value">>, Value},
-                         {<<"action">>, Action}],
-                children = [#xmlel{name = C} || C <- Content]}.
+           attrs = [{<<"order">>, Order},
+                    {<<"type">>, Type},
+                    {<<"value">>, Value},
+                    {<<"action">>, Action}],
+           children = [#xmlel{name = C} || C <- Content]}.
 
 privacy_list_jid_item(Order, Action, Who, Contents) ->
     privacy_list_item(Order, Action, <<"jid">>,
@@ -400,15 +381,11 @@ search_fields([]) ->
 search_fields([null|Rest]) ->
     [#xmlel{name = <<"field">>} | search_fields(Rest)];
 search_fields([{Key, Val}|Rest]) ->
-    [#xmlel{
-            name = <<"field">>,
+    [#xmlel{name = <<"field">>,
             attrs = [{<<"var">>, Key}],
-            children = [
-                #xmlel{
-                    name = <<"value">>,
-                    children = [
-                        {xmlcdata, Val}]}]}
-     | search_fields(Rest) ].
+            children = [#xmlel{name = <<"value">>,
+                               children = [{xmlcdata, Val}]}]}
+     | search_fields(Rest)].
 
 search_fields_iq(JID) ->
     iq(JID, <<"get">>, [
@@ -434,21 +411,19 @@ vcard_update(JID, Fields) ->
 vcard([{_,_}|_] = Tuples) ->
     vcard(tuples_to_fields(Tuples));
 vcard(Body) ->
-    #xmlel{
-        name = <<"vCard">>,
-        attrs = [{<<"xmlns">>,<<"vcard-temp">>}],
-        children = Body
-    }.
+    #xmlel{name = <<"vCard">>,
+           attrs = [{<<"xmlns">>,<<"vcard-temp">>}],
+           children = Body}.
 
 cdata_field(Name, Value) ->
     #xmlel{name = Name,
-                attrs = [],
-                children = [{xmlcdata, Value}]}.
+           attrs = [],
+           children = [{xmlcdata, Value}]}.
 
 field(Name, Children) ->
     #xmlel{name = Name,
-                attrs = [],
-                children = Children}.
+           attrs = [],
+           children = Children}.
 
 tuples_to_fields([]) ->
     [];
@@ -463,10 +438,10 @@ adhoc_request(Node) ->
 
 adhoc_request(Node, Payload) ->
     iq(<<"set">>, [#xmlel{name = <<"command">>,
-                               attrs = [{<<"xmlns">>, ?NS_ADHOC},
-                                        {<<"node">>, Node},
-                                        {<<"action">>, <<"execute">>}],
-                               children = Payload}]).
+                          attrs = [{<<"xmlns">>, ?NS_ADHOC},
+                                   {<<"node">>, Node},
+                                   {<<"action">>, <<"execute">>}],
+                          children = Payload}]).
 
 service_discovery(Server) ->
     escalus_stanza:setattr(escalus_stanza:iq_get(?NS_DISCO_ITEMS, []), <<"to">>,
@@ -474,14 +449,14 @@ service_discovery(Server) ->
 
 auth_stanza(Mechanism, Body) ->
     #xmlel{name = <<"auth">>,
-                attrs = [{<<"xmlns">>, ?NS_SASL},
-                         {<<"mechanism">>, Mechanism}],
-                children = Body}.
+           attrs = [{<<"xmlns">>, ?NS_SASL},
+                    {<<"mechanism">>, Mechanism}],
+           children = Body}.
 
 auth_response_stanza(Body) ->
     #xmlel{name = <<"response">>,
-                attrs = [{<<"xmlns">>, ?NS_SASL}],
-                children = Body}.
+           attrs = [{<<"xmlns">>, ?NS_SASL}],
+           children = Body}.
 
 %%--------------------------------------------------------------------
 %% Helpers
