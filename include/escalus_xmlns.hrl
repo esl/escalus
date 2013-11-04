@@ -377,14 +377,13 @@
 %% Deferred
 -define(NS_USER_VIEWING, <<"http://www.xmpp.org/extensions/xep-0197.html#ns">>).
 
-% Defined by XEP-0198: Stanza Acknowledgements.
--define(NS_STREAM_MGNT_2, <<"urn:xmpp:sm:2">>).
+% Defined by XEP-0198: Stream Management.
+-define(NS_STREAM_MGNT_3, <<"urn:xmpp:sm:3">>).
 
 %% Deferred
+-define(NS_STREAM_MGNT_2, <<"urn:xmpp:sm:2">>).
 -define(NS_STREAM_MGNT_1, <<"urn:xmpp:sm:1">>).
-
 -define(NS_STREAM_MGNT_0, <<"urn:xmpp:sm:0">>).
-
 -define(NS_STANZA_ACK, <<"http://www.xmpp.org/extensions/xep-0198.html#ns">>).
 
 % Defined by XEP-0199: XMPP Ping.
