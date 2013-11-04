@@ -67,6 +67,9 @@
          search_fields_iq/1,
          search_iq/2]).
 
+%% XEP-0198: Stream Management
+-export([enable_sm/0]).
+
 -export([stream_start/2,
          stream_end/0,
          starttls/0,
@@ -457,6 +460,10 @@ auth_response_stanza(Body) ->
     #xmlel{name = <<"response">>,
            attrs = [{<<"xmlns">>, ?NS_SASL}],
            children = Body}.
+
+enable_sm() ->
+    #xmlel{name = <<"enable">>,
+           attrs = [{<<"xmlns">>, ?NS_STREAM_MGNT_3}]}.
 
 %%--------------------------------------------------------------------
 %% Helpers
