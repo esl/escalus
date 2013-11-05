@@ -48,7 +48,7 @@ start(Config, UserSpec, Resource) ->
     EventClient = escalus_event:new_client(Config, UserSpec, Resource),
     Options = escalus_users:get_options(Config, UserSpec, Resource, EventClient),
     case escalus_connection:start(Options) of
-        {ok, Conn, Props} ->
+        {ok, Conn, Props, _} ->
             Jid = make_jid(Props),
             Client = #client{jid = Jid, conn = Conn, event_client = EventClient},
             escalus_cleaner:add_client(Config, Client),

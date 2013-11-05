@@ -175,9 +175,9 @@ get_user_by_name(Name) ->
 
 create_user(Config, {_Name, UserSpec}) ->
     ClientProps = get_options(Config, UserSpec),
-    {ok, Conn, ClientProps} = escalus_connection:start(ClientProps,
-                                                       [start_stream,
-                                                        maybe_use_ssl]),
+    {ok, Conn, ClientProps, _} = escalus_connection:start(ClientProps,
+                                                          [start_stream,
+                                                           maybe_use_ssl]),
     escalus_connection:send(Conn, escalus_stanza:get_registration_fields()),
     {ok, result, RegisterInstrs} = wait_for_result(Conn),
     Answers = get_answers(ClientProps, RegisterInstrs),
@@ -198,7 +198,7 @@ verify_creation({error, Error, Raw}) ->
 
 delete_user(Config, {_Name, UserSpec}) ->
     Options = get_options(Config, UserSpec),
-    {ok, Conn, _} = escalus_connection:start(Options),
+    {ok, Conn, _, _} = escalus_connection:start(Options),
     escalus_connection:send(Conn, escalus_stanza:remove_account()),
     Result = wait_for_result(Conn),
     escalus_connection:stop(Conn),
@@ -209,9 +209,9 @@ is_mod_register_enabled() ->
     Host = escalus_ct:get_config(ejabberd_domain),
     ClientProps = [{server, Server},
                    {host, Host}],
-    {ok, Conn, ClientProps} = escalus_connection:start(ClientProps,
-                                                       [start_stream,
-                                                        maybe_use_ssl]),
+    {ok, Conn, ClientProps, _} = escalus_connection:start(ClientProps,
+                                                          [start_stream,
+                                                           maybe_use_ssl]),
     escalus_connection:send(Conn, escalus_stanza:get_registration_fields()),
     case wait_for_result(Conn) of
         {error, _, _} ->
