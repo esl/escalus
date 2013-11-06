@@ -68,7 +68,8 @@
          stanza_timeout/1,
          is_stream_end/1,
          is_bosh_report/2,
-         is_enabled/1]).
+         is_enabled/1,
+         is_ack/2]).
 
 -include("include/escalus.hrl").
 -include("escalus_xmlns.hrl").
