@@ -73,6 +73,7 @@
 -include("escalus_xmlns.hrl").
 -include("escalus_deprecated.hrl").
 -include_lib("exml/include/exml_stream.hrl").
+-include("no_binary_to_integer.hrl").
 
 -import(escalus_compat, [bin/1]).
 
@@ -341,7 +342,7 @@ is_stream_end(_) ->
     false.
 
 is_bosh_report(Rid, #xmlel{name = <<"body">>} = Body) ->
-    Rid == list_to_integer(binary_to_list(exml_query:attr(Body, <<"report">>)))
+    Rid == binary_to_integer(exml_query:attr(Body, <<"report">>))
     andalso
     exml_query:attr(Body, <<"time">>) /= undefined;
 is_bosh_report(_, _) ->

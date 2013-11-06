@@ -10,6 +10,7 @@
 -include_lib("exml/include/exml_stream.hrl").
 -include("include/escalus.hrl").
 -include("include/escalus_xmlns.hrl").
+-include("no_binary_to_integer.hrl").
 
 %% Escalus transport callbacks
 -export([connect/1,
@@ -113,7 +114,7 @@ session_creation_body(Wait, Version, Lang, Rid, To, Sid) ->
                 {<<"xmlns:xmpp">>, ?NS_BOSH},
                 {<<"xmpp:version">>, Version},
                 {<<"hold">>, <<"1">>},
-                {<<"wait">>, list_to_binary(integer_to_list(Wait))},
+                {<<"wait">>, integer_to_binary(Wait)},
                 {<<"xml:lang">>, Lang},
                 {<<"to">>, To}]
                ++ [{<<"xmpp:restart">>, <<"true">>} || Sid =/= nil]).
@@ -131,7 +132,7 @@ empty_body(Rid, Sid, ExtraAttrs) ->
 
 pause_body(Rid, Sid, Seconds) ->
     Empty = empty_body(Rid, Sid),
-    Pause = {<<"pause">>, list_to_binary(integer_to_list(Seconds))},
+    Pause = {<<"pause">>, integer_to_binary(Seconds)},
     Empty#xmlel{attrs = Empty#xmlel.attrs ++ [Pause]}.
 
 common_attrs(Rid) ->
@@ -144,7 +145,7 @@ common_attrs(Rid, Sid) ->
     common_attrs(Rid) ++ [{<<"sid">>, Sid}].
 
 pack_rid(Rid) ->
-    list_to_binary(integer_to_list(Rid)).
+    integer_to_binary(Rid).
 
 %%%===================================================================
 %%% Low level API

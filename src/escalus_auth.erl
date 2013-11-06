@@ -17,6 +17,7 @@
          wait_for_success/2]).
 
 -include_lib("exml/include/exml.hrl").
+-include("no_binary_to_integer.hrl").
 
 %%--------------------------------------------------------------------
 %% Public API
@@ -134,9 +135,7 @@ scram_sha1_response(Conn, GS2Headers, ClientFirstMessageBare, Props) ->
     ChallengeData = csvkv:parse(Challenge),
     Password = get_property(password, Props),
     Nonce = get_property(<<"r">>, ChallengeData),
-    Iteration = list_to_integer(
-                  binary_to_list(
-                    get_property(<<"i">>, ChallengeData))),
+    Iteration = binary_to_integer(get_property(<<"i">>, ChallengeData)),
     Salt = base64:decode(get_property(<<"s">>, ChallengeData)),
     SaltedPassword = scram:salted_password(Password, Salt, Iteration),
     ClientKey = scram:client_key(SaltedPassword),

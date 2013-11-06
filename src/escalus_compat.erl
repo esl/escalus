@@ -27,6 +27,8 @@
          complain/1,
          backtrace/1]).
 
+-include("no_binary_to_integer.hrl").
+
 %%--------------------------------------------------------------------
 %% Public API
 %%--------------------------------------------------------------------
@@ -41,7 +43,7 @@ bin(Arg) when is_atom(Arg) ->
     list_to_binary(atom_to_list(Arg));
 bin(Arg) when is_integer(Arg) ->
     type_complain("integer", Arg),
-    list_to_binary(integer_to_list(Arg));
+    integer_to_binary(Arg);
 bin(Other) ->
     type_complain("???", Other),
     exit({badarg, Other}).

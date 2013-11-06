@@ -19,6 +19,7 @@
          print_history/1]).
 
 -include_lib("exml/include/exml.hrl").
+-include("no_binary_to_integer.hrl").
 
 -type manager() :: pid().
 
@@ -186,5 +187,4 @@ now_to_microseconds({Mega, Secs, Micro}) ->
 
 time_offset_binary(BaseTime, Time) ->
     Offset = now_to_microseconds(Time) - now_to_microseconds(BaseTime),
-    list_to_binary(integer_to_list(Offset)).
-
+    integer_to_binary(Offset).
