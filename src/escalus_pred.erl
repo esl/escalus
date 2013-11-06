@@ -69,7 +69,9 @@
          is_stream_end/1,
          is_bosh_report/2,
          is_enabled/1,
-         is_ack/2]).
+         is_failed/1,
+         is_ack/2,
+         has_ns/2]).
 
 -include("include/escalus.hrl").
 -include("escalus_xmlns.hrl").
@@ -356,16 +358,34 @@ is_bosh_report(_, _) ->
     false.
 
 is_enabled(#xmlel{name = <<"enabled">>} = Stanza) ->
-    ?NS_STREAM_MGNT_3 == exml_query:attr(Stanza, <<"xmlns">>);
+    has_ns(?NS_STREAM_MGNT_3, Stanza);
 is_enabled(_) ->
     false.
 
+is_failed(#xmlel{name = <<"failed">>} = Stanza) ->
+    has_ns(?NS_STREAM_MGNT_3, Stanza)
+    andalso
+    begin
+        Unexpected = exml_query:subelement(Stanza, <<"unexpected-request">>),
+        is_unexpected_request(Unexpected)
+    end;
+is_failed(_) ->
+    false.
+
+is_unexpected_request(#xmlel{name = <<"unexpected-request">>} = Stanza) ->
+    has_ns(?NS_STANZA_ERRORS, Stanza);
+is_unexpected_request(_) ->
+    false.
+
 is_ack(Handled, #xmlel{name = <<"a">>} = Stanza) ->
-    ?NS_STREAM_MGNT_3 == exml_query:attr(Stanza, <<"xmlns">>)
+    has_ns(?NS_STREAM_MGNT_3, Stanza)
     andalso
     Handled == binary_to_integer(exml_query:attr(Stanza, <<"h">>));
 is_ack(_, _) ->
     false.
+
+has_ns(NS, Stanza) ->
+    NS == exml_query:attr(Stanza, <<"xmlns">>).
 
 %%--------------------------------------------------------------------
 %% Helpers
