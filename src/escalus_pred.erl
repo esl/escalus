@@ -359,6 +359,13 @@ is_enabled(#xmlel{name = <<"enabled">>} = Stanza) ->
 is_enabled(_) ->
     false.
 
+is_ack(Handled, #xmlel{name = <<"a">>} = Stanza) ->
+    ?NS_STREAM_MGNT_3 == exml_query:attr(Stanza, <<"xmlns">>)
+    andalso
+    Handled == binary_to_integer(exml_query:attr(Stanza, <<"h">>));
+is_ack(_, _) ->
+    false.
+
 %%--------------------------------------------------------------------
 %% Helpers
 %%--------------------------------------------------------------------
