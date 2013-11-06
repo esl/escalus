@@ -68,7 +68,8 @@
          search_iq/2]).
 
 %% XEP-0198: Stream Management
--export([enable_sm/0]).
+-export([enable_sm/0,
+         sm_request/0]).
 
 -export([stream_start/2,
          stream_end/0,
