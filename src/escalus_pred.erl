@@ -70,7 +70,7 @@
          is_bosh_report/2,
          is_enabled/1,
          is_failed/1,
-         is_ack/2,
+         is_ack/1, is_ack/2,
          has_ns/2]).
 
 -include("include/escalus.hrl").
@@ -375,6 +375,11 @@ is_failed(_) ->
 is_unexpected_request(#xmlel{name = <<"unexpected-request">>} = Stanza) ->
     has_ns(?NS_STANZA_ERRORS, Stanza);
 is_unexpected_request(_) ->
+    false.
+
+is_ack(#xmlel{name = <<"a">>} = Stanza) ->
+    has_ns(?NS_STREAM_MGNT_3, Stanza);
+is_ack(_) ->
     false.
 
 is_ack(Handled, #xmlel{name = <<"a">>} = Stanza) ->
