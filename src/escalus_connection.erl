@@ -35,7 +35,8 @@ start(Props) ->
            maybe_use_compression,
            authenticate,
            bind,
-           session]).
+           session,
+           maybe_stream_management]).
 
 %% Usage:
 %%

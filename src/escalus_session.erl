@@ -19,6 +19,7 @@
 -export([start_stream/3,
          maybe_use_ssl/3,
          maybe_use_compression/3,
+         maybe_stream_management/3,
          stream_management/3,
          authenticate/3,
          bind/3,
@@ -120,6 +121,14 @@ maybe_use_compression(Conn, Props, Features) ->
         true ->
             {Conn1, Props1} = compress(Conn, Props),
             {Conn1, Props1, Features};
+        false ->
+            {Conn, Props, Features}
+    end.
+
+maybe_stream_management(Conn, Props, Features) ->
+    case can_use_stream_management(Props, Features) of
+        true ->
+            stream_management(Conn, Props, Features);
         false ->
             {Conn, Props, Features}
     end.
