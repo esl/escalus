@@ -78,8 +78,8 @@ print_history(Config) ->
     FullFileName = filename:join(PrivDir, FileName),
     Events = get_history(Config),
     write_events(Events, FullFileName),
-    % ct_logs:add_link(Heading, FileName, Type),
-    ct_logs:add_link("history.xml", FileName, ""),
+    % escalus_ct:add_log_link(Heading, FileName, Type),
+    escalus_ct:add_log_link("history.xml", FileName, ""),
     ok.
 
 write_events([], _) ->

@@ -151,7 +151,7 @@ update_userspec(Config, UserName, Option, Value) ->
 
 %%% XXX: this is so ugly...
 get_users(all) ->
-    ct:get_config(escalus_users);
+    escalus_ct:get_config(escalus_users);
 get_users({by_name, Names}) ->
     All = get_users(all),
     [get_user_by_name(Name, All) || Name <- Names];
@@ -237,7 +237,7 @@ get_user_option(Short, Spec, Long, Config, Default) ->
 get_defined_option(Config, Name, Short, Long) ->
     case get_user_option(Short, Name, Long, Config, undefined) of
         undefined ->
-            ct:fail({undefined_option, Short, Name});
+            escalus_ct:fail({undefined_option, Short, Name});
         Value ->
             Value
     end.

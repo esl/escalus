@@ -39,9 +39,9 @@
 -include("include/escalus.hrl").
 
 rpc(M, F, A) ->
-    Node = ct:get_config(ejabberd_node),
-    Cookie = ct:get_config(ejabberd_cookie),
-    ct_rpc:call(Node, M, F, A, 3000, Cookie).
+    Node = escalus_ct:get_config(ejabberd_node),
+    Cookie = escalus_ct:get_config(ejabberd_cookie),
+    escalus_ct:rpc_call(Node, M, F, A, 3000, Cookie).
 
 remote_display(String) ->
     Line = [$\n, [$- || _ <- String], $\n],
@@ -128,7 +128,8 @@ wait_for_session_count(Config, Count, TryNo) when TryNo < 20 ->
             wait_for_session_count(Config, Count, TryNo + 1)
     end;
 wait_for_session_count(Config, Count, _) ->
-    ct:fail({wait_for_session_count, Count, get_remote_sessions(Config)}).
+    escalus_ct:fail({wait_for_session_count,
+                     Count, get_remote_sessions(Config)}).
 
 %% Option setup / reset.
 %%
