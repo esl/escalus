@@ -19,6 +19,9 @@
          reset_parser/1,
          is_connected/1]).
 
+%% Public Types
+-opaque transport() :: #transport{}.
+
 %% Private
 -export([connection_step/2]).
 
