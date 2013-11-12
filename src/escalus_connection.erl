@@ -20,7 +20,11 @@
          is_connected/1]).
 
 %% Public Types
--opaque transport() :: #transport{}.
+-type transport() :: #transport{}.
+-export_type([transport/0]).
+
+-type step_spec() :: atom() | {module(), atom()} | escalus_session:step().
+-export_type([step_spec/0]).
 
 %% Private
 -export([connection_step/2]).
@@ -31,6 +35,8 @@
 %%% Public API
 %%%===================================================================
 
+-spec start(escalus_users:spec()) -> {ok, transport(), escalus_users:spec()} |
+                                     {error, any()}.
 start(Props) ->
     start(Props,
           [start_stream,
@@ -64,6 +70,9 @@ start(Props) ->
 %% 'maybe_*' will check allowed properties and features to see if it's possible
 %% to use a feature.
 %% Others will assume a feature is available and fail if it's not.
+-spec start(escalus_users:spec(),
+            [step_spec()]) -> {ok, transport(), escalus_users:spec()} |
+                              {error, any()}.
 start(Props0, Steps) ->
     case connect(Props0) of
         {ok, Conn, Props} ->
@@ -118,7 +127,7 @@ send(#transport{module = Mod, event_client = EventClient} = Transport, Elem) ->
     escalus_event:outgoing_stanza(EventClient, Elem),
     Mod:send(Transport, Elem).
 
--spec get_stanza(#transport{}, any()) -> #xmlel{}.
+-spec get_stanza(transport(), any()) -> #xmlel{}.
 get_stanza(Conn, Name) ->
     receive
         {stanza, Conn, Stanza} ->

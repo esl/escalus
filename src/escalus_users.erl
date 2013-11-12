@@ -153,6 +153,8 @@ get_options(Config, User, Resource) ->
 get_options(Config, User, Resource, EventClient) ->
     [{event_client, EventClient} | get_options(Config, User, Resource)].
 
+-spec get_userspec(escalus_config:config(), escalus_config:key() | spec())
+    -> spec().
 get_userspec(Config, Username) when is_atom(Username) ->
     Users = escalus_config:get_config(escalus_users, Config),
     {Username, UserSpec} = lists:keyfind(Username, 1, Users),
