@@ -53,8 +53,10 @@
          adhoc_request/1,
          adhoc_request/2,
          service_discovery/1,
-         auth_stanza/2,
-         auth_response_stanza/1,
+         auth/1,
+         auth/2,
+         auth_response/0,
+         auth_response/1,
          query_el/2,
          x_data_form/2]).
 
@@ -509,16 +511,24 @@ service_discovery(Server) ->
     escalus_stanza:setattr(escalus_stanza:iq_get(?NS_DISCO_ITEMS, []), <<"to">>,
                            Server).
 
-auth_stanza(Mechanism, Body) ->
+-spec auth(binary()) -> #xmlel{}.
+auth(Mechanism) ->
+    auth(Mechanism, []).
+
+-spec auth(binary(), #xmlcdata{}) -> #xmlel{}.
+auth(Mechanism, Children) ->
     #xmlel{name = <<"auth">>,
            attrs = [{<<"xmlns">>, ?NS_SASL},
                     {<<"mechanism">>, Mechanism}],
-           children = Body}.
+           children = Children}.
 
-auth_response_stanza(Body) ->
+auth_response() ->
+    auth_response([]).
+
+auth_response(Children) ->
     #xmlel{name = <<"response">>,
            attrs = [{<<"xmlns">>, ?NS_SASL}],
-           children = Body}.
+           children = Children}.
 
 enable_sm() ->
     #xmlel{name = <<"enable">>,

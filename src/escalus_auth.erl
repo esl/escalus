@@ -27,18 +27,18 @@ auth_plain(Conn, Props) ->
     Username = get_property(username, Props),
     Password = get_property(password, Props),
     Payload = <<0:8,Username/binary,0:8,Password/binary>>,
-    Stanza = escalus_stanza:auth_stanza(<<"PLAIN">>, base64_cdata(Payload)),
+    Stanza = escalus_stanza:auth(<<"PLAIN">>, [base64_cdata(Payload)]),
     ok = escalus_connection:send(Conn, Stanza),
     wait_for_success(Username, Conn).
 
 auth_digest_md5(Conn, Props) ->
-    ok = escalus_connection:send(Conn, escalus_stanza:auth_stanza(<<"DIGEST-MD5">>, [])),
+    ok = escalus_connection:send(Conn, escalus_stanza:auth(<<"DIGEST-MD5">>)),
     ChallengeData = get_challenge(Conn, challenge1),
     Response = md5_digest_response(ChallengeData, Props),
-    ResponseStanza1 = escalus_stanza:auth_response_stanza([Response]),
+    ResponseStanza1 = escalus_stanza:auth_response([Response]),
     ok = escalus_connection:send(Conn, ResponseStanza1),
     [{<<"rspauth">>, _}] = get_challenge(Conn, challenge2), %% TODO: validate
-    ResponseStanza2 = escalus_stanza:auth_response_stanza([]),
+    ResponseStanza2 = escalus_stanza:auth_response(),
     ok = escalus_connection:send(Conn, ResponseStanza2),
     wait_for_success(get_property(username, Props), Conn).
 
@@ -50,8 +50,7 @@ auth_sasl_scram_sha1(Conn, Props) ->
                                           false),
     GS2Header = <<"n,,">>,
     Payload = <<GS2Header/binary,ClientFirstMessageBare/binary>>,
-    Stanza = escalus_stanza:auth_stanza(<<"SCRAM-SHA-1">>,
-                                        base64_cdata(Payload)),
+    Stanza = escalus_stanza:auth(<<"SCRAM-SHA-1">>, [base64_cdata(Payload)]),
 
     ok = escalus_connection:send(Conn, Stanza),
 
@@ -78,14 +77,13 @@ auth_sasl_scram_sha1(Conn, Props) ->
 
 
 auth_sasl_anon(Conn, Props) ->
-    Stanza = escalus_stanza:auth_stanza(<<"ANONYMOUS">>, []),
+    Stanza = escalus_stanza:auth(<<"ANONYMOUS">>),
     ok = escalus_connection:send(Conn, Stanza),
     wait_for_success(get_property(username, Props), Conn).
 
 auth_sasl_external(Conn, Props) ->
     {server, ThisServer} = get_property(endpoint, Props),
-    Stanza = escalus_stanza:auth_stanza(<<"EXTERNAL">>,
-                                        [base64_cdata(ThisServer)]),
+    Stanza = escalus_stanza:auth(<<"EXTERNAL">>, [base64_cdata(ThisServer)]),
     ok = escalus_connection:send(Conn, Stanza),
     wait_for_success(ThisServer, Conn).
 
@@ -210,4 +208,4 @@ get_property(PropName, Proplist) ->
 %%--------------------------------------------------------------------
 
 base64_cdata(Payload) ->
-    #xmlcdata{content=base64:encode(Payload)}.
+    #xmlcdata{content = base64:encode(Payload)}.
