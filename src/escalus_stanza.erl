@@ -190,12 +190,13 @@ tags(KVs) ->
 presence(Type) ->
     presence(Type, []).
 
-presence(<<"available">>, Body) ->
-    #xmlel{name = <<"presence">>, children = Body};
-presence(Type, Body) ->
+-spec presence(binary(), [xmlterm()]) -> #xmlel{}.
+presence(<<"available">>, Children) ->
+    #xmlel{name = <<"presence">>, children = Children};
+presence(Type, Children) ->
     #xmlel{name = <<"presence">>,
            attrs = [{<<"type">>, bin(Type)}],
-           children = Body}.
+           children = Children}.
 
 presence_direct(Recipient, Type) ->
     presence_direct(Recipient, Type, []).
@@ -220,14 +221,14 @@ presence_direct(Recipient, Type, Body) ->
 
 presence_show(Show) ->
     presence(<<"available">>,
-             #xmlel{name = <<"show">>,
-                    children = [#xmlcdata{content = Show}]}).
+             [#xmlel{name = <<"show">>,
+                     children = [#xmlcdata{content = Show}]}]).
 
 error_element(Type, Condition) ->
     #xmlel{name = <<"error">>,
            attrs = [{<<"type">>, Type}],
-           children = #xmlel{name = Condition,
-                             attrs = [{<<"xmlns">>, ?NS_STANZA_ERRORS}]}}.
+           children = [#xmlel{name = Condition,
+                              attrs = [{<<"xmlns">>, ?NS_STANZA_ERRORS}]}]}.
 
 message(From, Recipient, Type, Msg) ->
     FromAttr = case From of
