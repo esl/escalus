@@ -23,13 +23,28 @@
          get_config/5,
          get_ct/1]).
 
+%% Public Types
+-type key() :: atom().
+-export_type([key/0]).
+
+-type entry() :: {key(), any()}.
+-export_type([entry/0]).
+
+-type config() :: [entry()].
+-export_type([config/0]).
+
+-type key_path() :: key() | {key(), key()} | {key(), key(), key()}.
+-export_type([key_path/0]).
+
 %%--------------------------------------------------------------------
 %% Public API
 %%--------------------------------------------------------------------
 
+-spec get_config(key(), config()) -> any().
 get_config(Option, Config) ->
     get_config(Option, Config, undefined).
 
+-spec get_config(key(), config(), any()) -> any().
 get_config(Option, Config, Default) ->
     case lists:keyfind(Option, 1, Config) of
         {Option, Value} ->
@@ -43,9 +58,12 @@ get_config(Option, Config, Default) ->
             end
     end.
 
+-spec get_config(key(), escalus_users:spec(), key(), config()) -> any().
 get_config(USName, UserSpec, CName, Config) ->
     get_config(USName, UserSpec, CName, Config, undefined).
 
+-spec get_config(key(), escalus_users:spec(), key(), config(), any())
+    -> any().
 get_config(USName, UserSpec, CName, Config, Default) ->
     case lists:keyfind(USName, 1, UserSpec) of
         {USName, Value} ->
@@ -54,14 +72,14 @@ get_config(USName, UserSpec, CName, Config, Default) ->
             get_config(CName, Config, Default)
     end.
 
-
+-spec get_ct(key_path()) -> any().
 get_ct(Required) when is_atom(Required) ->
     escalus_ct:get_config(Required);
 get_ct(Required) when is_tuple(Required) ->
     TopList = escalus_ct:get_config(erlang:element(1, Required)),
     get_ct_recurse(Required, 2, TopList).
 
-
+-spec get_ct_recurse(key_path(), pos_integer(), config()) -> any().
 get_ct_recurse(Required, Pos, LevelVal) when Pos < size(Required) ->
     Key = erlang:element(Pos, Required),
     {_, NewLevelVal} = lists:keyfind(Key, 1, LevelVal),

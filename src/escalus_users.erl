@@ -38,6 +38,10 @@
          get_usp/2,
          is_mod_register_enabled/1]).
 
+% Public Types
+-type spec() :: [{escalus_config:key(), any()}].
+-export_type([spec/0]).
+
 % deprecated API
 -export([create_user/1,
          delete_user/1,
