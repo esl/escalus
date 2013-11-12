@@ -16,12 +16,12 @@ rebar:
 	chmod u+x rebar
 
 DEPS_PLT = $(CURDIR)/.deps_plt
-DEPS = kernel stdlib
+DEPS = deps/base16 common_test crypto erts deps/exml kernel deps/lhttpc \
+	   ssl stdlib deps/wsecli
 
 $(DEPS_PLT):
 	@echo Building local plt at $(DEPS_PLT)
 	@echo
-	#dialyzer --output_plt $(DEPS_PLT) --build_plt --apps $(DEPS) -r deps
 	dialyzer --output_plt $(DEPS_PLT) --build_plt --apps $(DEPS)
 
 dialyzer: $(DEPS_PLT)
