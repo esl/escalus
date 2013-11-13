@@ -26,7 +26,7 @@
 %% Application callbacks
 %% ===================================================================
 
--spec start(_,_) -> {ok, pid()} | ignore | {error,_}.
+-spec start(_,_) -> {ok, pid()} | {error,_}.
 start(_StartType, _StartArgs) ->
     escalus_sup:start_link().
 
