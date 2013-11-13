@@ -82,6 +82,9 @@
 
 -export(['not'/1]).
 
+-type stanza_type() :: binary().
+-type namespace() :: binary().
+
 -include("include/escalus.hrl").
 -include("escalus_xmlns.hrl").
 -include("escalus_deprecated.hrl").
@@ -114,52 +117,64 @@ is_presence_with_type(Type, Pres) ->
     andalso
     has_type(Type, Pres).
 
+-spec is_message(xmlterm()) -> boolean().
 is_message(#xmlel{name = <<"message">>}) ->
     true;
 is_message(_) ->
     false.
 
+-spec is_iq(xmlterm()) -> boolean().
 is_iq(#xmlel{name = <<"iq">>}) ->
     true;
 is_iq(_) ->
     false.
 
+-spec is_iq(stanza_type(), xmlterm()) -> boolean().
 is_iq(Type, Stanza) ->
     is_iq(Stanza)
     andalso
     has_type(Type, Stanza).
 
+-spec is_iq(stanza_type(), namespace(), xmlterm()) -> boolean().
 is_iq(Type, NS, Stanza) ->
     is_iq_with_ns(NS, Stanza)
     andalso
     has_type(Type, Stanza).
 
+-spec is_iq_with_ns(namespace(), xmlterm()) -> boolean().
 is_iq_with_ns(NS, Stanza) ->
     is_iq(Stanza)
     andalso
     bin(NS) == exml_query:path(Stanza, [{element, <<"query">>},
                                         {attr, <<"xmlns">>}]).
 
+-spec is_chat_message(xmlterm()) -> boolean().
 is_chat_message(Stanza) ->
     is_message(Stanza)
     andalso
     has_type(<<"chat">>, Stanza).
 
+-spec is_chat_message(binary(), xmlterm()) -> boolean().
 is_chat_message(Msg, Stanza) ->
     is_chat_message(Stanza)
     andalso
     bin(Msg) == exml_query:path(Stanza, [{element, <<"body">>}, cdata]).
 
+-spec is_groupchat_message(xmlterm()) -> boolean().
 is_groupchat_message(Stanza) ->
     is_message(Stanza)
     andalso
     has_type(<<"groupchat">>, Stanza).
 
+%% TODO: escalus_compat:bin/1 should be deprecated;
+%%       let's just use binaries instead of "maybe strings, maybe binaries"
+-spec is_groupchat_message(binary(), xmlterm()) -> boolean().
 is_groupchat_message(Msg, Stanza) ->
     is_groupchat_message(Stanza)
     andalso
     bin(Msg) == exml_query:path(Stanza, [{element, <<"body">>}, cdata]).
 
+-spec is_headline_message(binary(), binary(), xmlterm()) -> boolean().
 is_headline_message(Subject, Msg, Stanza) ->
     is_message(Stanza)
     andalso
@@ -169,20 +184,24 @@ is_headline_message(Subject, Msg, Stanza) ->
     andalso
     bin(Subject) == exml_query:path(Stanza, [{element, <<"subject">>}, cdata]).
 
+-spec has_type(binary(), xmlterm()) -> boolean().
 has_type(undefined, Stanza) ->
     undefined == exml_query:attr(Stanza, <<"type">>);
 has_type(Type, Stanza) ->
     bin(Type) == bin(exml_query:attr(Stanza, <<"type">>)).
 
+-spec is_0184_request(xmlterm()) -> boolean().
 is_0184_request(#xmlel{children = Els}) ->
     #xmlel{ name = <<"request">>,
             attrs = [{<<"xmlns">>, <<"urn:xmpp:receipts">>}],
             children = [] } =:= lists:keyfind(<<"request">>, 2, Els). 
 
+-spec is_0184_receipt(xmlterm(), xmlterm()) -> boolean().
 is_0184_receipt(#xmlel{ attrs = ReqAttrs } = Request, Receipt) ->
     {_, ReqTo} = lists:keyfind(<<"to">>, 1, ReqAttrs),
     is_0184_receipt(Request, ReqTo, Receipt).
 
+-spec is_0184_receipt(xmlterm(), binary(), xmlterm()) -> boolean().
 is_0184_receipt(#xmlel{ attrs = ReqAttrs } = _Request,
                 ProperResFrom,
                 #xmlel{ attrs = ResAttrs,
@@ -192,7 +211,6 @@ is_0184_receipt(#xmlel{ attrs = ReqAttrs } = _Request,
     {_, ReqID} = lists:keyfind(<<"id">>, 1, ReqAttrs),
     {_, ResID} = lists:keyfind(<<"id">>, 1, SubAttrs),
     {_, ResXmlns} = lists:keyfind(<<"xmlns">>, 1, SubAttrs),
-   
     binary:longest_common_prefix([ProperResFrom, ResFrom]) == byte_size(ProperResFrom)
     andalso
     ReqID == ResID
@@ -211,54 +229,73 @@ is_0184_receipt(Request, ProperResFrom,
 is_0184_receipt(_,_,_) ->
     false.
 
+-spec is_iq_set(xmlterm()) -> boolean().
 is_iq_set(Stanza) -> is_iq(<<"set">>, Stanza).
+
+-spec is_iq_get(xmlterm()) -> boolean().
 is_iq_get(Stanza) -> is_iq(<<"get">>, Stanza).
+
+-spec is_iq_error(xmlterm()) -> boolean().
 is_iq_error(Stanza) -> is_iq(<<"error">>, Stanza).
+
+-spec is_iq_result(xmlterm()) -> boolean().
 is_iq_result(Stanza) -> is_iq(<<"result">>, Stanza).
 
+-spec is_iq_result(xmlterm(), xmlterm()) -> boolean().
 is_iq_result(QueryStanza, ResultStanza) ->
     QueryId = exml_query:attr(QueryStanza, <<"id">>),
     ResultId = exml_query:attr(ResultStanza, <<"id">>),
     is_iq_result(ResultStanza) andalso QueryId == ResultId.
 
+-spec is_presence_with_show(binary(), xmlterm()) -> boolean().
 is_presence_with_show(Show, Presence) ->
     is_presence(Presence)
     andalso
     bin(Show) == exml_query:path(Presence, [{element, <<"show">>}, cdata]).
 
+-spec is_presence_with_status(binary(), xmlterm()) -> boolean().
 is_presence_with_status(Status, Presence) ->
     is_presence(Presence)
     andalso
     bin(Status) == exml_query:path(Presence, [{element, <<"status">>}, cdata]).
 
+-spec is_presence_with_priority(binary(), xmlterm()) -> boolean().
 is_presence_with_priority(Priority, Presence) ->
     is_presence(Presence)
     andalso
     bin(Priority) == exml_query:path(Presence, [{element, <<"priority">>}, cdata]).
 
+-spec is_stanza_from(escalus_utils:jid_spec(), xmlterm()) -> boolean().
 is_stanza_from(From, Stanza) ->
     ExpectedJid = escalus_utils:get_jid(From),
     ActualJid = exml_query:attr(Stanza, <<"from">>),
     escalus_utils:is_prefix(ExpectedJid, ActualJid).
 
+-spec is_roster_get(xmlterm()) -> boolean().
 is_roster_get(Stanza) ->
     is_iq(<<"get">>, ?NS_ROSTER, Stanza).
 
+-spec is_roster_set(xmlterm()) -> boolean().
 is_roster_set(Stanza) ->
     is_iq(<<"set">>, ?NS_ROSTER, Stanza).
 
+-spec is_roster_result(xmlterm()) -> boolean().
 is_roster_result(Stanza) ->
     is_iq(<<"result">>, ?NS_ROSTER, Stanza).
 
+-spec is_last_result(xmlterm()) -> boolean().
 is_last_result(Stanza) ->
     is_iq(<<"result">>, ?NS_LAST_ACTIVITY, Stanza).
 
+-spec is_private_result(xmlterm()) -> boolean().
 is_private_result(Stanza) ->
     is_iq(<<"result">>, ?NS_PRIVATE, Stanza).
 
+-spec is_private_error(xmlterm()) -> boolean().
 is_private_error(Stanza) ->
     is_iq(<<"error">>, ?NS_PRIVATE, Stanza).
 
+-spec roster_contains(escalus_utils:jid_spec(), xmlterm()) -> boolean().
 roster_contains(Contact, Stanza) ->
     ExpectedJid = escalus_utils:get_jid(Contact),
     Items = get_roster_items(Stanza),
@@ -278,9 +315,11 @@ roster_contains(Contact, Stanza) ->
                       false
               end, Items).
 
+-spec count_roster_items(pos_integer(), xmlterm()) -> boolean().
 count_roster_items(Num, Stanza) ->
     Num == length(get_roster_items(Stanza)).
 
+-spec is_error(binary(), binary(), xmlterm()) -> boolean().
 is_error(Type, Condition, Stanza) ->
     Error = exml_query:subelement(Stanza, <<"error">>),
     has_type(<<"error">>, Stanza)
@@ -290,6 +329,7 @@ is_error(Type, Condition, Stanza) ->
     exml_query:path(Error, [{element, bin(Condition)},
                             {attr, <<"xmlns">>}]) == ?NS_STANZA_ERRORS.
 
+-spec is_stream_error(binary(), binary(), xmlterm()) -> boolean().
 is_stream_error(Type, Text, Stanza) ->
     Stanza#xmlel.name =:= <<"stream:error">>
     andalso
@@ -301,18 +341,22 @@ is_stream_error(Type, Text, Stanza) ->
              =:= (exml_query:subelement(Stanza, <<"text">>))#xmlel.children
     end.
 
+-spec is_privacy_set(xmlterm()) -> boolean().
 is_privacy_set(Stanza) ->
     is_iq(<<"set">>, ?NS_PRIVACY, Stanza).
 
+-spec is_privacy_result(xmlterm()) -> boolean().
 is_privacy_result(Stanza) ->
     is_iq(<<"result">>, ?NS_PRIVACY, Stanza).
 
+-spec is_privacy_result_with(binary(), xmlterm()) -> boolean().
 is_privacy_result_with(Child, Stanza) ->
     is_privacy_result(Stanza)
     andalso
     has_path(Stanza, [{element, <<"query">>},
                       {element, Child}]).
 
+-spec is_privacy_result_with(binary(), binary(), xmlterm()) -> boolean().
 is_privacy_result_with(Child, ChildName, Stanza) ->
     is_privacy_result(Stanza)
     andalso
@@ -320,18 +364,23 @@ is_privacy_result_with(Child, ChildName, Stanza) ->
                                           {element, Child},
                                           {attr, <<"name">>}]).
 
+-spec is_privacy_result_with_active(xmlterm()) -> boolean().
 is_privacy_result_with_active(Stanza) ->
     is_privacy_result_with(<<"active">>, Stanza).
 
+-spec is_privacy_result_with_default(xmlterm()) -> boolean().
 is_privacy_result_with_default(Stanza) ->
     is_privacy_result_with(<<"default">>, Stanza).
 
+-spec is_privacy_result_with_active(binary(), xmlterm()) -> boolean().
 is_privacy_result_with_active(ActiveListName, Stanza) ->
     is_privacy_result_with(<<"active">>, ActiveListName, Stanza).
 
+-spec is_privacy_result_with_default(binary(), xmlterm()) -> boolean().
 is_privacy_result_with_default(DefaultListName, Stanza) ->
     is_privacy_result_with(<<"default">>, DefaultListName, Stanza).
 
+-spec is_privacy_list_nonexistent_error(xmlterm()) -> boolean().
 is_privacy_list_nonexistent_error(Stanza) ->
     is_iq(<<"error">>, ?NS_PRIVACY, Stanza)
     andalso
@@ -342,6 +391,7 @@ is_privacy_list_nonexistent_error(Stanza) ->
     has_path(Stanza, [{element, <<"error">>},
                       {element, <<"item-not-found">>}]).
 
+-spec is_adhoc_response(binary(), binary(), xmlterm()) -> boolean().
 is_adhoc_response(Node, Status, Stanza) ->
     is_iq(Stanza)
         andalso
@@ -354,12 +404,14 @@ is_adhoc_response(Node, Status, Stanza) ->
         Status == exml_query:path(Stanza, [{element, <<"command">>},
                                            {attr, <<"status">>}]).
 
+-spec has_service(binary(), xmlterm()) -> boolean().
 has_service(Service, #xmlel{children = [ #xmlel{children = Services} ]}) ->
     Pred = fun(Item) ->
                exml_query:attr(Item, <<"jid">>) =:= Service
            end,
     lists:any(Pred, Services).
 
+-spec has_feature(binary(), xmlterm()) -> boolean().
 has_feature(Feature, Stanza) ->
     Features = exml_query:paths(Stanza, [{element, <<"query">>},
                                          {element, <<"feature">>}]),
@@ -368,6 +420,7 @@ has_feature(Feature, Stanza) ->
               end,
               Features).
 
+-spec has_item(binary(), xmlterm()) -> boolean().
 has_item(JID, Stanza) ->
     Items = exml_query:paths(Stanza, [{element, <<"query">>},
                                       {element, <<"item">>}]),
@@ -376,9 +429,11 @@ has_item(JID, Stanza) ->
               end,
               Items).
 
+-spec has_no_such_item(binary(), xmlterm()) -> boolean().
 has_no_such_item(JID, Stanza) ->
     not has_item(JID, Stanza).
 
+-spec has_identity(binary(), binary(), xmlterm()) -> boolean().
 has_identity(Category, Type, Stanza) ->
     Idents = exml_query:paths(Stanza, [{element, <<"query">>},
                                        {element, <<"identity">>}]),
@@ -388,6 +443,7 @@ has_identity(Category, Type, Stanza) ->
               end,
               Idents).
 
+%% TODO: Remove as duplicates escalus_assert:has_no_stanzas/1 functionality.
 stanza_timeout(Arg) ->
     case element(1, Arg) of
         'EXIT' ->
@@ -401,11 +457,13 @@ stanza_timeout(Arg) ->
             false
     end.
 
+-spec is_stream_end(xmlterm() | xmlstreamelement()) -> boolean().
 is_stream_end(#xmlstreamend{}) ->
     true;
 is_stream_end(_) ->
     false.
 
+-spec is_bosh_report(pos_integer(), xmlterm()) -> boolean().
 is_bosh_report(Rid, #xmlel{name = <<"body">>} = Body) ->
     Rid == binary_to_integer(exml_query:attr(Body, <<"report">>))
     andalso
@@ -487,10 +545,12 @@ has_ns(NS, Stanza) ->
 %% Helpers
 %%--------------------------------------------------------------------
 
+-spec get_roster_items(xmlterm()) -> boolean().
 get_roster_items(Stanza) ->
     escalus:assert(is_iq_with_ns, [?NS_ROSTER], Stanza),
     Query = exml_query:subelement(Stanza, <<"query">>),
     Query#xmlel.children.
 
+-spec has_path(xmlterm(), exml_query:path()) -> boolean().
 has_path(Stanza, Path) ->
     exml_query:path(Stanza, Path) /= undefined.
