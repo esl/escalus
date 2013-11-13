@@ -545,7 +545,7 @@ has_ns(NS, Stanza) ->
 %% Helpers
 %%--------------------------------------------------------------------
 
--spec get_roster_items(xmlterm()) -> boolean().
+-spec get_roster_items(xmlterm()) -> [xmlterm()].
 get_roster_items(Stanza) ->
     escalus:assert(is_iq_with_ns, [?NS_ROSTER], Stanza),
     Query = exml_query:subelement(Stanza, <<"query">>),
