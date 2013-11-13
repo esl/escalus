@@ -38,15 +38,20 @@
          is_privacy_list_nonexistent_error/1,
          is_error/3]).
 
+-include_lib("exml/include/exml.hrl").
+-include("escalus.hrl").
+
 %%===================================================================
 %% Special cases
 %%===================================================================
 
 % note argument order change (backwards compatibility hack)
+-spec is_error(xmlterm(), binary(), binary()) -> ok | no_return().
 is_error(Stanza, Type, Condition) ->
     escalus:assert(is_error, [Type, Condition], Stanza).
 
 % Assertion about client, not Stanza
+-spec has_no_stanzas(#client{}) -> ok | no_return().
 has_no_stanzas(Client) ->
     case escalus_client:peek_stanzas(Client) of
         [] ->
