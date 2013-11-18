@@ -5,7 +5,7 @@ i.e. outside a Common Test test suite (and without any reliance
 on the `common_test` application and its modules).
 To do so some prerequisites must be met.
 
-Firstly, the Escalus must be started just like any other application:
+Firstly, Escalus must be started just like any other application:
 
     > application:start(escalus).
 
