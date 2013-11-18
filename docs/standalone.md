@@ -26,8 +26,40 @@ To recap:
     functions,
 
 -   `config_file` **must** be set to a configuration file location;
-    otherwise the application won't start.
+    this location may be absolute or relative (in which case the file will
+    be searched for relative to the project directory).
 
 Note, that in a real security-conscious setting you probably shouldn't
 store clear text user passwords in this file (though that's exactly what
 the example does - remember Escalus is still mostly a testing tool).
+
+If you don't want to rely on the application resource file
+(`escalus.app`/`escalus.app.src`) you can set both of these options just
+after loading Escalus:
+
+    > application:start(escalus).
+    > application:set_env(escalus, common_test, false).
+    > application:set_env(escalus, config_file, "/absolute/or/relative/path").
+
+Keep in mind setting them before calling `application:start(escalus)`
+will overwrite the values with stuff from `escalus.app`.
+
+## Config file location
+
+If the `config_file` value starts with `/` it's  interpreted as an
+absolute path and left as is.
+Otherwise, it's interpreted as a relative path to the project directory.
+The project directory is the directory one level higher than the directory
+containing `ejabberd_ct.beam`.
+In case of a standard Git checkout the project directory is simply `escalus`.
+
+    escalus/
+    ├── .git/
+    ├── ...
+    ├── docs/
+    ├── ebin/
+    │   ├── ...
+    │   ├── escalus_ct.beam
+    │   └── ...
+    ├── src/
+    └── ...

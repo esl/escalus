@@ -46,8 +46,23 @@ consult_config_file(Option) ->
         undefined ->
             error({escalus_error, no_config_file});
         {ok, ConfigFile} ->
-            {ok, Config} = file:consult(ConfigFile),
+            Path = interpret_config_file_path(ConfigFile),
+            {ok, Config} = file:consult(Path),
             proplists:get_value(Option, Config)
+    end.
+
+interpret_config_file_path("/" ++ _ = AbsPath) ->
+    AbsPath;
+interpret_config_file_path(RelPath) ->
+    case code:is_loaded(?MODULE) of
+        {file, EscalusBeamPath} ->
+            GetProjectDir = fun(Path) ->
+                                    filename:dirname(filename:dirname(Path))
+                            end,
+            ProjectDir = GetProjectDir(EscalusBeamPath),
+            filename:join([ProjectDir, RelPath]);
+        _ ->
+            error({escalus_error, beam_not_loaded})
     end.
 
 rpc_call(Node, Module, Function, Args, TimeOut, Cookie) ->
