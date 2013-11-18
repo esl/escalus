@@ -35,7 +35,7 @@ get_config(Option, Config, Default) ->
         {Option, Value} ->
             Value;
         false ->
-            case ct:get_config(Option) of
+            case escalus_ct:get_config(Option) of
                 undefined ->
                     Default;
                 Value ->
@@ -56,9 +56,9 @@ get_config(USName, UserSpec, CName, Config, Default) ->
 
 
 get_ct(Required) when is_atom(Required) ->
-    ct:get_config(Required);
+    escalus_ct:get_config(Required);
 get_ct(Required) when is_tuple(Required) ->
-    TopList = ct:get_config(erlang:element(1, Required)),
+    TopList = escalus_ct:get_config(erlang:element(1, Required)),
     get_ct_recurse(Required, 2, TopList).
 
 
