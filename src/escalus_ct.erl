@@ -18,6 +18,8 @@
 %% What about that?
 -export([rpc_call/6]).
 
+-define(APPNAME, escalus).
+
 -spec add_log_link(any(), any(), any()) -> ok | false.
 add_log_link(Heading, File, Type) ->
     is_ct_available() andalso ct_logs:add_link(Heading, File, Type).
@@ -40,7 +42,7 @@ get_config(Required) ->
 %% might be cached and lists:keyfind/3 used in place of proplists:get_value/2
 %% (watch out - these return different values on lookup failure).
 consult_config_file(Option) ->
-    case application:get_env(config_file) of
+    case application:get_env(?APPNAME, config_file) of
         undefined ->
             error({escalus_error, no_config_file});
         {ok, ConfigFile} ->
@@ -59,7 +61,7 @@ rpc_call(Node, Module, Function, Args, TimeOut, Cookie) ->
 
 -spec is_ct_available() -> boolean().
 is_ct_available() ->
-    case application:get_env(escalus, common_test) of
+    case application:get_env(?APPNAME, common_test) of
         %% For a transitional period let's assume that unless
         %% {common_test, false} is defined, Common Test is available.
         undefined ->
