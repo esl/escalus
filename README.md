@@ -11,4 +11,11 @@ and don't verify correctness.
 Quick start
 ===========
 
-*   Read the [the intro file](docs/intro.md) to get started.
+Read the [the intro file](docs/intro.md) to get started.
+
+Standalone Escalus application
+==============================
+
+If you're interested in using Escalus as a standalone Erlang XMPP client
+library (without any reliance on Common Test),
+then see [standalone usage preqrequisites](docs/standalone.md).
