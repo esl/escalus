@@ -60,6 +60,10 @@ rpc_call(Node, Module, Function, Args, TimeOut, Cookie) ->
 -spec is_ct_available() -> boolean().
 is_ct_available() ->
     case application:get_env(common_test) of
+        %% For a transitional period let's assume that unless
+        %% {common_test, false} is defined, Common Test is available.
+        undefined ->
+            true;
         {ok, true} ->
             true;
         _ ->
