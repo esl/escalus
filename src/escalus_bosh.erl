@@ -64,7 +64,8 @@
                 active = true,
                 replies = [],
                 terminated = false,
-                event_client}).
+                event_client,
+                client}).
 
 %%%===================================================================
 %%% API
@@ -72,8 +73,6 @@
 
 -spec connect([{atom(), any()}]) -> {ok, #transport{}}.
 connect(Args) ->
-    ssl:start(),
-    lhttpc:start(),
     {ok, Pid} = gen_server:start_link(?MODULE, [Args, self()], []),
     Transport = gen_server:call(Pid, get_transport),
     {ok, Transport}.
@@ -241,13 +240,15 @@ init([Args, Owner]) ->
     {MS, S, MMS} = now(),
     InitRid = MS * 1000000 * 1000000 + S * 1000000 + MMS,
     {ok, Parser} = exml_stream:new_parser(),
+    {ok, Client} = fusco:start({HostStr, Port, false}, []),
     {ok, #state{owner = Owner,
-                url = {HostStr, Port, binary_to_list(Path)},
+                url = Path,
                 parser = Parser,
                 rid = InitRid,
                 keepalive = proplists:get_value(keepalive, Args, true),
                 wait = Wait,
-                event_client = EventClient}}.
+                event_client = EventClient,
+                client = Client}}.
 
 
 handle_call(get_transport, _From, State) ->
@@ -311,8 +312,7 @@ handle_cast(reset_parser, #state{parser = Parser} = State) ->
 
 
 %% Handle async HTTP request replies.
-handle_info({http_reply, Ref, {_StatusAndReason, _Hdrs, Body},
-             Transport}, S) ->
+handle_info({http_reply, Ref, Body, Transport}, S) ->
     NewRequests = lists:keydelete(Ref, 1, S#state.requests),
     {ok, #xmlel{attrs=Attrs} = XmlBody} = exml:parse(Body),
     NS = handle_data(XmlBody, S#state{requests = NewRequests}),
@@ -328,8 +328,15 @@ handle_info({http_reply, Ref, {_StatusAndReason, _Hdrs, Body},
     {noreply, NNS};
 handle_info(_, State) ->
     {noreply, State}.
+<<<<<<< HEAD
  
 terminate(_Reason, #state{parser = Parser}) ->
+=======
+
+
+terminate(_Reason, #state{client = Client, parser = Parser}) ->
+    fusco:disconnect(Client),
+>>>>>>> eb3e42a... Replace lhttpc by fusco
     exml_stream:free_parser(Parser).
 
 code_change(_OldVsn, State, _Extra) ->
@@ -340,11 +347,11 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Helpers
 %%%===================================================================
 
-request(#transport{socket = {Host, Port, Path}}, Body) ->
+request(#transport{socket = {Client, Path}}, Body) ->
     Headers = [{"Content-Type", "text/xml; charset=utf-8"}],
-    lhttpc:request(Host, Port, false, Path, 'POST',
-                   Headers, exml:to_iolist(Body),
-                   infinity, []).
+    {ok, _Status, _Headers, RBody, _Size, _Time} =
+        fusco:request(Client, Path, 'POST', Headers, exml:to_iolist(Body), 2, infinity),
+    RBody.
 
 close_requests(#state{requests=Reqs} = S) ->
     [exit(Pid, normal) || {_Ref, Pid} <- Reqs],
@@ -416,12 +423,12 @@ handle_recv(#state{replies = [Reply | Replies]} = S) ->
     end,
     {Reply, S#state{replies = Replies}}.
 
-transport(#state{url = Url, event_client = EventClient}) ->
+transport(#state{url = Path, client = Client, event_client = EventClient}) ->
     #transport{module = ?MODULE,
                ssl = false,
                compress = false,
                rcv_pid = self(),
-               socket = Url,
+               socket = {Client, Path},
                event_client = EventClient}.
 
 wrap_elem(#xmlstreamstart{attrs = Attrs},
