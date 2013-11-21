@@ -65,7 +65,8 @@
                 replies = [],
                 terminated = false,
                 event_client,
-                client}).
+                client,
+                on_reply}).
 
 %%%===================================================================
 %%% API
@@ -237,10 +238,13 @@ init([Args, Owner]) ->
     Wait = proplists:get_value(bosh_wait, Args, ?DEFAULT_WAIT),
     EventClient = proplists:get_value(event_client, Args),
     HostStr = host_to_list(Host),
+    OnReplyFun = proplists:get_value(on_reply, Args, fun(_) -> ok end),
+    OnConnectFun = proplists:get_value(on_connect, Args, fun(_) -> ok end),
     {MS, S, MMS} = now(),
     InitRid = MS * 1000000 * 1000000 + S * 1000000 + MMS,
     {ok, Parser} = exml_stream:new_parser(),
-    {ok, Client} = fusco:start({HostStr, Port, false}, []),
+    {ok, Client} = fusco:start({HostStr, Port, false},
+                               [{on_connect, OnConnectFun}]),
     {ok, #state{owner = Owner,
                 url = Path,
                 parser = Parser,
@@ -248,7 +252,8 @@ init([Args, Owner]) ->
                 keepalive = proplists:get_value(keepalive, Args, true),
                 wait = Wait,
                 event_client = EventClient,
-                client = Client}}.
+                client = Client,
+                on_reply = OnReplyFun}}.
 
 
 handle_call(get_transport, _From, State) ->
@@ -328,16 +333,12 @@ handle_info({http_reply, Ref, Body, Transport}, S) ->
     {noreply, NNS};
 handle_info(_, State) ->
     {noreply, State}.
-<<<<<<< HEAD
- 
-terminate(_Reason, #state{parser = Parser}) ->
-=======
 
 
 terminate(_Reason, #state{client = Client, parser = Parser}) ->
     fusco:disconnect(Client),
->>>>>>> eb3e42a... Replace lhttpc by fusco
     exml_stream:free_parser(Parser).
+
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
@@ -347,10 +348,11 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Helpers
 %%%===================================================================
 
-request(#transport{socket = {Client, Path}}, Body) ->
+request(#transport{socket = {Client, Path}}, Body, OnReplyFun) ->
     Headers = [{"Content-Type", "text/xml; charset=utf-8"}],
-    {ok, _Status, _Headers, RBody, _Size, _Time} =
+    {ok, _Status, _Headers, RBody, _Size, _Time} = Reply =
         fusco:request(Client, Path, 'POST', Headers, exml:to_iolist(Body), 2, infinity),
+    OnReplyFun(Reply),
     RBody.
 
 close_requests(#state{requests=Reqs} = S) ->
@@ -360,18 +362,18 @@ close_requests(#state{requests=Reqs} = S) ->
 send(Transport, Body, State) ->
     send(Transport, Body, State#state.rid+1, State).
 
-send(Transport, Body, NewRid, #state{requests = Requests} = S) ->
+send(Transport, Body, NewRid, #state{requests = Requests, on_reply = OnReplyFun} = S) ->
     Ref = make_ref(),
     Self = self(),
     AsyncReq = fun() ->
-            {ok, Reply} = request(Transport, Body),
+            {ok, Reply} = request(Transport, Body, OnReplyFun),
             Self ! {http_reply, Ref, Reply, Transport}
     end,
     NewRequests = [{Ref, proc_lib:spawn_link(AsyncReq)} | Requests],
     S#state{rid = NewRid, requests = NewRequests}.
 
-sync_send(Transport, Body, S=#state{}) ->
-    {ok, Reply} = request(Transport, Body),
+sync_send(Transport, Body, S=#state{on_reply = OnReplyFun}) ->
+    {ok, Reply} = request(Transport, Body, OnReplyFun),
     {ok, Reply, S#state{rid = S#state.rid+1}}.
 
 send0(Transport, Elem, State) ->
