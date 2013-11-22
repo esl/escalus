@@ -69,7 +69,8 @@
 
 %% XEP-0198: Stream Management
 -export([enable_sm/0,
-         sm_request/0]).
+         sm_request/0,
+         sm_ack/1]).
 
 -export([stream_start/2,
          stream_end/0,
@@ -469,6 +470,11 @@ enable_sm() ->
 sm_request() ->
     #xmlel{name = <<"r">>,
            attrs = [{<<"xmlns">>, ?NS_STREAM_MGNT_3}]}.
+
+sm_ack(H) ->
+    #xmlel{name = <<"a">>,
+           attrs = [{<<"xmlns">>, ?NS_STREAM_MGNT_3},
+                    {<<"h">>, integer_to_binary(H)}]}.
 
 %%--------------------------------------------------------------------
 %% Helpers
