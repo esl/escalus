@@ -349,11 +349,12 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 
 request(#transport{socket = {Client, Path}}, Body, OnReplyFun) ->
-    Headers = [{"Content-Type", "text/xml; charset=utf-8"}],
-    {ok, _Status, _Headers, RBody, _Size, _Time} = Reply =
-        fusco:request(Client, Path, 'POST', Headers, exml:to_iolist(Body), 2, infinity),
+    Headers = [{<<"Content-Type">>, <<"text/xml; charset=utf-8">>}],
+    Reply =
+        fusco:request(Client, Path, "POST", Headers, exml:to_iolist(Body), 2, infinity),
     OnReplyFun(Reply),
-    RBody.
+    {ok, {_Status, _Headers, RBody, _Size, _Time}} = Reply,
+    {ok, RBody}.
 
 close_requests(#state{requests=Reqs} = S) ->
     [exit(Pid, normal) || {_Ref, Pid} <- Reqs],
