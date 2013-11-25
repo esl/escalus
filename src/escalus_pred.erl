@@ -71,6 +71,7 @@
          is_enabled/1,
          is_failed/1,
          is_ack/1, is_ack/2,
+         is_ack_request/1,
          has_ns/2]).
 
 -include("include/escalus.hrl").
@@ -387,6 +388,11 @@ is_ack(Handled, #xmlel{name = <<"a">>} = Stanza) ->
     andalso
     Handled == binary_to_integer(exml_query:attr(Stanza, <<"h">>));
 is_ack(_, _) ->
+    false.
+
+is_ack_request(#xmlel{name = <<"r">>} = Stanza) ->
+    has_ns(?NS_STREAM_MGNT_3, Stanza);
+is_ack_request(_) ->
     false.
 
 has_ns(NS, Stanza) ->
