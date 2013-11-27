@@ -157,7 +157,7 @@ is_iq_get(Stanza) -> is_iq(<<"get">>, Stanza).
 is_iq_error(Stanza) -> is_iq(<<"error">>, Stanza).
 is_iq_result(Stanza) -> is_iq(<<"result">>, Stanza).
 
-is_iq_result(ResultStanza, QueryStanza) ->
+is_iq_result(QueryStanza, ResultStanza) ->
     QueryId = exml_query:attr(QueryStanza, <<"id">>),
     ResultId = exml_query:attr(ResultStanza, <<"id">>),
     is_iq_result(ResultStanza) andalso QueryId == ResultId.
