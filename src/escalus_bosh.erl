@@ -108,16 +108,23 @@ get_transport(#transport{rcv_pid = Pid}) ->
 session_creation_body(Rid, To) ->
     session_creation_body(?DEFAULT_WAIT, <<"1.0">>, <<"en">>, Rid, To, nil).
 
-session_creation_body(Wait, Version, Lang, Rid, To, Sid) ->
-    empty_body(Rid, Sid,
+session_creation_body(Wait, Version, Lang, Rid, To, nil) ->
+    empty_body(Rid, nil,
                [{<<"content">>, <<"text/xml; charset=utf-8">>},
                 {<<"xmlns:xmpp">>, ?NS_BOSH},
                 {<<"xmpp:version">>, Version},
+                {<<"ver">>, <<"1.6">>},
                 {<<"hold">>, <<"1">>},
-                {<<"wait">>, integer_to_binary(Wait)},
+                {<<"wait">>, list_to_binary(integer_to_list(Wait))},
                 {<<"xml:lang">>, Lang},
-                {<<"to">>, To}]
-               ++ [{<<"xmpp:restart">>, <<"true">>} || Sid =/= nil]).
+                {<<"to">>, To}]);
+
+session_creation_body(_Wait, _Version, Lang, Rid, To, Sid) ->
+    empty_body(Rid, Sid,
+                [{<<"xmlns:xmpp">>, ?NS_BOSH},
+                 {<<"xml:lang">>, Lang},
+                 {<<"to">>, To},
+                 {<<"xmpp:restart">>, <<"true">>}]).
 
 session_termination_body(Rid, Sid) ->
     Body = empty_body(Rid, Sid, [{<<"type">>, <<"terminate">>}]),

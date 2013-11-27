@@ -31,6 +31,7 @@
          is_iq_get/1,
          is_iq_error/1,
          is_iq_result/1,
+         is_iq_result/2,
          is_presence/1,
          is_presence_stanza/1, % backwards compatibility
          is_presence_type/2, %% backwards compatibility
@@ -155,6 +156,11 @@ is_iq_set(Stanza) -> is_iq(<<"set">>, Stanza).
 is_iq_get(Stanza) -> is_iq(<<"get">>, Stanza).
 is_iq_error(Stanza) -> is_iq(<<"error">>, Stanza).
 is_iq_result(Stanza) -> is_iq(<<"result">>, Stanza).
+
+is_iq_result(ResultStanza, QueryStanza) ->
+    QueryId = exml_query:attr(QueryStanza, <<"id">>),
+    ResultId = exml_query:attr(ResultStanza, <<"id">>),
+    is_iq_result(ResultStanza) andalso QueryId == ResultId.
 
 is_presence_with_show(Show, Presence) ->
     is_presence(Presence)

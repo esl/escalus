@@ -35,7 +35,8 @@
          create_user/2,
          verify_creation/1,
          delete_user/2,
-         get_usp/2]).
+         get_usp/2,
+         is_mod_register_enabled/0]).
 
 % deprecated API
 -export([create_user/1,
@@ -59,8 +60,13 @@ create_users(Config) ->
 
 create_users(Config, Who) ->
     Users = get_users(Who),
-    CreationResults = [create_user(Config, User) || User <- Users],
-    lists:foreach(fun verify_creation/1, CreationResults),
+    case is_mod_register_enabled() of
+        true ->
+            CreationResults = [create_user(Config, User) || User <- Users],
+            lists:foreach(fun verify_creation/1, CreationResults);
+        _->
+            escalus_ejabberd:create_users(Config, Who)
+    end,
     [{escalus_users, Users}] ++ Config.
 
 delete_users(Config) ->
@@ -73,7 +79,13 @@ delete_users(Config, Who) ->
         _ ->
             get_users(Who)
     end,
-    [delete_user(Config, User) || User <- Users].
+
+    case is_mod_register_enabled() of
+        true ->
+            [delete_user(Config, User) || User <- Users];
+        _ ->
+            escalus_ejabberd:delete_users(Config, Users)
+    end.
 
 get_jid(Config, User) ->
     Username = get_username(Config, User),
@@ -149,7 +161,7 @@ update_userspec(Config, UserName, Option, Value) ->
     NewUsers = lists:keystore(UserName, 1, Users, {UserName, UserSpec}),
     lists:keystore(escalus_users, 1, Config, {escalus_users, NewUsers}).
 
-%%% XXX: this is so ugly...
+
 get_users(all) ->
     escalus_ct:get_config(escalus_users);
 get_users({by_name, Names}) ->
@@ -192,6 +204,21 @@ delete_user(Config, {_Name, UserSpec}) ->
     escalus_connection:stop(Conn),
     Result.
 
+is_mod_register_enabled() ->
+    Server = escalus_ct:get_config(ejabberd_addr),
+    Host = escalus_ct:get_config(ejabberd_domain),
+    ClientProps = [{server, Server},
+                   {host, Host}],
+    {ok, Conn, ClientProps} = escalus_connection:start(ClientProps,
+                                                       [start_stream,
+                                                        maybe_use_ssl]),
+    escalus_connection:send(Conn, escalus_stanza:get_registration_fields()),
+    case wait_for_result(Conn) of
+        {error, _, _} ->
+            false;
+        _ ->
+            true
+    end.
 %%--------------------------------------------------------------------
 %% Deprecated API
 %%--------------------------------------------------------------------
@@ -284,3 +311,6 @@ get_answers(UserSpec, InstrStanza) ->
     NoInstr = ChildrenNames -- [<<"instructions">>],
     [#xmlel{name=K, children=[exml:escape_cdata(proplists:get_value(K, BinSpec))]}
      || K <- NoInstr].
+
+
+

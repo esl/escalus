@@ -20,8 +20,13 @@
 
 -spec do([{atom(), term()}], atom(), [term()], {atom(), atom()}) -> term().
 do(Config, OverrideName, Args, Default) ->
-    {Mod, Fun} = get_mf(Config, OverrideName, Default),
-    apply(Mod, Fun, Args).
+    case get_mf(Config, OverrideName, Default) of
+        {Mod, Fun} ->
+            apply(Mod, Fun, Args);
+        Fun ->
+            apply(Fun, Args)
+    end.
+
 
 -spec override([{atom(), term()}], atom(), {atom(), atom()}) -> [{atom(), term()}].
 override(Config, OverrideName, NewValue) ->

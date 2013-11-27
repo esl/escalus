@@ -26,15 +26,21 @@
          create_users/1,
          create_users/2,
          delete_users/1,
+         delete_users/2,
          get_global_option/1,
          with_global_option/3,
          with_local_option/3,
          get_c2s_status/1,
          get_remote_sessions/1,
          default_get_remote_sessions/0,
+         legacy_get_remote_sessions/0,
+         unify_str_arg/1,
+         unify_str_arg/2,
          wait_for_session_count/2,
          setup_option/2,
          reset_option/2]).
+
+
 
 -include("include/escalus.hrl").
 
@@ -73,6 +79,15 @@ delete_users(Config) ->
     lists:foreach(fun({_Name, UserSpec}) ->
         unregister_user(Config, UserSpec)
     end, AllUsers).
+
+delete_users(Config, Who) when is_atom(Who); is_tuple(Who) ->
+    Users = escalus_users:get_users(Who),
+    delete_users(Config, Users);
+
+delete_users(Config, Users) ->
+    lists:foreach(fun({_Name, UserSpec}) ->
+        unregister_user(Config, UserSpec)
+    end, Users).
 
 -spec get_global_option(term()) -> term().
 get_global_option(Option) ->
@@ -200,16 +215,37 @@ reset_option({Option, _, Set, _}, Config) ->
     end,
     proplists:delete({saved, Option}, Config).
 
+
+
 %%--------------------------------------------------------------------
 %% Helpers
 %%--------------------------------------------------------------------
 
 register_user(Config, UserSpec) ->
-    rpc(ejabberd_admin, register, escalus_users:get_usp(Config, UserSpec)).
+    StrFormat = escalus_ct:get_config(ejabberd_string_format),
+    USP = [unify_str_arg(Arg, StrFormat) ||
+           Arg <- escalus_users:get_usp(Config, UserSpec)],
+    rpc(ejabberd_admin, register, USP).
 
 unregister_user(Config, UserSpec) ->
-    [U, S, _P] = escalus_users:get_usp(Config, UserSpec),
+    StrFormat = escalus_ct:get_config(ejabberd_string_format),
+    USP = [unify_str_arg(Arg, StrFormat) ||
+           Arg <- escalus_users:get_usp(Config, UserSpec)],
+    [U, S, _P] = USP,
     rpc(ejabberd_admin, unregister, [U, S]).
 
 default_get_remote_sessions() ->
     rpc(ejabberd_sm, get_full_session_list, []).
+
+legacy_get_remote_sessions() ->
+    rpc(ejabberd_sm, dirty_get_sessions_list, []).
+
+unify_str_arg(Arg) ->
+    StrFormat = escalus_ct:get_config(ejabberd_string_format),
+    unify_str_arg(Arg, StrFormat).
+
+unify_str_arg(Arg, str) when is_binary(Arg) ->
+    binary_to_list(Arg);
+unify_str_arg(Arg, _) ->
+    Arg.
+
