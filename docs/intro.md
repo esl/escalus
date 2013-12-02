@@ -30,12 +30,11 @@ look at [test/test.config][test_config] file that comes with Escalus:
 
 [test_config]: /test/test.config
 
-Escalus can create and delete those users if
-server under test supports in-band registration
-[XEP-0077](http://xmpp.org/extensions/xep-0077.html)
-and has no limits on number of registrations
-per second (configure `registration_timeout` to `infinity`
-in case of ejabberd).
+Escalus can create and delete those users in two ways:
+ * using in-band registration [XEP-0077](http://xmpp.org/extensions/xep-0077.html)
+  when it is supported by the server and has no limits on number of registrations
+  per second (configure `registration_timeout` to `infinity` in case of ejabberd).
+ * using erlang rpc calls to the ejabberd_admin:register/2 function (incase of ejabberd or MongooseIM as the tested server and the in-band registration is disabled)
 
 You create and delete the users by calling `escalus:create_users/1`
 and `escalus:delete_users/1`:
