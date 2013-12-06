@@ -68,7 +68,7 @@
          stanza_timeout/1,
          is_stream_end/1,
          is_bosh_report/2,
-         is_enabled/1,
+         is_enabled/1, is_enabled/2,
          is_failed/1,
          is_ack/1, is_ack/2,
          is_ack_request/1,
@@ -357,6 +357,16 @@ is_bosh_report(Rid, #xmlel{name = <<"body">>} = Body) ->
     exml_query:attr(Body, <<"time">>) /= undefined;
 is_bosh_report(_, _) ->
     false.
+
+is_enabled(Opts, Stanza) ->
+    is_enabled(Stanza)
+    andalso case proplists:is_defined(resume, Opts) of
+                false ->
+                    true;
+                true ->
+                    lists:member(exml_query:attr(Stanza, <<"resume">>),
+                                 [<<"true">>, <<"1">>])
+            end.
 
 is_enabled(#xmlel{name = <<"enabled">>} = Stanza) ->
     has_ns(?NS_STREAM_MGNT_3, Stanza);
