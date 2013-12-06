@@ -68,7 +68,7 @@
          search_iq/2]).
 
 %% XEP-0198: Stream Management
--export([enable_sm/0,
+-export([enable_sm/0, enable_sm/1,
          sm_request/0,
          sm_ack/1]).
 
@@ -466,6 +466,12 @@ auth_response_stanza(Body) ->
 enable_sm() ->
     #xmlel{name = <<"enable">>,
            attrs = [{<<"xmlns">>, ?NS_STREAM_MGNT_3}]}.
+
+enable_sm(Opts) ->
+    #xmlel{name = <<"enable">>,
+           attrs = [{<<"xmlns">>, ?NS_STREAM_MGNT_3}]
+                    ++ [{<<"resume">>, <<"true">>}
+                        || true == proplists:is_defined(resume, Opts)]}.
 
 sm_request() ->
     #xmlel{name = <<"r">>,
