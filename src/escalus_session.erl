@@ -20,7 +20,9 @@
          maybe_use_ssl/3,
          maybe_use_compression/3,
          maybe_stream_management/3,
+         maybe_stream_resumption/3,
          stream_management/3,
+         stream_resumption/3,
          authenticate/3,
          bind/3,
          session/3]).
@@ -137,6 +139,20 @@ stream_management(Conn, Props, Features) ->
     escalus_connection:send(Conn, escalus_stanza:enable_sm()),
     Enabled = escalus_connection:get_stanza(Conn, stream_management),
     true = escalus_pred:is_enabled(Enabled),
+    {Conn, Props, Features}.
+
+maybe_stream_resumption(Conn, Props, Features) ->
+    case can_use_stream_management(Props, Features) of
+        true ->
+            stream_resumption(Conn, Props, Features);
+        false ->
+            {Conn, Props, Features}
+    end.
+
+stream_resumption(Conn, Props, Features) ->
+    escalus_connection:send(Conn, escalus_stanza:enable_sm([resume])),
+    Enabled = escalus_connection:get_stanza(Conn, stream_resumption),
+    true = escalus_pred:is_enabled([resume], Enabled),
     {Conn, Props, Features}.
 
 authenticate(Conn, Props, Features) ->
