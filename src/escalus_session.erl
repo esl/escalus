@@ -153,7 +153,8 @@ stream_resumption(Conn, Props, Features) ->
     escalus_connection:send(Conn, escalus_stanza:enable_sm([resume])),
     Enabled = escalus_connection:get_stanza(Conn, stream_resumption),
     true = escalus_pred:is_enabled([resume], Enabled),
-    {Conn, Props, Features}.
+    SMID = exml_query:attr(Enabled, <<"id">>),
+    {Conn, [{smid, SMID} | Props], Features}.
 
 authenticate(Conn, Props, Features) ->
     {Conn, authenticate(Conn, Props), Features}.
