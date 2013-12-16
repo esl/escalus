@@ -72,6 +72,7 @@
          is_failed/1,
          is_ack/1, is_ack/2,
          is_ack_request/1,
+         is_resumed/2,
          has_ns/2]).
 
 -include("include/escalus.hrl").
@@ -403,6 +404,15 @@ is_ack(_, _) ->
 is_ack_request(#xmlel{name = <<"r">>} = Stanza) ->
     has_ns(?NS_STREAM_MGNT_3, Stanza);
 is_ack_request(_) ->
+    false.
+
+is_resumed(SMID, #xmlel{name = <<"resumed">>} = Stanza) ->
+    has_ns(?NS_STREAM_MGNT_3, Stanza)
+    andalso
+    SMID == exml_query:attr(Stanza, <<"previd">>)
+    andalso
+    exml_query:attr(Stanza, <<"h">>) /= undefined;
+is_resumed(_, _) ->
     false.
 
 has_ns(NS, Stanza) ->
