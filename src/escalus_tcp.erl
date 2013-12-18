@@ -112,7 +112,7 @@ handle_call(get_transport, _From, State) ->
     {reply, transport(State), State};
 handle_call({upgrade_to_tls, SSLOpts}, _From, #state{socket = Socket} = State) ->
     ssl:start(),
-    SSLOpts1 = [{protocol, tlsv1}, {reuse_sessions, true}],
+    SSLOpts1 = [{reuse_sessions, true}],
     SSLOpts2 = lists:keymerge(1, lists:keysort(1, SSLOpts),
                               lists:keysort(1, SSLOpts1)),
     {ok, Socket2} = ssl:connect(Socket, SSLOpts2),
