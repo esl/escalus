@@ -1,6 +1,6 @@
 # Escalus as a standalone application
 
-It't possible to use Escalus as a standalone application,
+It's possible to use Escalus as a standalone application,
 i.e. outside a Common Test test suite (and without any reliance
 on the `common_test` application and its modules).
 To do so some prerequisites must be met.
@@ -41,8 +41,9 @@ after loading Escalus:
     > application:set_env(escalus, common_test, false).
     > application:set_env(escalus, config_file, "/absolute/or/relative/path").
 
-Keep in mind setting them before calling `application:start(escalus)`
-will overwrite the values with stuff from `escalus.app`.
+Keep in mind that calling `application:start(escalus)` will overwrite
+the values with stuff from `escalus.app`.
+Set the variables after the application is started.
 
 ## Config file location
 
