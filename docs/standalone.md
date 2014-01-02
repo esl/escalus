@@ -64,3 +64,13 @@ In case of a standard Git checkout the project directory is simply `escalus`.
     │   └── ...
     ├── src/
     └── ...
+
+## Example shell session
+
+    application:start(escalus).
+    application:set_env(escalus, common_test, false).
+    {ok, Config} = file:consult("test.config").
+    CarolSpec = escalus_users:get_options(Config, carol).
+    {ok, Carol, _, _} = escalus_connection:start(CarolSpec).
+    escalus_connection:send(Carol, escalus_stanza:chat_to(alice, "hi")).
+    escalus_connection:stop(Carol).
