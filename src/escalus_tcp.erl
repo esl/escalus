@@ -18,7 +18,8 @@
          use_zlib/2,
          get_transport/1,
          reset_parser/1,
-         stop/1]).
+         stop/1,
+         set_filter/2]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -36,7 +37,8 @@
                 parser,
                 ssl = false,
                 compress = false,
-                event_client}).
+                event_client,
+                filter = fun (_) -> true end}).
 
 %%%===================================================================
 %%% API
@@ -91,6 +93,9 @@ use_zlib(#transport{rcv_pid = Pid} = Conn, Props) ->
 get_transport(#transport{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_transport).
 
+set_filter(#transport{rcv_pid = Pid}, Filter) ->
+    gen_server:call(Pid, {set_filter, Filter}).
+
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -126,6 +131,8 @@ handle_call(use_zlib, _, #state{parser = Parser, socket = Socket} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
     {reply, Socket, State#state{parser = NewParser,
                                 compress = {zlib, {Zin,Zout}}}};
+handle_call({set_filter, Filter}, _From, #state{} = S) ->
+    {reply, ok, S#state{filter = Filter}};
 handle_call(stop, _From, #state{socket = Socket, ssl = Ssl,
                                 compress = Compress} = State) ->
     StreamEnd = escalus_stanza:stream_end(),
@@ -195,9 +202,15 @@ handle_data(Socket, Data, #state{owner = Owner,
                 exml_stream:parse(Parser, Decompressed)
         end,
     NewState = State#state{parser = NewParser},
+    Filter = State#state.filter,
     lists:foreach(fun(Stanza) ->
         escalus_event:incoming_stanza(EventClient, Stanza),
-        Owner ! {stanza, transport(NewState), Stanza}
+        case Filter(Stanza) of
+            true ->
+                Owner ! {stanza, transport(NewState), Stanza};
+            false ->
+                ok
+        end
     end, Stanzas),
     case [StrEnd || #xmlstreamend{} = StrEnd <- Stanzas] of
         [] -> {noreply, NewState};
