@@ -75,6 +75,8 @@
          is_resumed/2,
          has_ns/2]).
 
+-export(['not'/1]).
+
 -include("include/escalus.hrl").
 -include("escalus_xmlns.hrl").
 -include("escalus_deprecated.hrl").
@@ -417,6 +419,17 @@ is_resumed(_, _) ->
 
 has_ns(NS, Stanza) ->
     NS == exml_query:attr(Stanza, <<"xmlns">>).
+
+%%--------------------------------------------------------------------
+%% Functors
+%%--------------------------------------------------------------------
+
+'not'(Pred) when is_function(Pred, 1) ->
+    fun (Arg) -> not Pred(Arg) end;
+'not'(Pred) when is_function(Pred, 2) ->
+    fun (Arg1, Arg2) -> not Pred(Arg1, Arg2) end;
+'not'(Pred) when is_function(Pred, 3) ->
+    fun (Arg1, Arg2, Arg3) -> not Pred(Arg1, Arg2, Arg3) end.
 
 %%--------------------------------------------------------------------
 %% Helpers
