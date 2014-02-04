@@ -132,6 +132,8 @@ get_usp(Config, User) ->
      get_server(Config, User),
      get_password(Config, User)].
 
+%% TODO: get_options/2 and get_userspec/2 are redundant - remove one
+%% TODO: this list of options should be complete and formal!
 get_options(Config, User) ->
     [{username, get_username(Config, User)},
      {server, get_server(Config, User)},
