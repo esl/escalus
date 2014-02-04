@@ -36,7 +36,7 @@
          verify_creation/1,
          delete_user/2,
          get_usp/2,
-         is_mod_register_enabled/0]).
+         is_mod_register_enabled/1]).
 
 % deprecated API
 -export([create_user/1,
@@ -60,7 +60,7 @@ create_users(Config) ->
 
 create_users(Config, Who) ->
     Users = get_users(Who),
-    case is_mod_register_enabled() of
+    case is_mod_register_enabled(Config) of
         true ->
             CreationResults = [create_user(Config, User) || User <- Users],
             lists:foreach(fun verify_creation/1, CreationResults);
@@ -80,7 +80,7 @@ delete_users(Config, Who) ->
             get_users(Who)
     end,
 
-    case is_mod_register_enabled() of
+    case is_mod_register_enabled(Config) of
         true ->
             [delete_user(Config, User) || User <- Users];
         _ ->
@@ -205,11 +205,13 @@ delete_user(Config, {_Name, UserSpec}) ->
     escalus_connection:stop(Conn),
     Result.
 
-is_mod_register_enabled() ->
-    Server = escalus_ct:get_config(escalus_server),
-    Host = escalus_ct:get_config(escalus_host),
+is_mod_register_enabled(Config) ->
+    Server = escalus_config:get_config(escalus_server, Config, <<"localhost">>),
+    Host = escalus_config:get_config(escalus_host, Config, Server),
+    Port = escalus_config:get_config(escalus_port, Config, 5222),
     ClientProps = [{server, Server},
-                   {host, Host}],
+                   {host, Host},
+                   {port, Port}],
     {ok, Conn, ClientProps, _} = escalus_connection:start(ClientProps,
                                                           [start_stream,
                                                            maybe_use_ssl]),
