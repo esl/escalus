@@ -25,11 +25,10 @@
          get_username/2,
          get_host/2,
          get_server/2,
-         get_userspec/2,
-         update_userspec/4,
          get_options/2,
          get_options/3,
          get_options/4,
+         update_options/4,
          get_users/1,
          get_user_by_name/1,
          create_user/2,
@@ -132,16 +131,28 @@ get_usp(Config, User) ->
      get_server(Config, User),
      get_password(Config, User)].
 
+get_compression(Config, User) ->
+    get_user_option(compression, User, escalus_compression, Config, undefined).
+
+get_transport(Config, User) ->
+    get_user_option(transport, User, escalus_transport, Config, undefined).
+
 %% TODO: get_options/2 and get_userspec/2 are redundant - remove one
-%% TODO: this list of options should be complete and formal!
+%% This is the definitive list of options that can be defined in `test.config`
+%% for a user and overridden globally.
 get_options(Config, User) ->
-    [{username, get_username(Config, User)},
-     {server, get_server(Config, User)},
-     {host, get_host(Config, User)},
-     {port, get_port(Config, User)},
-     {auth, get_auth_method(Config, User)},
-     {wspath, get_wspath(Config, User)}
-     | get_userspec(Config, User)].
+    %% Filter out undefined values.
+    [{Key, Val}
+     || {Key, Val} <- [{username, get_username(Config, User)},
+                       {server, get_server(Config, User)},
+                       {host, get_host(Config, User)},
+                       {port, get_port(Config, User)},
+                       {auth, get_auth_method(Config, User)},
+                       {wspath, get_wspath(Config, User)},
+                       {password, get_password(Config, User)},
+                       {compression, get_compression(Config, User)},
+                       {transport, get_transport(Config, User)}],
+        Val =/= undefined].
 
 get_options(Config, User, Resource) ->
     [{resource, bin(Resource)} | get_options(Config, User)].
@@ -149,16 +160,9 @@ get_options(Config, User, Resource) ->
 get_options(Config, User, Resource, EventClient) ->
     [{event_client, EventClient} | get_options(Config, User, Resource)].
 
-get_userspec(Config, Username) when is_atom(Username) ->
-    Users = escalus_config:get_config(escalus_users, Config),
-    {Username, UserSpec} = lists:keyfind(Username, 1, Users),
-    UserSpec;
-get_userspec(_Config, UserSpec) when is_list(UserSpec) ->
-    UserSpec.
-
-update_userspec(Config, UserName, Option, Value) ->
+update_options(Config, UserName, Option, Value) ->
     UserSpec = [{Option, Value}
-                | escalus_users:get_userspec(Config, UserName)],
+                | escalus_users:get_options(Config, UserName)],
     Users = escalus_config:get_config(escalus_users, Config),
     NewUsers = lists:keystore(UserName, 1, Users, {UserName, UserSpec}),
     lists:keystore(escalus_users, 1, Config, {escalus_users, NewUsers}).

@@ -147,7 +147,7 @@ manager(Config) ->
 
 %% @doc Create a new event emitter.
 new_client(Config, User, MaybeResource) when is_list(Config) ->
-    UserSpec = escalus_users:get_userspec(Config, User),
+    UserSpec = escalus_users:get_options(Config, User),
     Resource = maybe_resource_to_binary(MaybeResource),
     new_client_1(manager(Config), UserSpec, Resource).
 
