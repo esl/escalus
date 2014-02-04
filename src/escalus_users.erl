@@ -163,7 +163,6 @@ update_userspec(Config, UserName, Option, Value) ->
     NewUsers = lists:keystore(UserName, 1, Users, {UserName, UserSpec}),
     lists:keystore(escalus_users, 1, Config, {escalus_users, NewUsers}).
 
-
 get_users(all) ->
     escalus_ct:get_config(escalus_users);
 get_users({by_name, Names}) ->
@@ -314,6 +313,3 @@ get_answers(UserSpec, InstrStanza) ->
     NoInstr = ChildrenNames -- [<<"instructions">>],
     [#xmlel{name=K, children=[exml:escape_cdata(proplists:get_value(K, BinSpec))]}
      || K <- NoInstr].
-
-
-
