@@ -99,13 +99,13 @@ get_password(Config, User) ->
     get_defined_option(Config, User, password, escalus_password).
 
 get_host(Config, User) ->
-    get_user_option(host, User, escalus_host, Config, <<"localhost">>).
+    get_user_option(host, User, escalus_host, Config, get_server(Config, User)).
 
 get_port(Config, User) ->
     get_user_option(port, User, escalus_port, Config, 5222).
 
 get_server(Config, User) ->
-    get_user_option(server, User, escalus_server, Config, get_host(Config, User)).
+    get_user_option(server, User, escalus_server, Config, <<"localhost">>).
 
 get_wspath(Config, User) ->
     get_user_option(wspath, User, escalus_wspath, Config, undefined).
@@ -205,8 +205,8 @@ delete_user(Config, {_Name, UserSpec}) ->
     Result.
 
 is_mod_register_enabled() ->
-    Server = escalus_ct:get_config(ejabberd_addr),
-    Host = escalus_ct:get_config(ejabberd_domain),
+    Server = escalus_ct:get_config(escalus_server),
+    Host = escalus_ct:get_config(escalus_host),
     ClientProps = [{server, Server},
                    {host, Host}],
     {ok, Conn, ClientProps, _} = escalus_connection:start(ClientProps,
@@ -219,6 +219,7 @@ is_mod_register_enabled() ->
         _ ->
             true
     end.
+
 %%--------------------------------------------------------------------
 %% Deprecated API
 %%--------------------------------------------------------------------
