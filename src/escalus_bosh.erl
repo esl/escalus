@@ -37,6 +37,7 @@
 
 %% Low level API
 -export([send_raw/2,
+         resend_raw/2,
          get_sid/1,
          get_rid/1,
          get_keepalive/1,
@@ -177,6 +178,13 @@ pack_rid(Rid) ->
 send_raw(#transport{rcv_pid = Pid} = Transport, Body) ->
     gen_server:cast(Pid, {send_raw, Transport, Body}).
 
+%% This is much like send_raw/2 except for the fact that
+%% the request ID won't be autoincremented on send.
+%% I.e. it is intended for resending packets which were
+%% already sent.
+resend_raw(#transport{rcv_pid = Pid} = Transport, Body) ->
+    gen_server:cast(Pid, {resend_raw, Transport, Body}).
+
 get_rid(#transport{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_rid).
 
@@ -280,6 +288,9 @@ handle_cast({send, Transport, Elem}, State) ->
 handle_cast({send_raw, Transport, Body}, State) ->
     NewState = send(Transport, Body, State),
     {noreply, NewState};
+handle_cast({resend_raw, Transport, Body}, State) ->
+    NewState = send(Transport, Body, State#state.rid, State),
+    {noreply, NewState};
 handle_cast({pause, Transport, Seconds},
             #state{rid = Rid, sid = Sid} = State) ->
     NewState = send(Transport, pause_body(Rid, Sid, Seconds), State),
@@ -325,7 +336,10 @@ request(#transport{socket = {Host, Port, Path}}, Body) ->
                    Headers, exml:to_iolist(Body),
                    infinity, []).
 
-send(Transport, Body, #state{requests = Requests} = S) ->
+send(Transport, Body, State) ->
+    send(Transport, Body, State#state.rid+1, State).
+
+send(Transport, Body, NewRid, #state{requests = Requests} = S) ->
     Ref = make_ref(),
     Self = self(),
     AsyncReq = fun() ->
@@ -333,7 +347,7 @@ send(Transport, Body, #state{requests = Requests} = S) ->
             Self ! {http_reply, Ref, Reply, Transport}
     end,
     NewRequests = [{Ref, proc_lib:spawn_link(AsyncReq)} | Requests],
-    S#state{rid = S#state.rid+1, requests = NewRequests}.
+    S#state{rid = NewRid, requests = NewRequests}.
 
 sync_send(Transport, Body, S=#state{}) ->
     {ok, Reply} = request(Transport, Body),
