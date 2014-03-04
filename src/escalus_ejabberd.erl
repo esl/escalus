@@ -20,6 +20,7 @@
 -module(escalus_ejabberd).
 
 -export([rpc/3,
+         rpc/4,
          remote_display/1,
          remote_format/1,
          remote_format/2,
@@ -48,6 +49,12 @@ rpc(M, F, A) ->
     Node = escalus_ct:get_config(ejabberd_node),
     Cookie = escalus_ct:get_config(ejabberd_cookie),
     escalus_ct:rpc_call(Node, M, F, A, 3000, Cookie).
+
+rpc(Domain, M, F, A) ->
+    Node = get_node_option(Domain, ejabberd_node),
+    Cookie = get_node_option(Domain, ejabberd_cookie),
+    escalus_ct:rpc_call(Node, M, F, A, 3000, Cookie).
+
 
 remote_display(String) ->
     Line = [$\n, [$- || _ <- String], $\n],
@@ -223,16 +230,18 @@ reset_option({Option, _, Set, _}, Config) ->
 
 register_user(Config, UserSpec) ->
     StrFormat = escalus_ct:get_config(ejabberd_string_format),
+    [_, Domain, _] = USPB = escalus_users:get_usp(Config, UserSpec),
     USP = [unify_str_arg(Arg, StrFormat) ||
-           Arg <- escalus_users:get_usp(Config, UserSpec)],
-    rpc(ejabberd_admin, register, USP).
+           Arg <- USPB],
+    rpc(Domain, ejabberd_admin, register, USP).
 
 unregister_user(Config, UserSpec) ->
     StrFormat = escalus_ct:get_config(ejabberd_string_format),
+    [_, Domain, _] = USPB = escalus_users:get_usp(Config, UserSpec),
     USP = [unify_str_arg(Arg, StrFormat) ||
-           Arg <- escalus_users:get_usp(Config, UserSpec)],
+           Arg <- USPB],
     [U, S, _P] = USP,
-    rpc(ejabberd_admin, unregister, [U, S]).
+    rpc(Domain, ejabberd_admin, unregister, [U, S]).
 
 default_get_remote_sessions() ->
     rpc(ejabberd_sm, get_full_session_list, []).
@@ -248,4 +257,25 @@ unify_str_arg(Arg, str) when is_binary(Arg) ->
     binary_to_list(Arg);
 unify_str_arg(Arg, _) ->
     Arg.
+
+get_node_option(Domain, OptionName) ->
+    Default = escalus_ct:get_config(OptionName),
+    case escalus_ct:get_config(ejabberd_nodes) of
+        undefined ->
+            Default;
+        PropList when is_list(PropList) ->
+            do_get_node_option([Domain, OptionName], PropList, Default)
+    end.
+
+do_get_node_option([], _, Default) ->
+    Default;
+do_get_node_option([Key | Rest], PropList, Default) ->
+    case lists:keyfind(Key, 1, PropList) of
+        {Key, SubList} when is_list(SubList) ->
+            do_get_node_option(Rest, SubList, Default);
+        {Key, Item} ->
+            Item;
+        _ ->
+            Default
+    end.
 
