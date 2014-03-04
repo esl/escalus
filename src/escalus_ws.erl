@@ -72,7 +72,7 @@ use_zlib(#transport{rcv_pid = Pid} = Conn, Props) ->
     %% FIXME: verify Compressed
     gen_server:call(Pid, use_zlib),
     Conn1 = get_transport(Conn),
-    {Props2, _} = escalus_session:start_stream(Conn1, Props),
+    {Props2, _} = escalus_session:start_ws_stream(Conn1, Props),
     {Conn1, Props2}.
 
 get_transport(#transport{rcv_pid = Pid}) ->
@@ -95,7 +95,7 @@ init([Args, Owner]) ->
     wsecli:on_message(Socket, fun(Type, Data) -> Pid ! {Type, Data} end),
     wsecli:on_close(Socket, fun(_) -> Pid ! tcp_closed end),
     wait_for_socket_start(),
-    {ok, Parser} = exml_stream:new_parser(),
+    {ok, Parser} = exml_stream:new_parser(toplevel),
     {ok, #state{owner = Owner,
                 socket = Socket,
                 parser = Parser,
@@ -113,7 +113,7 @@ handle_call(use_zlib, _, #state{parser = Parser, socket = Socket} = State) ->
                                 compress = {zlib, {Zin,Zout}}}};
 handle_call(stop, _From, #state{socket = Socket,
                                 compress = Compress} = State) ->
-    StreamEnd = escalus_stanza:stream_end(),
+    StreamEnd = escalus_stanza:ws_stream_end(),
     case Compress of
         {zlib, {Zin, Zout}} ->
             try

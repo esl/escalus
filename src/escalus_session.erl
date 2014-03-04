@@ -52,13 +52,17 @@
 %%% Public API
 %%%===================================================================
 
+
 start_stream(Conn, Props) ->
     {server, Server} = lists:keyfind(server, 1, Props),
     XMLNS = case proplists:get_value(endpoint, Props) of
                 {server, _} -> <<"jabber:server">>;
                 _ -> <<"jabber:client">>
             end,
-    StreamStartReq = escalus_stanza:stream_start(Server, XMLNS),
+    StreamStartReq = case proplists:get_value(transport, Props, tcp) of
+                         ws -> escalus_stanza:ws_stream_start(Server);
+                         _ -> escalus_stanza:stream_start(Server,XMLNS)
+                     end,
     ok = escalus_connection:send(Conn, StreamStartReq),
     StreamStartRep = escalus_connection:get_stanza(Conn, wait_for_stream),
     %% FIXME: verify StreamStartRep
