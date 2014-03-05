@@ -460,6 +460,8 @@ stanza_timeout(Arg) ->
 -spec is_stream_end(xmlterm() | xmlstreamelement()) -> boolean().
 is_stream_end(#xmlstreamend{}) ->
     true;
+is_stream_end(#xmlel{name = <<"close">>}) ->
+    true;
 is_stream_end(_) ->
     false.
 
