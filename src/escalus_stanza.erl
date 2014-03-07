@@ -262,17 +262,27 @@ receipt_req(#xmlelement{ name = <<"message">>,
 receipt_conf(#xmlelement{ attrs = Attrs, children = Children }) ->
     {value, {_, ID}} = lists:keysearch(<<"id">>, 1, Attrs),
     {value, {_, From}} = lists:keysearch(<<"from">>, 1, Attrs),
+    Type = case lists:keyfind(<<"type">>, 1, Attrs) of
+        false -> <<"chat">>;
+        {_, Type0} -> Type0
+    end,
     To = case lists:keyfind(<<"received">>, #xmlelement.name, Children) of
         #xmlelement{ name = <<"received">> } ->
             [Bare|_] = binary:split(From, <<"/">>),
             [_, Server] = binary:split(Bare, <<"@">>),
             Server;
         false ->
-            From
+            case Type of
+                <<"groupchat">> ->
+                    [Bare|_] = binary:split(From, <<"/">>),
+                    Bare;
+                _ ->
+                    From
+            end
     end,
-            
+    
     #xmlelement{ name = <<"message">>,
-                 attrs = [{<<"to">>, To}, {<<"id">>, id()}],
+                attrs = [{<<"to">>, To}, {<<"id">>, id()}, {<<"type">>, Type}],
                  children = [receipt_conf_elem(ID)]
                }.
 
