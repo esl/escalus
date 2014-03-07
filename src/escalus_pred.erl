@@ -237,7 +237,10 @@ is_error(Type, Condition, Stanza) ->
                             {attr, <<"xmlns">>}]) == ?NS_STANZA_ERRORS.
 
 is_stream_error(Type, Text, Stanza) ->
-    Stanza#xmlel.name =:= <<"stream:error">>
+    (Stanza#xmlel.name =:= <<"stream:error">> orelse
+     (Stanza#xmlel.name =:= <<"error">>
+     andalso
+     exml_query:attr(Stanza,<<"xmlns">>) =:= ?NS_STREAM_ERRORS))
     andalso
     exml_query:subelement(Stanza, Type) =/= undefined
     andalso
