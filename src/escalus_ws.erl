@@ -95,7 +95,7 @@ init([Args, Owner]) ->
     wsecli:on_message(Socket, fun(Type, Data) -> Pid ! {Type, Data} end),
     wsecli:on_close(Socket, fun(_) -> Pid ! tcp_closed end),
     wait_for_socket_start(),
-    {ok, Parser} = exml_stream:new_parser(standalone_xml),
+    {ok, Parser} = exml_stream:new_parser(multiple_docs),
     {ok, #state{owner = Owner,
                 socket = Socket,
                 parser = Parser,
