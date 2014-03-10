@@ -162,20 +162,20 @@ has_type(undefined, Stanza) ->
 has_type(Type, Stanza) ->
     bin(Type) == bin(exml_query:attr(Stanza, <<"type">>)).
 
-is_0184_request(#xmlelement{children = Els}, _) ->
-    #xmlelement{ name = <<"request">>,
-                 attrs = [{<<"xmlns">>, <<"urn:xmpp:receipts">>}],
-                 children = [] } =:= lists:keyfind(<<"request">>, 2, Els). 
+is_0184_request(#xmlel{children = Els}, _) ->
+    #xmlel{ name = <<"request">>,
+            attrs = [{<<"xmlns">>, <<"urn:xmpp:receipts">>}],
+            children = [] } =:= lists:keyfind(<<"request">>, 2, Els). 
 
-is_0184_receipt(#xmlelement{ attrs = ReqAttrs } = Request, Receipt, _) ->
+is_0184_receipt(#xmlel{ attrs = ReqAttrs } = Request, Receipt, _) ->
     {_, ReqTo} = lists:keyfind(<<"to">>, 1, ReqAttrs),
     is_0184_receipt(Request, ReqTo, Receipt, []).
 
-is_0184_receipt(#xmlelement{ attrs = ReqAttrs } = _Request,
+is_0184_receipt(#xmlel{ attrs = ReqAttrs } = _Request,
                 ProperResFrom,
-                #xmlelement{ attrs = ResAttrs,
-                            children = [#xmlelement{ name = <<"received">>,
-                                                     attrs = SubAttrs}]} = _Receipt, _) ->
+                #xmlel{ attrs = ResAttrs,
+                        children = [#xmlel{ name = <<"received">>,
+                                            attrs = SubAttrs}]} = _Receipt, _) ->
     {_, ResFrom} = lists:keyfind(<<"from">>, 1, ResAttrs),
     {_, ReqID} = lists:keyfind(<<"id">>, 1, ReqAttrs),
     {_, ResID} = lists:keyfind(<<"id">>, 1, SubAttrs),
@@ -187,14 +187,14 @@ is_0184_receipt(#xmlelement{ attrs = ReqAttrs } = _Request,
     andalso
     ResXmlns == <<"urn:xmpp:receipts">>;
 is_0184_receipt(Request, ProperResFrom,
-                #xmlelement{ children = RecChildren } = Receipt, _)
-        when length(RecChildren) > 1 ->
-    case lists:keyfind(<<"received">>, #xmlelement.name, RecChildren) of
+                #xmlel{ children = RecChildren } = Receipt, _)
+  when length(RecChildren) > 1 ->
+    case lists:keyfind(<<"received">>, #xmlel.name, RecChildren) of
         false ->
             false;
         Received ->
             is_0184_receipt(Request, ProperResFrom,
-                            Receipt#xmlelement{ children = [Received] }, ok)
+                            Receipt#xmlel{ children = [Received] }, ok)
     end;
 is_0184_receipt(_,_,_,_) ->
     false.

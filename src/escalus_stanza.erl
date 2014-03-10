@@ -247,27 +247,27 @@ chat(Sender, Recipient, Msg) ->
 chat_to_short_jid(Recipient, Msg) ->
     chat_to(escalus_utils:get_short_jid(Recipient), Msg).
 
-receipt_req(#xmlelement{ name = <<"message">>,
-                         attrs = Attrs,
-                         children = Children } = Msg) ->
+receipt_req(#xmlel{ name = <<"message">>,
+                    attrs = Attrs,
+                    children = Children } = Msg) ->
     ReqStanza = receipt_req_elem(),
     Msg2 = case lists:keysearch(<<"id">>, 1, Attrs) of
         {value, _} ->
             Msg;
         _ ->
-            Msg#xmlelement{ attrs = [{<<"id">>, id()} | Attrs] }
+            Msg#xmlel{ attrs = [{<<"id">>, id()} | Attrs] }
     end,
-    Msg2#xmlelement{ children = [ReqStanza | Children] }.
+    Msg2#xmlel{ children = [ReqStanza | Children] }.
 
-receipt_conf(#xmlelement{ attrs = Attrs, children = Children }) ->
+receipt_conf(#xmlel{ attrs = Attrs, children = Children }) ->
     {value, {_, ID}} = lists:keysearch(<<"id">>, 1, Attrs),
     {value, {_, From}} = lists:keysearch(<<"from">>, 1, Attrs),
     Type = case lists:keyfind(<<"type">>, 1, Attrs) of
         false -> <<"chat">>;
         {_, Type0} -> Type0
     end,
-    To = case lists:keyfind(<<"received">>, #xmlelement.name, Children) of
-        #xmlelement{ name = <<"received">> } ->
+    To = case lists:keyfind(<<"received">>, #xmlel.name, Children) of
+        #xmlel{ name = <<"received">> } ->
             [Bare|_] = binary:split(From, <<"/">>),
             [_, Server] = binary:split(Bare, <<"@">>),
             Server;
@@ -281,20 +281,20 @@ receipt_conf(#xmlelement{ attrs = Attrs, children = Children }) ->
             end
     end,
     
-    #xmlelement{ name = <<"message">>,
-                attrs = [{<<"to">>, To}, {<<"id">>, id()}, {<<"type">>, Type}],
-                 children = [receipt_conf_elem(ID)]
-               }.
+    #xmlel{ name = <<"message">>,
+            attrs = [{<<"to">>, To}, {<<"id">>, id()}, {<<"type">>, Type}],
+            children = [receipt_conf_elem(ID)]
+          }.
 
 receipt_req_elem() ->
-    #xmlelement{
+    #xmlel{
         name = <<"request">>,
         attrs = [{<<"xmlns">>, ?NS_RECEIPTS}],
         children = []
         }.
 
 receipt_conf_elem(ID) ->
-    #xmlelement{
+    #xmlel{
         name = <<"received">>,
         attrs = [{<<"xmlns">>, ?NS_RECEIPTS}, {<<"id">>, ID}],
         children = []
