@@ -25,7 +25,8 @@ $(DEPS_PLT):
 	dialyzer --output_plt $(DEPS_PLT) --build_plt --apps $(DEPS)
 
 dialyzer: $(DEPS_PLT)
-	dialyzer --fullpath --plt $(DEPS_PLT) -Wrace_conditions -r ./ebin
+	dialyzer --fullpath --plt $(DEPS_PLT) -Wrace_conditions \
+		     ./deps/exml/ebin ./ebin -o dialyzer.log
 
 typer:
 	typer -I deps -I include -I src --plt $(DEPS_PLT) -r ./src
