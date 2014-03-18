@@ -184,7 +184,7 @@ is_headline_message(Subject, Msg, Stanza) ->
     andalso
     bin(Subject) == exml_query:path(Stanza, [{element, <<"subject">>}, cdata]).
 
--spec has_type(binary(), xmlterm()) -> boolean().
+-spec has_type(stanza_type() | undefined, xmlterm()) -> boolean().
 has_type(undefined, Stanza) ->
     undefined == exml_query:attr(Stanza, <<"type">>);
 has_type(Type, Stanza) ->
@@ -319,7 +319,7 @@ roster_contains(Contact, Stanza) ->
 count_roster_items(Num, Stanza) ->
     Num == length(get_roster_items(Stanza)).
 
--spec is_error(binary(), binary(), xmlterm()) -> boolean().
+-spec is_error(stanza_type(), binary(), xmlterm()) -> boolean().
 is_error(Type, Condition, Stanza) ->
     Error = exml_query:subelement(Stanza, <<"error">>),
     has_type(<<"error">>, Stanza)
@@ -329,7 +329,7 @@ is_error(Type, Condition, Stanza) ->
     exml_query:path(Error, [{element, bin(Condition)},
                             {attr, <<"xmlns">>}]) == ?NS_STANZA_ERRORS.
 
--spec is_stream_error(binary(), binary(), xmlterm()) -> boolean().
+-spec is_stream_error(stanza_type(), binary(), xmlterm()) -> boolean().
 is_stream_error(Type, Text, Stanza) ->
     Stanza#xmlel.name =:= <<"stream:error">>
     andalso
@@ -433,7 +433,7 @@ has_item(JID, Stanza) ->
 has_no_such_item(JID, Stanza) ->
     not has_item(JID, Stanza).
 
--spec has_identity(binary(), binary(), xmlterm()) -> boolean().
+-spec has_identity(binary(), stanza_type(), xmlterm()) -> boolean().
 has_identity(Category, Type, Stanza) ->
     Idents = exml_query:paths(Stanza, [{element, <<"query">>},
                                        {element, <<"identity">>}]),
