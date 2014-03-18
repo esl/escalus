@@ -74,19 +74,15 @@ start(Props) ->
             [step_spec()]) -> {ok, transport(), escalus_users:spec()} |
                               {error, any()}.
 start(Props0, Steps) ->
-    case connect(Props0) of
-        {ok, Conn, Props} ->
-            try
-                {Conn1, Props1, Features} = lists:foldl(fun connection_step/2,
-                                                        {Conn, Props, []},
-                                                        [prepare_step(Step)
-                                                         || Step <- Steps]),
-                {ok, Conn1, Props1, Features}
-            catch
-                throw:{connection_step_failed, _Details, _Reason} = Error ->
-                    {error, Error}
-            end;
-        {error, Error} ->
+    try
+        {ok, Conn, Props} = connect(Props0),
+        {Conn1, Props1, Features} = lists:foldl(fun connection_step/2,
+                                                {Conn, Props, []},
+                                                [prepare_step(Step)
+                                                 || Step <- Steps]),
+        {ok, Conn1, Props1, Features}
+    catch
+        throw:{connection_step_failed, _Details, _Reason} = Error ->
             {error, Error}
     end.
 
