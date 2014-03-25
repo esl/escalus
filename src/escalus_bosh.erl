@@ -232,7 +232,7 @@ init([Args, Owner]) ->
     Path = proplists:get_value(path, Args, <<"/http-bind">>),
     Wait = proplists:get_value(bosh_wait, Args, ?DEFAULT_WAIT),
     EventClient = proplists:get_value(event_client, Args),
-    HostStr = binary_to_list(Host),
+    HostStr = host_to_list(Host),
     {MS, S, MMS} = now(),
     InitRid = MS * 1000000 * 1000000 + S * 1000000 + MMS,
     {ok, Parser} = exml_stream:new_parser(),
@@ -455,4 +455,7 @@ detect_type(Attrs) ->
         end
     end.
 
-
+host_to_list({_,_,_,_} = IP4) -> inet:ntoa(IP4);
+host_to_list({_,_,_,_,_,_,_,_} = IP6) -> inet:ntoa(IP6);
+host_to_list(BHost) when is_binary(BHost) -> binary_to_list(BHost);
+host_to_list(Host) when is_list(Host) -> Host.
