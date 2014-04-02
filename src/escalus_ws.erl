@@ -123,8 +123,8 @@ handle_call(stop, _From, #state{socket = Socket,
             end,
             ok = zlib:close(Zin),
             wsecli:send(Socket, zlib:deflate(Zout,
-                                              exml:to_iolist(StreamEnd),
-                                              finish)),
+                                             exml:to_iolist(StreamEnd),
+                                             finish)),
             ok = zlib:deflateEnd(Zout),
             ok = zlib:close(Zout);
         false ->
@@ -164,6 +164,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Helpers
 %%%===================================================================
+
 handle_data(Data, State = #state{owner = Owner,
                                  parser = Parser,
                                  compress = Compress,
@@ -178,9 +179,9 @@ handle_data(Data, State = #state{owner = Owner,
         end,
     NewState = State#state{parser = NewParser},
     lists:foreach(fun(Stanza) ->
-        escalus_event:incoming_stanza(EventClient, Stanza),
-        Owner ! {stanza, transport(NewState), Stanza}
-    end, Stanzas),
+                          escalus_event:incoming_stanza(EventClient, Stanza),
+                          Owner ! {stanza, transport(NewState), Stanza}
+                  end, Stanzas),
     case [StrEnd || #xmlstreamend{} = StrEnd <- Stanzas] of
         [] -> {noreply, NewState};
         __ -> {stop, normal, NewState}
