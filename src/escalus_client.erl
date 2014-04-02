@@ -114,7 +114,7 @@ wait_for_stanza(Client, Timeout) ->
     end.
 
 send(#client{conn = Conn}, Packet) ->
-    ok = escalus_connection:send(Conn, Packet).
+    escalus_connection:send(Conn, Packet).
 
 send_and_wait(Client, Packet) ->
     ok = send(Client, Packet),
