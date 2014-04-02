@@ -44,9 +44,9 @@ connect(Args) ->
     Transport = gen_server:call(Pid, get_transport),
     {ok, Transport}.
 
-send(#transport{socket = Socket, rcv_pid=Pid, compress = {zlib, {_,Zout}}}, Elem) ->
+send(#transport{rcv_pid = Pid, compress = {zlib, {_, Zout}}}, Elem) ->
     gen_server:cast(Pid, {send_compressed, Zout, Elem});
-send(#transport{socket = Socket, rcv_pid=Pid}, Elem) ->
+send(#transport{rcv_pid = Pid}, Elem) ->
     gen_server:cast(Pid, {send, exml:to_iolist(Elem)}).
 
 is_connected(#transport{rcv_pid = Pid}) ->
@@ -166,7 +166,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 handle_data(Data, State = #state{owner = Owner,
                                  parser = Parser,
-                                 socket = Socket,
                                  compress = Compress,
                                  event_client = EventClient}) ->
     {ok, NewParser, Stanzas} =
