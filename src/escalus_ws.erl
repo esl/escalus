@@ -93,7 +93,7 @@ init([Args, Owner]) ->
     wsecli:on_open(Socket, fun() -> Pid ! opened end),
     wsecli:on_error(Socket, fun(Reason) -> Pid ! {error, Reason} end),
     wsecli:on_message(Socket, fun(Type, Data) -> Pid ! {Type, Data} end),
-    wsecli:on_close(Socket, fun(_, _Msg) -> Pid ! tcp_closed end),
+    wsecli:on_close(Socket, fun(_) -> Pid ! tcp_closed end),
     wait_for_socket_start(),
     {ok, Parser} = exml_stream:new_parser(),
     {ok, #state{owner = Owner,
