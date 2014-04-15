@@ -42,6 +42,7 @@
          get_rid/1,
          get_keepalive/1,
          set_keepalive/2,
+         mark_as_terminated/1,
          pause/2,
          get_active/1,
          set_active/2,
@@ -62,6 +63,7 @@
                 wait,
                 active = true,
                 replies = [],
+                terminated = false,
                 event_client}).
 
 %%%===================================================================
@@ -197,6 +199,9 @@ get_keepalive(#transport{rcv_pid = Pid}) ->
 set_keepalive(#transport{rcv_pid = Pid}, NewKeepalive) ->
     gen_server:call(Pid, {set_keepalive, NewKeepalive}).
 
+mark_as_terminated(#transport{rcv_pid = Pid}) ->
+    gen_server:call(Pid, mark_as_terminated).
+
 pause(#transport{rcv_pid = Pid} = Transport, Seconds) ->
     gen_server:cast(Pid, {pause, Transport, Seconds}).
 
@@ -261,6 +266,9 @@ handle_call({set_keepalive, NewKeepalive}, _From,
     {reply, {ok, Keepalive, NewKeepalive},
      State#state{keepalive = NewKeepalive}};
 
+handle_call(mark_as_terminated, _From, #state{} = State) ->
+    {reply, {ok, marked_as_terminated}, State#state{terminated=true}};
+
 handle_call(get_active, _From, #state{active = Active} = State) ->
     {reply, Active, State};
 handle_call({set_active, Active}, _From, State) ->
@@ -273,12 +281,14 @@ handle_call(recv, _From, State) ->
 handle_call(get_requests, _From, State) ->
     {reply, length(State#state.requests), State};
 
+handle_call(stop, _From, #state{terminated=true} = State) ->
+    %% Don't send stream end, the session is already terminated.
+    {stop, normal, ok, State};
 handle_call(stop, _From, #state{} = State) ->
     StreamEnd = escalus_stanza:stream_end(),
     {ok, _Reply, NewState} =
     sync_send0(transport(State), exml:to_iolist(StreamEnd), State),
     {stop, normal, ok, NewState}.
-
 
 handle_cast(stop, State) ->
     {stop, normal, State};
@@ -304,23 +314,23 @@ handle_cast(reset_parser, #state{parser = Parser} = State) ->
 handle_info({http_reply, Ref, {_StatusAndReason, _Hdrs, Body},
              Transport}, S) ->
     NewRequests = lists:keydelete(Ref, 1, S#state.requests),
-    NS = handle_data(Body, S#state{requests = NewRequests}),
-    NNS = case {NS#state.keepalive, NS#state.requests == []} of
-        {false, _} ->
-            NS;
-        {true, true} ->
-            send(Transport, empty_body(NS#state.rid, NS#state.sid), NS);
-        {true, false} ->
-            NS
+    {ok, #xmlel{attrs=Attrs} = XmlBody} = exml:parse(Body),
+    NS = handle_data(XmlBody, S#state{requests = NewRequests}),
+    NNS = case {detect_type(Attrs), NS#state.keepalive, NS#state.requests == []}
+          of
+              {streamend, _, _} -> close_requests(NS#state{terminated=true});
+              {_, false, _}     -> NS;
+              {_, true, true}   -> send(Transport, 
+                                        empty_body(NS#state.rid, NS#state.sid),
+                                        NS);
+              {_, true, false}  -> NS
     end,
     {noreply, NNS};
 handle_info(_, State) ->
     {noreply, State}.
-
-
+ 
 terminate(_Reason, #state{parser = Parser}) ->
     exml_stream:free_parser(Parser).
-
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
@@ -335,6 +345,10 @@ request(#transport{socket = {Host, Port, Path}}, Body) ->
     lhttpc:request(Host, Port, false, Path, 'POST',
                    Headers, exml:to_iolist(Body),
                    infinity, []).
+
+close_requests(#state{requests=Reqs} = S) ->
+    [exit(Pid, normal) || {_Ref, Pid} <- Reqs],
+    S#state{requests=[]}.
 
 send(Transport, Body, State) ->
     send(Transport, Body, State#state.rid+1, State).
@@ -359,10 +373,7 @@ send0(Transport, Elem, State) ->
 sync_send0(Transport, Elem, State) ->
     sync_send(Transport, wrap_elem(Elem, State), State).
 
-handle_data(<<>>, State) ->
-    State;
-handle_data(Data, #state{} = State) ->
-    {ok, Body} = exml:parse(Data),
+handle_data(#xmlel{} = Body, #state{} = State) ->
     NewState = case State#state.sid of
         %% First reply for this transport, set sid
         nil ->
@@ -443,16 +454,11 @@ unwrap_elem(#xmlel{name = <<"body">>, children = Body, attrs=Attrs}) ->
     end ++ Body.
 
 detect_type(Attrs) ->
-    catch begin
-        case proplists:get_value(<<"type">>, Attrs) of
-            <<"terminate">> ->
-                throw(streamend);
-            _ -> normal
-        end,
-        case proplists:get_value(<<"xmpp:version">>, Attrs) of
-            undefined -> normal;
-            Version -> throw({streamstart, Version})
-        end
+    Get = fun(A) -> proplists:get_value(A, Attrs) end,
+    case {Get(<<"type">>), Get(<<"xmpp:version">>)} of
+        {<<"terminate">>, _} -> streamend;
+        {_,       undefined} -> normal;
+        {_,         Version} -> {streamstart,Version}
     end.
 
 host_to_list({_,_,_,_} = IP4) -> inet:ntoa(IP4);
