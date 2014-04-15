@@ -19,6 +19,13 @@
          reset_parser/1,
          is_connected/1]).
 
+%% Public Types
+-type transport() :: #transport{}.
+-export_type([transport/0]).
+
+-type step_spec() :: atom() | {module(), atom()} | escalus_session:step().
+-export_type([step_spec/0]).
+
 %% Private
 -export([connection_step/2]).
 
@@ -28,6 +35,8 @@
 %%% Public API
 %%%===================================================================
 
+-spec start(escalus_users:spec()) -> {ok, transport(), escalus_users:spec()} |
+                                     {error, any()}.
 start(Props) ->
     start(Props,
           [start_stream,
@@ -61,20 +70,19 @@ start(Props) ->
 %% 'maybe_*' will check allowed properties and features to see if it's possible
 %% to use a feature.
 %% Others will assume a feature is available and fail if it's not.
+-spec start(escalus_users:spec(),
+            [step_spec()]) -> {ok, transport(), escalus_users:spec()} |
+                              {error, any()}.
 start(Props0, Steps) ->
-    case connect(Props0) of
-        {ok, Conn, Props} ->
-            try
-                {Conn1, Props1, Features} = lists:foldl(fun connection_step/2,
-                                                        {Conn, Props, []},
-                                                        [prepare_step(Step)
-                                                         || Step <- Steps]),
-                {ok, Conn1, Props1, Features}
-            catch
-                throw:{connection_step_failed, _Details, _Reason} = Error ->
-                    {error, Error}
-            end;
-        {error, Error} ->
+    try
+        {ok, Conn, Props} = connect(Props0),
+        {Conn1, Props1, Features} = lists:foldl(fun connection_step/2,
+                                                {Conn, Props, []},
+                                                [prepare_step(Step)
+                                                 || Step <- Steps]),
+        {ok, Conn1, Props1, Features}
+    catch
+        throw:{connection_step_failed, _Details, _Reason} = Error ->
             {error, Error}
     end.
 
@@ -115,7 +123,7 @@ send(#transport{module = Mod, event_client = EventClient} = Transport, Elem) ->
     escalus_event:outgoing_stanza(EventClient, Elem),
     Mod:send(Transport, Elem).
 
--spec get_stanza(#transport{}, any()) -> #xmlel{}.
+-spec get_stanza(transport(), any()) -> #xmlel{}.
 get_stanza(Conn, Name) ->
     receive
         {stanza, Conn, Stanza} ->

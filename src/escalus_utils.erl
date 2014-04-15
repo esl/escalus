@@ -46,6 +46,9 @@
 -include("include/escalus.hrl").
 -include_lib("exml/include/exml.hrl").
 
+-type jid_spec() :: #client{} | atom() | binary() | string().
+-export_type([jid_spec/0]).
+
 -spec log_stanzas(iolist(), [#xmlel{}]) -> any().
 log_stanzas(Comment, Stanzas) ->
     error_logger:info_msg("~s:~s~n", [Comment, stanza_lines("\n  * ", Stanzas)]).
@@ -127,7 +130,7 @@ show_backtrace() ->
         error_logger:info_msg("Backtrace:~n~p~n", [tl(erlang:get_stacktrace())])
     end.
 
--spec get_jid(#client{} | atom() | binary() | string()) -> binary().
+-spec get_jid(jid_spec()) -> binary().
 get_jid(#client{jid=Jid}) ->
     Jid;
 get_jid(Username) when is_atom(Username) ->

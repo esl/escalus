@@ -53,8 +53,10 @@
          adhoc_request/1,
          adhoc_request/2,
          service_discovery/1,
-         auth_stanza/2,
-         auth_response_stanza/1,
+         auth/1,
+         auth/2,
+         auth_response/0,
+         auth_response/1,
          query_el/2,
          x_data_form/2]).
 
@@ -131,8 +133,8 @@ compress(Method) ->
 -spec iq(binary(), [xmlterm()]) -> #xmlel{}.
 iq(Type, Body) ->
     #xmlel{name = <<"iq">>,
-           attrs=[{<<"type">>, Type},
-                  {<<"id">>, id()}],
+           attrs = [{<<"type">>, Type},
+                    {<<"id">>, id()}],
            children = Body}.
 
 iq(To, Type, Body) ->
@@ -164,8 +166,8 @@ bind(Resource) ->
 -spec session() -> #xmlel{}.
 session() ->
     NS = <<"urn:ietf:params:xml:ns:xmpp-session">>,
-    iq(<<"set">>, #xmlel{name = <<"session">>,
-                         attrs = [{<<"xmlns">>, NS}]}).
+    iq(<<"set">>, [#xmlel{name = <<"session">>,
+                          attrs = [{<<"xmlns">>, NS}]}]).
 
 to(Stanza, Recipient) when is_binary(Recipient) ->
     setattr(Stanza, <<"to">>, Recipient);
@@ -188,12 +190,13 @@ tags(KVs) ->
 presence(Type) ->
     presence(Type, []).
 
-presence(<<"available">>, Body) ->
-    #xmlel{name = <<"presence">>, children = Body};
-presence(Type, Body) ->
+-spec presence(binary(), [xmlterm()]) -> #xmlel{}.
+presence(<<"available">>, Children) ->
+    #xmlel{name = <<"presence">>, children = Children};
+presence(Type, Children) ->
     #xmlel{name = <<"presence">>,
            attrs = [{<<"type">>, bin(Type)}],
-           children = Body}.
+           children = Children}.
 
 presence_direct(Recipient, Type) ->
     presence_direct(Recipient, Type, []).
@@ -218,14 +221,14 @@ presence_direct(Recipient, Type, Body) ->
 
 presence_show(Show) ->
     presence(<<"available">>,
-             #xmlel{name = <<"show">>,
-                    children = [#xmlcdata{content = Show}]}).
+             [#xmlel{name = <<"show">>,
+                     children = [#xmlcdata{content = Show}]}]).
 
 error_element(Type, Condition) ->
     #xmlel{name = <<"error">>,
            attrs = [{<<"type">>, Type}],
-           children = #xmlel{name = Condition,
-                             attrs = [{<<"xmlns">>, ?NS_STANZA_ERRORS}]}}.
+           children = [#xmlel{name = Condition,
+                              attrs = [{<<"xmlns">>, ?NS_STANZA_ERRORS}]}]}.
 
 message(From, Recipient, Type, Msg) ->
     FromAttr = case From of
@@ -319,7 +322,7 @@ remove_account() ->
 
 iq_result(Request) ->
     ToAttr = case exml_query:attr(Request, <<"from">>) of
-                 undefiend ->
+                 undefined ->
                      [];
                  Jid ->
                      [{<<"to">>, Jid}]
@@ -509,16 +512,24 @@ service_discovery(Server) ->
     escalus_stanza:setattr(escalus_stanza:iq_get(?NS_DISCO_ITEMS, []), <<"to">>,
                            Server).
 
-auth_stanza(Mechanism, Body) ->
+-spec auth(binary()) -> #xmlel{}.
+auth(Mechanism) ->
+    auth(Mechanism, []).
+
+-spec auth(binary(), [#xmlcdata{}]) -> #xmlel{}.
+auth(Mechanism, Children) ->
     #xmlel{name = <<"auth">>,
            attrs = [{<<"xmlns">>, ?NS_SASL},
                     {<<"mechanism">>, Mechanism}],
-           children = Body}.
+           children = Children}.
 
-auth_response_stanza(Body) ->
+auth_response() ->
+    auth_response([]).
+
+auth_response(Children) ->
     #xmlel{name = <<"response">>,
            attrs = [{<<"xmlns">>, ?NS_SASL}],
-           children = Body}.
+           children = Children}.
 
 enable_sm() ->
     #xmlel{name = <<"enable">>,

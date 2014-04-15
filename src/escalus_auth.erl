@@ -27,18 +27,18 @@ auth_plain(Conn, Props) ->
     Username = get_property(username, Props),
     Password = get_property(password, Props),
     Payload = <<0:8,Username/binary,0:8,Password/binary>>,
-    Stanza = escalus_stanza:auth_stanza(<<"PLAIN">>, base64_cdata(Payload)),
+    Stanza = escalus_stanza:auth(<<"PLAIN">>, [base64_cdata(Payload)]),
     ok = escalus_connection:send(Conn, Stanza),
     wait_for_success(Username, Conn).
 
 auth_digest_md5(Conn, Props) ->
-    ok = escalus_connection:send(Conn, escalus_stanza:auth_stanza(<<"DIGEST-MD5">>, [])),
+    ok = escalus_connection:send(Conn, escalus_stanza:auth(<<"DIGEST-MD5">>)),
     ChallengeData = get_challenge(Conn, challenge1),
     Response = md5_digest_response(ChallengeData, Props),
-    ResponseStanza1 = escalus_stanza:auth_response_stanza([Response]),
+    ResponseStanza1 = escalus_stanza:auth_response([Response]),
     ok = escalus_connection:send(Conn, ResponseStanza1),
     [{<<"rspauth">>, _}] = get_challenge(Conn, challenge2), %% TODO: validate
-    ResponseStanza2 = escalus_stanza:auth_response_stanza([]),
+    ResponseStanza2 = escalus_stanza:auth_response(),
     ok = escalus_connection:send(Conn, ResponseStanza2),
     wait_for_success(get_property(username, Props), Conn).
 
@@ -50,41 +50,40 @@ auth_sasl_scram_sha1(Conn, Props) ->
                                           false),
     GS2Header = <<"n,,">>,
     Payload = <<GS2Header/binary,ClientFirstMessageBare/binary>>,
-    Stanza = escalus_stanza:auth_stanza(<<"SCRAM-SHA-1">>,
-                                        base64_cdata(Payload)),
+    Stanza = escalus_stanza:auth(<<"SCRAM-SHA-1">>, [base64_cdata(Payload)]),
 
     ok = escalus_connection:send(Conn, Stanza),
 
-    {Response, SaltedPassword, AuthMessage} = scram_sha1_response(Conn, GS2Header,
-                                                                  ClientFirstMessageBare, Props),
-    ResponseStanza = escalus_stanza:auth_response_stanza([Response]),
+    {Response,
+     SaltedPassword,
+     AuthMessage} = scram_sha1_response(Conn, GS2Header,
+                                        ClientFirstMessageBare, Props),
+    ResponseStanza = escalus_stanza:auth_response([Response]),
 
 
     ok = escalus_connection:send(Conn, ResponseStanza),
 
     AuthReply = escalus_connection:get_stanza(Conn, auth_reply),
     case AuthReply of
-        #xmlel{name = <<"success">>, children=[CData]} ->
-           ok = scram_sha1_validate_server(SaltedPassword, AuthMessage,
-                                       base64:decode(
-                                         get_property(<<"v">>,
-                                                      csvkv:parse(
-                                                        base64:decode(
-                                                          exml:unescape_cdata(CData))))));
+        #xmlel{name = <<"success">>, children = [CData]} ->
+            Unescaped = exml:unescape_cdata(CData),
+            V = get_property(<<"v">>, csvkv:parse(base64:decode(Unescaped))),
+            Decoded = base64:decode(V),
+            ok = scram_sha1_validate_server(SaltedPassword, AuthMessage,
+                                            Decoded);
         #xmlel{name = <<"failure">>} ->
             throw({auth_failed, Username, AuthReply})
     end.
 
 
 auth_sasl_anon(Conn, Props) ->
-    Stanza = escalus_stanza:auth_stanza(<<"ANONYMOUS">>, []),
+    Stanza = escalus_stanza:auth(<<"ANONYMOUS">>),
     ok = escalus_connection:send(Conn, Stanza),
     wait_for_success(get_property(username, Props), Conn).
 
 auth_sasl_external(Conn, Props) ->
     {server, ThisServer} = get_property(endpoint, Props),
-    Stanza = escalus_stanza:auth_stanza(<<"EXTERNAL">>,
-                                        [base64_cdata(ThisServer)]),
+    Stanza = escalus_stanza:auth(<<"EXTERNAL">>, [base64_cdata(ThisServer)]),
     ok = escalus_connection:send(Conn, Stanza),
     wait_for_success(ThisServer, Conn).
 
@@ -209,4 +208,4 @@ get_property(PropName, Proplist) ->
 %%--------------------------------------------------------------------
 
 base64_cdata(Payload) ->
-    #xmlcdata{content=base64:encode(Payload)}.
+    #xmlcdata{content = base64:encode(Payload)}.

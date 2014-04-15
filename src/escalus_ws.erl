@@ -44,9 +44,9 @@ connect(Args) ->
     Transport = gen_server:call(Pid, get_transport),
     {ok, Transport}.
 
-send(#transport{socket = Socket, rcv_pid=Pid, compress = {zlib, {_,Zout}}}, Elem) ->
+send(#transport{rcv_pid = Pid, compress = {zlib, {_, Zout}}}, Elem) ->
     gen_server:cast(Pid, {send_compressed, Zout, Elem});
-send(#transport{socket = Socket, rcv_pid=Pid}, Elem) ->
+send(#transport{rcv_pid = Pid}, Elem) ->
     gen_server:cast(Pid, {send, exml:to_iolist(Elem)}).
 
 is_connected(#transport{rcv_pid = Pid}) ->
@@ -83,17 +83,17 @@ get_transport(#transport{rcv_pid = Pid}) ->
 %%%===================================================================
 
 init([Args, Owner]) ->
-    Host = proplists:get_value(host, Args, <<"localhost">>),
-    Port = proplists:get_value(port, Args, 5222),
-    WSPath = proplists:get_value(wspath, Args, <<"ws-xmpp">>),
+    Host = get_host(Args, "localhost"),
+    Port = get_port(Args, 5222),
+    Resource = get_resource(Args, "ws-xmpp"),
     EventClient = proplists:get_value(event_client, Args),
-    HostStr = binary_to_list(Host),
-    {ok, Socket} = wsecli:start(HostStr, Port, WSPath, anon),
+    WSOptions = [],
+    {ok, Socket} = wsecli:start(Host, Port, Resource, WSOptions),
     Pid = self(),
     wsecli:on_open(Socket, fun() -> Pid ! opened end),
     wsecli:on_error(Socket, fun(Reason) -> Pid ! {error, Reason} end),
     wsecli:on_message(Socket, fun(Type, Data) -> Pid ! {Type, Data} end),
-    wsecli:on_close(Socket, fun(_Msg) -> Pid ! tcp_closed end),
+    wsecli:on_close(Socket, fun(_) -> Pid ! tcp_closed end),
     wait_for_socket_start(),
     {ok, Parser} = exml_stream:new_parser(),
     {ok, #state{owner = Owner,
@@ -123,8 +123,8 @@ handle_call(stop, _From, #state{socket = Socket,
             end,
             ok = zlib:close(Zin),
             wsecli:send(Socket, zlib:deflate(Zout,
-                                              exml:to_iolist(StreamEnd),
-                                              finish)),
+                                             exml:to_iolist(StreamEnd),
+                                             finish)),
             ok = zlib:deflateEnd(Zout),
             ok = zlib:close(Zout);
         false ->
@@ -164,9 +164,9 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Helpers
 %%%===================================================================
+
 handle_data(Data, State = #state{owner = Owner,
                                  parser = Parser,
-                                 socket = Socket,
                                  compress = Compress,
                                  event_client = EventClient}) ->
     {ok, NewParser, Stanzas} =
@@ -179,9 +179,9 @@ handle_data(Data, State = #state{owner = Owner,
         end,
     NewState = State#state{parser = NewParser},
     lists:foreach(fun(Stanza) ->
-        escalus_event:incoming_stanza(EventClient, Stanza),
-        Owner ! {stanza, transport(NewState), Stanza}
-    end, Stanzas),
+                          escalus_event:incoming_stanza(EventClient, Stanza),
+                          Owner ! {stanza, transport(NewState), Stanza}
+                  end, Stanzas),
     case [StrEnd || #xmlstreamend{} = StrEnd <- Stanzas] of
         [] -> {noreply, NewState};
         __ -> {stop, normal, NewState}
@@ -214,4 +214,27 @@ wait_for_socket_start() ->
             ok
     after ?HANDSHAKE_TIMEOUT ->
             throw(handshake_timeout)
+    end.
+
+-spec get_port(list(), inet:port_number()) -> inet:port_number().
+get_port(Args, Default) ->
+    get_option(port, Args, Default).
+
+-spec get_host(list(), string()) -> string().
+get_host(Args, Default) ->
+    maybe_binary_to_list(get_option(host, Args, Default)).
+
+-spec get_resource(list(), string()) -> string().
+get_resource(Args, Default) ->
+    maybe_binary_to_list(get_option(wspath, Args, Default)).
+
+-spec maybe_binary_to_list(binary() | string()) -> string().
+maybe_binary_to_list(B) when is_binary(B) -> binary_to_list(B);
+maybe_binary_to_list(S) when is_list(S) -> S.
+
+-spec get_option(any(), list(), any()) -> any().
+get_option(Key, Opts, Default) ->
+    case lists:keyfind(Key, 1, Opts) of
+        false -> Default;
+        {Key, Value} -> Value
     end.
