@@ -6,5 +6,4 @@ notifications:
         email: mongoose-im@erlang-solutions.com
 otp_release:
         - R16B02
-
 script: make && make dialyzer

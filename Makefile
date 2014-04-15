@@ -16,12 +16,19 @@ rebar:
 	chmod u+x rebar
 
 deps := $(wildcard deps/*/ebin)
+travis_plt := deps/plts/plts/travis-erlang-$(shell scripts/get-otp-version -l).plt
 
 dialyzer/erlang.plt:
 	@mkdir -p dialyzer
-	@dialyzer --build_plt --output_plt dialyzer/erlang.plt \
-	-o dialyzer/erlang.log --apps kernel stdlib crypto common_test ssl erts; \
-	status=$$? ; if [ $$status -ne 2 ]; then exit $$status; else exit 0; fi
+	@if [ "$$TRAVIS" = "true" -a -s "$(travis_plt)" ]; then \
+		echo "Found PLT: $(travis_plt)"; \
+		cp "$(travis_plt)" $@; \
+	else \
+		echo "No cached PLT found - generating from scratch"; \
+		dialyzer --build_plt --output_plt dialyzer/erlang.plt \
+		-o dialyzer/erlang.log --apps kernel stdlib crypto common_test ssl erts; \
+		status=$$? ; if [ $$status -ne 2 ]; then exit $$status; else exit 0; fi; \
+	fi
 
 dialyzer/deps.plt:
 	@mkdir -p dialyzer

@@ -1,0 +1,10 @@
+#!/usr/bin/env escript
+
+main(["-l"]) ->
+    L = string:to_lower(otp_to_kerl(erlang:system_info(otp_release))),
+    io:format("~s~n", [L]);
+main(_) ->
+    io:format("~s~n", [otp_to_kerl(erlang:system_info(otp_release))]).
+
+otp_to_kerl("17") -> "17.0";
+otp_to_kerl(Rel) -> Rel.
