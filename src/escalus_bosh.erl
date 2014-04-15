@@ -42,6 +42,7 @@
          get_rid/1,
          get_keepalive/1,
          set_keepalive/2,
+         mark_as_terminated/1,
          pause/2,
          get_active/1,
          set_active/2,
@@ -62,6 +63,7 @@
                 wait,
                 active = true,
                 replies = [],
+                terminated = false,
                 event_client}).
 
 %%%===================================================================
@@ -197,6 +199,9 @@ get_keepalive(#transport{rcv_pid = Pid}) ->
 set_keepalive(#transport{rcv_pid = Pid}, NewKeepalive) ->
     gen_server:call(Pid, {set_keepalive, NewKeepalive}).
 
+mark_as_terminated(#transport{rcv_pid = Pid}) ->
+    gen_server:call(Pid, mark_as_terminated).
+
 pause(#transport{rcv_pid = Pid} = Transport, Seconds) ->
     gen_server:cast(Pid, {pause, Transport, Seconds}).
 
@@ -261,6 +266,9 @@ handle_call({set_keepalive, NewKeepalive}, _From,
     {reply, {ok, Keepalive, NewKeepalive},
      State#state{keepalive = NewKeepalive}};
 
+handle_call(mark_as_terminated, _From, #state{} = State) ->
+    {reply, {ok, marked_as_terminated}, State#state{terminated=true}};
+
 handle_call(get_active, _From, #state{active = Active} = State) ->
     {reply, Active, State};
 handle_call({set_active, Active}, _From, State) ->
@@ -273,12 +281,14 @@ handle_call(recv, _From, State) ->
 handle_call(get_requests, _From, State) ->
     {reply, length(State#state.requests), State};
 
+handle_call(stop, _From, #state{terminated=true} = State) ->
+    %% Don't send stream end, the session is already terminated.
+    {stop, normal, ok, State};
 handle_call(stop, _From, #state{} = State) ->
     StreamEnd = escalus_stanza:stream_end(),
     {ok, _Reply, NewState} =
     sync_send0(transport(State), exml:to_iolist(StreamEnd), State),
     {stop, normal, ok, NewState}.
-
 
 handle_cast(stop, State) ->
     {stop, normal, State};
@@ -308,7 +318,7 @@ handle_info({http_reply, Ref, {_StatusAndReason, _Hdrs, Body},
     NS = handle_data(XmlBody, S#state{requests = NewRequests}),
     NNS = case {detect_type(Attrs), NS#state.keepalive, NS#state.requests == []}
           of
-              {streamend, _, _} -> NS;
+              {streamend, _, _} -> close_requests(NS#state{terminated=true});
               {_, false, _}     -> NS;
               {_, true, true}   -> send(Transport, 
                                         empty_body(NS#state.rid, NS#state.sid),
@@ -321,7 +331,6 @@ handle_info(_, State) ->
  
 terminate(_Reason, #state{parser = Parser}) ->
     exml_stream:free_parser(Parser).
-
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
@@ -336,6 +345,10 @@ request(#transport{socket = {Host, Port, Path}}, Body) ->
     lhttpc:request(Host, Port, false, Path, 'POST',
                    Headers, exml:to_iolist(Body),
                    infinity, []).
+
+close_requests(#state{requests=Reqs} = S) ->
+    [exit(Pid, normal) || {_Ref, Pid} <- Reqs],
+    S#state{requests=[]}.
 
 send(Transport, Body, State) ->
     send(Transport, Body, State#state.rid+1, State).
