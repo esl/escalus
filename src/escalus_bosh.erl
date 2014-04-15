@@ -304,20 +304,21 @@ handle_cast(reset_parser, #state{parser = Parser} = State) ->
 handle_info({http_reply, Ref, {_StatusAndReason, _Hdrs, Body},
              Transport}, S) ->
     NewRequests = lists:keydelete(Ref, 1, S#state.requests),
-    NS = handle_data(Body, S#state{requests = NewRequests}),
-    NNS = case {NS#state.keepalive, NS#state.requests == []} of
-        {false, _} ->
-            NS;
-        {true, true} ->
-            send(Transport, empty_body(NS#state.rid, NS#state.sid), NS);
-        {true, false} ->
-            NS
+    {ok, #xmlel{attrs=Attrs} = XmlBody} = exml:parse(Body),
+    NS = handle_data(XmlBody, S#state{requests = NewRequests}),
+    NNS = case {detect_type(Attrs), NS#state.keepalive, NS#state.requests == []}
+          of
+              {streamend, _, _} -> NS;
+              {_, false, _}     -> NS;
+              {_, true, true}   -> send(Transport, 
+                                        empty_body(NS#state.rid, NS#state.sid),
+                                        NS);
+              {_, true, false}  -> NS
     end,
     {noreply, NNS};
 handle_info(_, State) ->
     {noreply, State}.
-
-
+ 
 terminate(_Reason, #state{parser = Parser}) ->
     exml_stream:free_parser(Parser).
 
@@ -359,10 +360,7 @@ send0(Transport, Elem, State) ->
 sync_send0(Transport, Elem, State) ->
     sync_send(Transport, wrap_elem(Elem, State), State).
 
-handle_data(<<>>, State) ->
-    State;
-handle_data(Data, #state{} = State) ->
-    {ok, Body} = exml:parse(Data),
+handle_data(#xmlel{} = Body, #state{} = State) ->
     NewState = case State#state.sid of
         %% First reply for this transport, set sid
         nil ->
@@ -443,16 +441,11 @@ unwrap_elem(#xmlel{name = <<"body">>, children = Body, attrs=Attrs}) ->
     end ++ Body.
 
 detect_type(Attrs) ->
-    catch begin
-        case proplists:get_value(<<"type">>, Attrs) of
-            <<"terminate">> ->
-                throw(streamend);
-            _ -> normal
-        end,
-        case proplists:get_value(<<"xmpp:version">>, Attrs) of
-            undefined -> normal;
-            Version -> throw({streamstart, Version})
-        end
+    Get = fun(A) -> proplists:get_value(A, Attrs) end,
+    case {Get(<<"type">>), Get(<<"xmpp:version">>)} of
+        {<<"terminate">>, _} -> streamend;
+        {_,       undefined} -> normal;
+        {_,         Version} -> {streamstart,Version}
     end.
 
 
