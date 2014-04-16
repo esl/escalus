@@ -4,8 +4,8 @@ branches:
                 - master
 notifications:
         email: mongoose-im@erlang-solutions.com
-env:
-        - 17.0-rc2
+otp_release:
+        - 17.0-rc1
         - R16B03
         - R16B02
         - R16B01
