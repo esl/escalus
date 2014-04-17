@@ -332,9 +332,7 @@ is_error(Type, Condition, Stanza) ->
 -spec is_stream_error(stanza_type(), binary(), xmlterm()) -> boolean().
 is_stream_error(Type, Text, Stanza) ->
     (Stanza#xmlel.name =:= <<"stream:error">> orelse
-     (Stanza#xmlel.name =:= <<"error">>
-     andalso
-     exml_query:attr(Stanza,<<"xmlns">>) =:= ?NS_STREAM_ERRORS))
+     (Stanza#xmlel.name =:= <<"error">> andalso exml_query:attr(Stanza,<<"xmlns">>) =:= ?NS_XMPP))
     andalso
     exml_query:subelement(Stanza, Type) =/= undefined
     andalso
