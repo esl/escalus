@@ -32,7 +32,7 @@
 -define(HANDSHAKE_TIMEOUT, 3000).
 -define(SERVER, ?MODULE).
 
--record(state, {owner, socket, parser, compress = false, event_client}).
+-record(state, {owner, socket, parser, legacy_ws, compress = false, event_client}).
 
 %%%===================================================================
 %%% API
@@ -72,7 +72,7 @@ use_zlib(#transport{rcv_pid = Pid} = Conn, Props) ->
     %% FIXME: verify Compressed
     gen_server:call(Pid, use_zlib),
     Conn1 = get_transport(Conn),
-    {Props2, _} = escalus_session:start_ws_stream(Conn1, Props),
+    {Props2, _} = escalus_session:start_stream(Conn1, Props),
     {Conn1, Props2}.
 
 get_transport(#transport{rcv_pid = Pid}) ->
@@ -86,6 +86,7 @@ init([Args, Owner]) ->
     Host = get_host(Args, "localhost"),
     Port = get_port(Args, 5222),
     Resource = get_resource(Args, "ws-xmpp"),
+    LegacyWS = get_legacy_ws(Args, false),
     EventClient = proplists:get_value(event_client, Args),
     WSOptions = [],
     {ok, Socket} = wsecli:start(Host, Port, Resource, WSOptions),
@@ -95,10 +96,12 @@ init([Args, Owner]) ->
     wsecli:on_message(Socket, fun(Type, Data) -> Pid ! {Type, Data} end),
     wsecli:on_close(Socket, fun(_) -> Pid ! tcp_closed end),
     wait_for_socket_start(),
-    {ok, Parser} = exml_stream:new_parser(multiple_docs),
+    {ok, Parser0} = exml_stream:new_parser(),
+    Parser = fake_root(Parser0, LegacyWS),
     {ok, #state{owner = Owner,
                 socket = Socket,
                 parser = Parser,
+                legacy_ws = LegacyWS,
                 event_client = EventClient}}.
 
 handle_call(get_transport, _From, State) ->
@@ -108,12 +111,16 @@ handle_call(use_zlib, _, #state{parser = Parser, socket = Socket} = State) ->
     Zout = zlib:open(),
     ok = zlib:inflateInit(Zin),
     ok = zlib:deflateInit(Zout),
-    {ok, NewParser} = exml_stream:reset_parser(Parser),
+    {ok, NewParser0} = exml_stream:reset_parser(Parser),
+    NewParser = fake_root(NewParser0, State#state.legacy_ws),
     {reply, Socket, State#state{parser = NewParser,
                                 compress = {zlib, {Zin,Zout}}}};
 handle_call(stop, _From, #state{socket = Socket,
                                 compress = Compress} = State) ->
-    StreamEnd = escalus_stanza:ws_stream_end(),
+    StreamEnd = if
+                    State#state.legacy_ws -> escalus_stanza:stream_end();
+                    true -> escalus_stanza:ws_close()
+                end,
     case Compress of
         {zlib, {Zin, Zout}} ->
             try
@@ -140,7 +147,8 @@ handle_cast({send, Data}, State) ->
     wsecli:send(State#state.socket, Data),
     {noreply, State};
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
-    {ok, NewParser} = exml_stream:reset_parser(Parser),
+    {ok, NewParser0} = exml_stream:reset_parser(Parser),
+    NewParser = fake_root(NewParser0, State#state.legacy_ws),
     {noreply, State#state{parser = NewParser}}.
 
 handle_info(tcp_closed, State) ->
@@ -228,6 +236,10 @@ get_host(Args, Default) ->
 get_resource(Args, Default) ->
     maybe_binary_to_list(get_option(wspath, Args, Default)).
 
+-spec get_legacy_ws(list(), boolean()) -> boolean().
+get_legacy_ws(Args, Default) ->
+    get_option(wslegacy, Args, Default).
+
 -spec maybe_binary_to_list(binary() | string()) -> string().
 maybe_binary_to_list(B) when is_binary(B) -> binary_to_list(B);
 maybe_binary_to_list(S) when is_list(S) -> S.
@@ -238,3 +250,9 @@ get_option(Key, Opts, Default) ->
         false -> Default;
         {Key, Value} -> Value
     end.
+
+fake_root(Parser, false) ->
+    Parser;
+fake_root(Parser0, true) ->
+    {ok, Parser, _SkipStreamStart} = exml_stream:parse(Parser0, <<"<fakeroot>">>),
+    Parser.

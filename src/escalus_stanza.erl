@@ -79,8 +79,8 @@
 
 -export([stream_start/2,
          stream_end/0,
-         ws_stream_start/1,
-         ws_stream_end/0,
+         ws_open/1,
+         ws_close/0,
          starttls/0,
          compress/1]).
 
@@ -122,12 +122,12 @@ stream_start(Server, XMLNS) ->
 stream_end() ->
     #xmlstreamend{name = <<"stream:stream">>}.
 
-ws_stream_start(Server) ->
+ws_open(Server) ->
     #xmlel{name= <<"open">>, attrs = [{<<"xmlns">>, <<"urn:ietf:params:xml:ns:xmpp-framing">>},
                                       {<<"to">>, Server},
                                       {<<"version">>,<<"1.0">>}]}.
 
-ws_stream_end()->
+ws_close()->
     #xmlel{name= <<"close">>, attrs = [ {<<"xmlns">>, <<"urn:ietf:params:xml:ns:xmpp-framing">>} ]}.
 
 starttls() ->
