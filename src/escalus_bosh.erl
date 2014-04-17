@@ -64,7 +64,9 @@
                 active = true,
                 replies = [],
                 terminated = false,
-                event_client}).
+                event_client,
+                client,
+                on_reply}).
 
 %%%===================================================================
 %%% API
@@ -72,8 +74,6 @@
 
 -spec connect([{atom(), any()}]) -> {ok, #transport{}}.
 connect(Args) ->
-    ssl:start(),
-    lhttpc:start(),
     {ok, Pid} = gen_server:start_link(?MODULE, [Args, self()], []),
     Transport = gen_server:call(Pid, get_transport),
     {ok, Transport}.
@@ -238,16 +238,24 @@ init([Args, Owner]) ->
     Wait = proplists:get_value(bosh_wait, Args, ?DEFAULT_WAIT),
     EventClient = proplists:get_value(event_client, Args),
     HostStr = host_to_list(Host),
+    OnReplyFun = proplists:get_value(on_reply, Args, fun(_) -> ok end),
+    OnConnectFun = proplists:get_value(on_connect, Args, fun(_) -> ok end),
     {MS, S, MMS} = now(),
     InitRid = MS * 1000000 * 1000000 + S * 1000000 + MMS,
     {ok, Parser} = exml_stream:new_parser(),
+    {ok, Client} = fusco_cp:start({HostStr, Port, false},
+                                  [{on_connect, OnConnectFun}],
+                                  %% Max two connections as per BOSH rfc
+                                  2),
     {ok, #state{owner = Owner,
-                url = {HostStr, Port, binary_to_list(Path)},
+                url = Path,
                 parser = Parser,
                 rid = InitRid,
                 keepalive = proplists:get_value(keepalive, Args, true),
                 wait = Wait,
-                event_client = EventClient}}.
+                event_client = EventClient,
+                client = Client,
+                on_reply = OnReplyFun}}.
 
 
 handle_call(get_transport, _From, State) ->
@@ -311,8 +319,7 @@ handle_cast(reset_parser, #state{parser = Parser} = State) ->
 
 
 %% Handle async HTTP request replies.
-handle_info({http_reply, Ref, {_StatusAndReason, _Hdrs, Body},
-             Transport}, S) ->
+handle_info({http_reply, Ref, Body, Transport}, S) ->
     NewRequests = lists:keydelete(Ref, 1, S#state.requests),
     {ok, #xmlel{attrs=Attrs} = XmlBody} = exml:parse(Body),
     NS = handle_data(XmlBody, S#state{requests = NewRequests}),
@@ -328,9 +335,12 @@ handle_info({http_reply, Ref, {_StatusAndReason, _Hdrs, Body},
     {noreply, NNS};
 handle_info(_, State) ->
     {noreply, State}.
- 
-terminate(_Reason, #state{parser = Parser}) ->
+
+
+terminate(_Reason, #state{client = Client, parser = Parser}) ->
+    fusco_cp:stop(Client),
     exml_stream:free_parser(Parser).
+
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
@@ -340,11 +350,14 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Helpers
 %%%===================================================================
 
-request(#transport{socket = {Host, Port, Path}}, Body) ->
-    Headers = [{"Content-Type", "text/xml; charset=utf-8"}],
-    lhttpc:request(Host, Port, false, Path, 'POST',
-                   Headers, exml:to_iolist(Body),
-                   infinity, []).
+request(#transport{socket = {Client, Path}}, Body, OnReplyFun) ->
+    Headers = [{<<"Content-Type">>, <<"text/xml; charset=utf-8">>}],
+    Reply =
+        fusco_cp:request(Client, Path, "POST", Headers, exml:to_iolist(Body),
+                         2, infinity),
+    OnReplyFun(Reply),
+    {ok, {_Status, _Headers, RBody, _Size, _Time}} = Reply,
+    {ok, RBody}.
 
 close_requests(#state{requests=Reqs} = S) ->
     [exit(Pid, normal) || {_Ref, Pid} <- Reqs],
@@ -353,18 +366,18 @@ close_requests(#state{requests=Reqs} = S) ->
 send(Transport, Body, State) ->
     send(Transport, Body, State#state.rid+1, State).
 
-send(Transport, Body, NewRid, #state{requests = Requests} = S) ->
+send(Transport, Body, NewRid, #state{requests = Requests, on_reply = OnReplyFun} = S) ->
     Ref = make_ref(),
     Self = self(),
     AsyncReq = fun() ->
-            {ok, Reply} = request(Transport, Body),
+            {ok, Reply} = request(Transport, Body, OnReplyFun),
             Self ! {http_reply, Ref, Reply, Transport}
     end,
     NewRequests = [{Ref, proc_lib:spawn_link(AsyncReq)} | Requests],
     S#state{rid = NewRid, requests = NewRequests}.
 
-sync_send(Transport, Body, S=#state{}) ->
-    {ok, Reply} = request(Transport, Body),
+sync_send(Transport, Body, S=#state{on_reply = OnReplyFun}) ->
+    {ok, Reply} = request(Transport, Body, OnReplyFun),
     {ok, Reply, S#state{rid = S#state.rid+1}}.
 
 send0(Transport, Elem, State) ->
@@ -416,12 +429,12 @@ handle_recv(#state{replies = [Reply | Replies]} = S) ->
     end,
     {Reply, S#state{replies = Replies}}.
 
-transport(#state{url = Url, event_client = EventClient}) ->
+transport(#state{url = Path, client = Client, event_client = EventClient}) ->
     #transport{module = ?MODULE,
                ssl = false,
                compress = false,
                rcv_pid = self(),
-               socket = Url,
+               socket = {Client, Path},
                event_client = EventClient}.
 
 wrap_elem(#xmlstreamstart{attrs = Attrs},
