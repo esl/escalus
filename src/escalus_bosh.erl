@@ -289,9 +289,6 @@ handle_call(recv, _From, State) ->
 handle_call(get_requests, _From, State) ->
     {reply, length(State#state.requests), State};
 
-handle_call(stop, _From, #state{terminated=true} = State) ->
-    %% Don't send stream end, the session is already terminated.
-    {stop, normal, ok, State};
 handle_call(stop, _From, #state{} = State) ->
     StreamEnd = escalus_stanza:stream_end(),
     {ok, _Reply, NewState} =
@@ -366,6 +363,10 @@ close_requests(#state{requests=Reqs} = S) ->
 send(Transport, Body, State) ->
     send(Transport, Body, State#state.rid+1, State).
 
+send(_, _, _, #state{terminated = true} = S) ->
+    %% Sending anything to a terminated session is pointless.
+    %% We leave it in its current state to pick up any pending replies.
+    S;
 send(Transport, Body, NewRid, #state{requests = Requests, on_reply = OnReplyFun} = S) ->
     Ref = make_ref(),
     Self = self(),
@@ -376,6 +377,9 @@ send(Transport, Body, NewRid, #state{requests = Requests, on_reply = OnReplyFun}
     NewRequests = [{Ref, proc_lib:spawn_link(AsyncReq)} | Requests],
     S#state{rid = NewRid, requests = NewRequests}.
 
+sync_send(_, _, S=#state{terminated = true}) ->
+    %% Sending anything to a terminated session is pointless. We're done.
+    {ok, already_terminated, S};
 sync_send(Transport, Body, S=#state{on_reply = OnReplyFun}) ->
     {ok, Reply} = request(Transport, Body, OnReplyFun),
     {ok, Reply, S#state{rid = S#state.rid+1}}.
