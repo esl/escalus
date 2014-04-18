@@ -96,8 +96,11 @@ init([Args, Owner]) ->
     wsecli:on_message(Socket, fun(Type, Data) -> Pid ! {Type, Data} end),
     wsecli:on_close(Socket, fun(_) -> Pid ! tcp_closed end),
     wait_for_socket_start(),
-    {ok, Parser0} = exml_stream:new_parser(),
-    Parser = fake_root(Parser0, LegacyWS),
+    ParserOpts = if
+                     LegacyWS -> [];
+                     true -> [{infinite_stream, true}, {autoreset, true}]
+                 end,
+    {ok, Parser} = exml_stream:new_parser(ParserOpts),
     {ok, #state{owner = Owner,
                 socket = Socket,
                 parser = Parser,
@@ -111,8 +114,7 @@ handle_call(use_zlib, _, #state{parser = Parser, socket = Socket} = State) ->
     Zout = zlib:open(),
     ok = zlib:inflateInit(Zin),
     ok = zlib:deflateInit(Zout),
-    {ok, NewParser0} = exml_stream:reset_parser(Parser),
-    NewParser = fake_root(NewParser0, State#state.legacy_ws),
+    {ok, NewParser} = exml_stream:reset_parser(Parser),
     {reply, Socket, State#state{parser = NewParser,
                                 compress = {zlib, {Zin,Zout}}}};
 handle_call(stop, _From, #state{socket = Socket,
@@ -147,8 +149,7 @@ handle_cast({send, Data}, State) ->
     wsecli:send(State#state.socket, Data),
     {noreply, State};
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
-    {ok, NewParser0} = exml_stream:reset_parser(Parser),
-    NewParser = fake_root(NewParser0, State#state.legacy_ws),
+    {ok, NewParser} = exml_stream:reset_parser(Parser),
     {noreply, State#state{parser = NewParser}}.
 
 handle_info(tcp_closed, State) ->
@@ -250,9 +251,3 @@ get_option(Key, Opts, Default) ->
         false -> Default;
         {Key, Value} -> Value
     end.
-
-fake_root(Parser, false) ->
-    Parser;
-fake_root(Parser0, true) ->
-    {ok, Parser, _SkipStreamStart} = exml_stream:parse(Parser0, <<"<fakeroot>">>),
-    Parser.
