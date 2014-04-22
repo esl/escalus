@@ -243,13 +243,14 @@ init([Args, Owner]) ->
     {MS, S, MMS} = now(),
     InitRid = MS * 1000000 * 1000000 + S * 1000000 + MMS,
     {ok, Parser} = exml_stream:new_parser(),
+    {ok, PrimedParser, _} = exml_stream:parse(Parser, ?NS_XMPP_STREAM_HEADER),
     {ok, Client} = fusco_cp:start({HostStr, Port, false},
                                   [{on_connect, OnConnectFun}],
                                   %% Max two connections as per BOSH rfc
                                   2),
     {ok, #state{owner = Owner,
                 url = Path,
-                parser = Parser,
+                parser = PrimedParser,
                 rid = InitRid,
                 keepalive = proplists:get_value(keepalive, Args, true),
                 wait = Wait,
@@ -318,8 +319,8 @@ handle_cast(reset_parser, #state{parser = Parser} = State) ->
 %% Handle async HTTP request replies.
 handle_info({http_reply, Ref, Body, Transport}, S) ->
     NewRequests = lists:keydelete(Ref, 1, S#state.requests),
-    {ok, #xmlel{attrs=Attrs} = XmlBody} = exml:parse(Body),
-    NS = handle_data(XmlBody, S#state{requests = NewRequests}),
+    {ok, NewParser, #xmlel{attrs=Attrs} = XmlBody} = exml_stream:parse(S#state.parser, Body),
+    NS = handle_data(XmlBody, S#state{requests = NewRequests, parser = NewParser}),
     NNS = case {detect_type(Attrs), NS#state.keepalive, NS#state.requests == []}
           of
               {streamend, _, _} -> close_requests(NS#state{terminated=true});
