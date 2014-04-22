@@ -16,15 +16,16 @@ rebar:
 	chmod u+x rebar
 
 deps := $(wildcard deps/*/ebin)
-travis_plt := deps/plts/plts/travis-erlang-$(shell scripts/get-otp-version -l).plt
+travis_plt := travis-erlang-$(shell scripts/get-otp-version -l).plt
+travis_plt_url := https://github.com/esl/erlang-plts/blob/master/plts/$(travis_plt)?raw=true
 
 dialyzer/erlang.plt:
 	@mkdir -p dialyzer
-	@if [ "$$TRAVIS" = "true" -a -s "$(travis_plt)" ]; then \
-		echo "Found PLT: $(travis_plt)"; \
-		cp "$(travis_plt)" $@; \
+	@if [ "$$TRAVIS" = "true" ]; then \
+		echo "Fetching PLT prebuilt for Travis"; \
+		wget $(travis_plt_url) -O $@; \
 	else \
-		echo "No cached PLT found - generating from scratch"; \
+		echo "Generating PLT from scratch"; \
 		dialyzer --build_plt --output_plt dialyzer/erlang.plt \
 		-o dialyzer/erlang.log --apps kernel stdlib crypto common_test ssl erts; \
 		status=$$? ; if [ $$status -ne 2 ]; then exit $$status; else exit 0; fi; \
