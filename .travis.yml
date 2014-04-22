@@ -15,4 +15,4 @@ otp_release:
 script:
         - make && make dialyzer
 after_script:
-        - cat dialyzer/error.log
+        - if [ -s dialyzer/error.log ]; then cat dialyzer/error.log; fi
