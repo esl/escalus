@@ -29,7 +29,9 @@
         module :: atom(),
         socket :: term(),
         ssl :: boolean(),
-        compress :: {zlib, {Zin::zlib:zstream(), Zout::zlib:zstream()}}
+        compress :: %% In fact, these are zlib:zstream()s, but OTP releases
+                    %% <R16B02 don't export that type.
+                    {zlib, {Zin::port(), Zout::port()}}
                  |  false,
         rcv_pid :: pid(),
         event_client :: any()}).
