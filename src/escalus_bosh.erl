@@ -347,16 +347,24 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Helpers
 %%%===================================================================
 
+-spec request(escalus_connection:transport(),
+              xmlterm(),
+              fun((fusco:result()) -> any())) -> {ok, fusco:body()}
+                                                 | {error, any()}.
 request(#transport{socket = {Client, Path}}, Body, OnReplyFun) ->
     Headers = [{<<"Content-Type">>, <<"text/xml; charset=utf-8">>}],
     Reply =
         fusco_cp:request(Client, Path, "POST", Headers, exml:to_iolist(Body),
                          2, infinity),
     OnReplyFun(Reply),
-    {ok, {_Status, _Headers, RBody, _Size, _Time}} = Reply,
-    {ok, RBody}.
+    case Reply of
+        {ok, {_Status, _Headers, RBody, _Size, _Time}} ->
+            {ok, RBody};
+        {error, _} = Error ->
+            Error
+    end.
 
-close_requests(#state{requests=Reqs} = S) ->
+close_requests(#state{requests = Reqs} = S) ->
     [exit(Pid, normal) || {_Ref, Pid} <- Reqs],
     S#state{requests=[]}.
 
