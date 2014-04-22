@@ -19,8 +19,8 @@
 -define(NS_STANZA_ERRORS, <<"urn:ietf:params:xml:ns:xmpp-stanzas">>).
 
 -define(NS_XMPP_STREAM_HEADER, <<"<stream:stream version='1.0'",
-                                 "xmlns='jabber:client'",
-                                 "xmlns:stream='http://etherx.jabber.org/streams'>">>).
+                                 " xmlns='jabber:client'",
+                                 " xmlns:stream='http://etherx.jabber.org/streams'>">>).
 
 % Defined by XMPP-IM (RFC 3921).
 -define(NS_JABBER_CLIENT, <<"jabber:client">>).
