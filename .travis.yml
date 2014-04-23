@@ -7,6 +7,9 @@ notifications:
 otp_release:
         - 17.0-rc1
 script:
-        - make && make dialyzer
+        - make
+        - make dialyzer/erlang.plt
+        - dialyzer --plt dialyzer/erlang.plt --plt_info
+        - make dialyzer
 after_script:
         - if [ -s dialyzer/error.log ]; then cat dialyzer/error.log; fi
