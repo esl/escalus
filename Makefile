@@ -17,7 +17,7 @@ rebar:
 
 deps := $(wildcard deps/*/ebin)
 travis_plt := travis-erlang-$(shell scripts/get-otp-version -l).plt
-travis_plt_url := https://github.com/esl/erlang-plts/blob/master/plts/$(travis_plt)?raw=true
+travis_plt_url := https://github.com/esl/erlang-plts/blob/no-hipe/plts/$(travis_plt)?raw=true
 
 dialyzer/erlang.plt:
 	@mkdir -p dialyzer
