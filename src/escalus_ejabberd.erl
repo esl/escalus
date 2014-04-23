@@ -193,11 +193,19 @@ wait_for_session_count(Config, Count, _) ->
 %% `reset_option/2` will restore that saved value using the appropriate
 %% setter function and delete it from `Config`.
 
--type option(Type) :: {Name   :: atom(),
-                       Getter :: fun(() -> Type),
-                       Setter :: fun((Type) -> any()),
-                       Value  :: Type}.
--type option() :: option(_).
+%% R15B03 and older can't handle the same type name with multiple arities.
+%% Until support with these versions is dropped, we're stuck with the less
+%% specific variant.
+%%
+%-type option(Type) :: {Name   :: atom(),
+%                       Getter :: fun(() -> Type),
+%                       Setter :: fun((Type) -> any()),
+%                       Value  :: Type}.
+%-type option() :: option(_).
+-type option() :: {Name   :: atom(),
+                   Getter :: fun(() -> any()),
+                   Setter :: fun((any()) -> any()),
+                   Value  :: any()}.
 
 -spec setup_option(option(), Config) -> Config.
 setup_option({Option, Get, Set, Value}, Config) ->
@@ -214,7 +222,6 @@ reset_option({Option, _, Set, _}, Config) ->
             Set(Saved)
     end,
     proplists:delete({saved, Option}, Config).
-
 
 
 %%--------------------------------------------------------------------
