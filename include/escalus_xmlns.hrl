@@ -543,5 +543,10 @@
 % Defined by XEP-0279: Server IP Check.
 -define(NS_SIC_0, <<"urn:xmpp:sic:0">>).
 
+% Defined by XEP-0280: Message Carbons
+-define(NS_CARBONS_2, <<"urn:xmpp:carbons:2">>).
+
 % Defined by XHTML 1.0.
 -define(NS_XHTML, <<"http://www.w3.org/1999/xhtml">>).
+
+

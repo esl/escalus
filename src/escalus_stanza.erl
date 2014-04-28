@@ -24,6 +24,7 @@
          iq_result/1,
          iq_get/2,
          iq_set/2,
+         iq_set_nonquery/2,
          presence/1,
          presence/2,
          presence_direct/2,
@@ -70,6 +71,10 @@
          search_fields/1,
          search_fields_iq/1,
          search_iq/2]).
+
+%% XEP-0280: Message Carbons
+-export([carbons_disable/0,carbons_enable/0]).
+
 
 %% XEP-0198: Stream Management
 -export([enable_sm/0, enable_sm/1,
@@ -293,7 +298,6 @@ receipt_conf(#xmlel{ attrs = Attrs, children = Children }) ->
                     From
             end
     end,
-    
     #xmlel{ name = <<"message">>,
             attrs = [{<<"to">>, To}, {<<"id">>, id()}, {<<"type">>, Type}],
             children = [receipt_conf_elem(ID)]
@@ -348,10 +352,20 @@ iq_get(NS, Payload) ->
 iq_set(NS, Payload) ->
     iq_with_type(<<"set">>, NS, Payload).
 
+iq_set_nonquery(NS, Payload) ->
+    %% Don't wrap <iq/> payload with <query/>
+    iq_with_type(<<"set">>, NS, Payload, nonquery).
+
 iq_with_type(Type, NS, Payload) ->
     iq(Type, [#xmlel{name = <<"query">>,
                      attrs = [{<<"xmlns">>, NS}],
                      children = Payload}]).
+
+iq_with_type(Type, NS, Payload, nonquery) ->
+    #xmlel{name = <<"iq">>,
+           attrs = [{<<"xmlns">>, NS},
+                    {<<"type">>, Type}],
+           children = Payload}.
 
 roster_get() ->
     iq_get(?NS_ROSTER, []).
@@ -566,6 +580,21 @@ resume(SMID, PrevH) ->
                     {<<"previd">>, SMID},
                     {<<"h">>, integer_to_binary(PrevH)}]}.
 
+
+carbons_enable() ->
+    iq_set_nonquery(?NS_JABBER_CLIENT, [enable_carbons_el()]).
+carbons_disable() ->
+    iq_set_nonquery(?NS_JABBER_CLIENT, [disable_carbons_el()]).
+
+disable_carbons_el() ->
+    #xmlel{name = <<"disable">>,
+           attrs = [{<<"xmlns">>, ?NS_CARBONS_2}]}.
+enable_carbons_el() ->
+    #xmlel{name = <<"enable">>,
+           attrs = [{<<"xmlns">>, ?NS_CARBONS_2}]}.
+
+
+
 %%--------------------------------------------------------------------
 %% Helpers
 %%--------------------------------------------------------------------
@@ -573,4 +602,3 @@ resume(SMID, PrevH) ->
 -spec id() -> binary().
 id() ->
     base16:encode(crypto:rand_bytes(16)).
-
