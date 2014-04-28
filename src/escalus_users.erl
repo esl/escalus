@@ -36,7 +36,8 @@
          verify_creation/1,
          delete_user/2,
          get_usp/2,
-         is_mod_register_enabled/1]).
+         is_mod_register_enabled/1
+        ]).
 
 % Public Types
 -type spec() :: [{escalus_config:key(), any()}].
@@ -64,12 +65,14 @@ create_users(Config) ->
 
 create_users(Config, Who) ->
     Users = get_users(Who),
-    case is_mod_register_enabled(Config) of
-        true ->
+    case auth_type(Config) of
+        {escalus_auth, xmpp} ->
             CreationResults = [create_user(Config, User) || User <- Users],
             lists:foreach(fun verify_creation/1, CreationResults);
-        _->
-            escalus_ejabberd:create_users(Config, Who)
+        {escalus_auth, {module, M}} ->
+            M:create_users(Config, Users);
+        {escalus_auth, ejabberd} ->
+            escalus_ejabberd:create_users(Config, Users)
     end,
     [{escalus_users, Users}] ++ Config.
 
@@ -78,19 +81,18 @@ delete_users(Config) ->
 
 delete_users(Config, Who) ->
     Users = case Who of
-        config ->
-            escalus_config:get_config(escalus_users, Config, []);
-        _ ->
-            get_users(Who)
+        config -> escalus_config:get_config(escalus_users, Config, []);
+        _      -> get_users(Who)
     end,
-
-    case is_mod_register_enabled(Config) of
-        true ->
+    case auth_type(Config) of
+        {escalus_auth, xmpp} ->
             [delete_user(Config, User) || User <- Users];
-        _ ->
+        {escalus_auth, {module, M}} ->
+            M:delete_users(Config, Users);
+        {escalus_auth, ejabberd} ->
             escalus_ejabberd:delete_users(Config, Users)
     end.
-
+ 
 get_jid(Config, User) ->
     Username = get_username(Config, User),
     Server = get_server(Config, User),
@@ -210,6 +212,20 @@ delete_user(Config, {_Name, UserSpec}) ->
     Result = wait_for_result(Conn),
     escalus_connection:stop(Conn),
     Result.
+
+auth_type(Config) ->
+    Type = case {escalus_config:get_config(escalus_auth, Config, undefined),
+                 try_check_mod_register(Config)} of
+               {{module, _} = M, _} -> M;
+               {_, true} -> xmpp;
+               {_, false} -> ejabberd
+           end,
+    {escalus_auth, Type}.
+
+try_check_mod_register(Config) ->
+    try is_mod_register_enabled(Config)
+    catch _ -> false
+    end.
 
 is_mod_register_enabled(Config) ->
     Server = escalus_config:get_config(escalus_server, Config, <<"localhost">>),
