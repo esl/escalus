@@ -71,9 +71,10 @@ predspec_to_fun(F, N) when is_atom(F), is_integer(N) ->
     %% R15B complains about {escalus_pred, F} syntax, where
     %% R14B04 doesn't allow fun escalus_pred:F/A yet.
     case N of
-        1 -> fun (X) -> escalus_pred:F(X) end;
-        2 -> fun (X, Y) -> escalus_pred:F(X, Y) end;
-        3 -> fun (X, Y, Z) -> escalus_pred:F(X, Y, Z) end
+        1 -> fun (A) -> escalus_pred:F(A) end;
+        2 -> fun (A, B) -> escalus_pred:F(A, B) end;
+        3 -> fun (A, B, C) -> escalus_pred:F(A, B, C) end;
+        4 -> fun (A, B, C, D) -> escalus_pred:F(A, B, C, D) end
     end;
 predspec_to_fun(Other, _) ->
     Other.

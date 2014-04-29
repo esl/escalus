@@ -546,6 +546,9 @@
 % Defined by XEP-0280: Message Carbons
 -define(NS_CARBONS_2, <<"urn:xmpp:carbons:2">>).
 
+% Defined by XEP-0297: Stanza Forwarding
+-define(NS_FORWARD_0, <<"urn:xmpp:forward:0">>).
+
 % Defined by XHTML 1.0.
 -define(NS_XHTML, <<"http://www.w3.org/1999/xhtml">>).
 

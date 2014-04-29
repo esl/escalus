@@ -22,6 +22,8 @@
 -export([is_message/1,
          is_chat_message/1,
          is_chat_message/2,
+         is_forwarded_received_message/4,
+         is_forwarded_sent_message/4,
          is_groupchat_message/1,
          is_groupchat_message/2,
          is_headline_message/3,
@@ -78,7 +80,8 @@
          is_ack/1, is_ack/2,
          is_ack_request/1,
          is_resumed/2,
-         has_ns/2]).
+         has_ns/2
+        ]).
 
 -export(['not'/1]).
 
@@ -154,11 +157,42 @@ is_chat_message(Stanza) ->
     andalso
     has_type(<<"chat">>, Stanza).
 
+-spec is_forwarded_received_message(binary(), binary(), binary(), xmlterm()) -> boolean().
+is_forwarded_received_message(OriginalFrom, OriginalTo, Msg, Stanza) ->
+    has_carbon(<<"received">>, OriginalFrom, OriginalTo, Msg, Stanza).
+
+-spec is_forwarded_sent_message(binary(), binary(), binary(), xmlterm()) -> boolean().
+is_forwarded_sent_message(OriginalFrom, OriginalTo, Msg, Stanza) ->
+    has_carbon(<<"sent">>, OriginalFrom, OriginalTo, Msg, Stanza).
+
+-spec has_carbon(binary(), binary(), binary(), binary(), binary()) -> boolean().
+has_carbon(Type, From, To, Msg, Stanza) ->
+    Carbon = exml_query:subelement(Stanza, Type),
+    has_ns(?NS_CARBONS_2, Carbon)
+    andalso
+    is_forwarded_message(From, To, Msg, exml_query:subelement(Carbon, <<"forwarded">>)).
+
+-spec is_forwarded_message(binary(), binary(), binary(), xmlterm()) -> boolean().
+is_forwarded_message(From, To, Msg, #xmlel{name = <<"forwarded">>} = Stanza) ->
+    has_ns(?NS_FORWARD_0, Stanza)
+    andalso
+    is_chat_message_from_to(From, To, Msg, 
+                            exml_query:subelement(Stanza, <<"message">>)).
+
 -spec is_chat_message(binary(), xmlterm()) -> boolean().
 is_chat_message(Msg, Stanza) ->
     is_chat_message(Stanza)
     andalso
     bin(Msg) == exml_query:path(Stanza, [{element, <<"body">>}, cdata]).
+
+-spec is_chat_message_from_to(binary(), binary(), binary(), xmlterm())
+                             -> boolean().
+is_chat_message_from_to(From, To, Msg, #xmlel{attrs=Attrs} = Stanza) ->
+    is_chat_message(Msg, Stanza)
+    andalso
+    bin(From) == proplists:get_value(<<"from">>, Attrs)
+    andalso
+    bin(To) == proplists:get_value(<<"to">>, Attrs).
 
 -spec is_groupchat_message(xmlterm()) -> boolean().
 is_groupchat_message(Stanza) ->
@@ -557,3 +591,4 @@ get_roster_items(Stanza) ->
 -spec has_path(xmlterm(), exml_query:path()) -> boolean().
 has_path(Stanza, Path) ->
     exml_query:path(Stanza, Path) /= undefined.
+
