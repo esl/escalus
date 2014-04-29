@@ -20,6 +20,7 @@
 -export([chat_to/2,
          chat/3,
          chat_to_short_jid/2,
+         chat_without_carbon_to/2,
          groupchat_to/2,
          iq_result/1,
          iq_get/2,
@@ -264,6 +265,12 @@ chat(Sender, Recipient, Msg) ->
 
 chat_to_short_jid(Recipient, Msg) ->
     chat_to(escalus_utils:get_short_jid(Recipient), Msg).
+
+chat_without_carbon_to(Recipient, Msg) ->
+    Stanza = #xmlel{children = Children} = chat_to(Recipient, Msg),
+    Stanza#xmlel{children = Children ++ 
+                  [#xmlel{name = <<"private">>,
+                          attrs = [{<<"xmlns">>, ?NS_CARBONS_2}]}]}.
 
 receipt_req(#xmlel{ name = <<"message">>,
                     attrs = Attrs,
