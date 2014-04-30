@@ -36,7 +36,7 @@ story(Config, ResourceCounts, Story) ->
         Clients = start_clients(Config, ClientDescs),
         ensure_all_clean(Clients),
         escalus_event:story_start(Config),
-        apply(Story, Clients),
+        apply_w_arity_check(Story, Clients),
         escalus_event:story_end(Config),
         post_story_checks(Config, Clients)
     catch Class:Reason ->
@@ -175,3 +175,13 @@ clients_from_resource_counts(Config, ResourceCounts) ->
 resources_per_spec(UserSpec, ResCount) ->
     [{UserSpec, list_to_binary("res" ++ integer_to_list(N))}
      || N <- lists:seq(1, ResCount)].
+
+apply_w_arity_check(Fun, Args) when is_function(Fun, 1) ->
+    case length(Args) of
+        1 -> apply(Fun, Args);  %% Fun expects one logged-in user
+        _ -> apply(Fun, [Args]) %% Fun expects list of users
+    end;
+apply_w_arity_check(Fun, Args) when is_function(Fun) ->
+    apply(Fun, Args).
+             
+    
