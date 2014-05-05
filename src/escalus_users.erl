@@ -16,11 +16,17 @@
 
 -module(escalus_users).
 
+-behaviour(escalus_user_db).
+
+%% `escalus_user_db` callbacks
+-export([start/1,
+         stop/1,
+         create_users/2,
+         delete_users/2]).
+
 %% Public API
 -export([create_users/1,
-         create_users/2,
          delete_users/1,
-         delete_users/2,
          get_jid/2,
          get_username/2,
          get_host/2,
@@ -61,12 +67,12 @@
 -include_lib("exml/include/exml.hrl").
 
 %%--------------------------------------------------------------------
-%% Public API
+%% `escalus_user_db` callbacks
 %%--------------------------------------------------------------------
 
--spec create_users(escalus:config()) -> escalus:config().
-create_users(Config) ->
-    create_users(Config, all).
+start(_) -> ok.
+
+stop(_) -> ok.
 
 -spec create_users(escalus:config(), who()) -> escalus:config().
 create_users(Config, Who) ->
@@ -82,9 +88,7 @@ create_users(Config, Who) ->
     end,
     [{escalus_users, Users}] ++ Config.
 
-delete_users(Config) ->
-    delete_users(Config, all).
-
+-spec delete_users(escalus:config(), who()) -> escalus:config().
 delete_users(Config, Who) ->
     Users = case Who of
         config -> escalus_config:get_config(escalus_users, Config, []);
@@ -98,6 +102,18 @@ delete_users(Config, Who) ->
         {escalus_auth, ejabberd} ->
             escalus_ejabberd:delete_users(Config, Users)
     end.
+
+%%--------------------------------------------------------------------
+%% Public API
+%%--------------------------------------------------------------------
+
+-spec create_users(escalus:config()) -> escalus:config().
+create_users(Config) ->
+    create_users(Config, all).
+
+-spec delete_users(escalus:config()) -> escalus:config().
+delete_users(Config) ->
+    delete_users(Config, all).
  
 get_jid(Config, User) ->
     Username = get_username(Config, User),
