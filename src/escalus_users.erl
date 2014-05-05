@@ -70,20 +70,32 @@
 %% `escalus_user_db` callbacks
 %%--------------------------------------------------------------------
 
-start(_) -> ok.
+start(Config) ->
+    case auth_type(Config) of
+        {escalus_user_db, {module, M}} ->
+            M:start([]);
+        _ ->
+            ok
+    end.
 
-stop(_) -> ok.
+stop(Config) ->
+    case auth_type(Config) of
+        {escalus_user_db, {module, M}} ->
+            M:stop([]);
+        _ ->
+            ok
+    end.
 
 -spec create_users(escalus:config(), who()) -> escalus:config().
 create_users(Config, Who) ->
     Users = get_users(Who),
     case auth_type(Config) of
-        {escalus_auth, xmpp} ->
+        {escalus_user_db, xmpp} ->
             CreationResults = [create_user(Config, User) || User <- Users],
             lists:foreach(fun verify_creation/1, CreationResults);
-        {escalus_auth, {module, M}} ->
+        {escalus_user_db, {module, M}} ->
             M:create_users(Config, Users);
-        {escalus_auth, ejabberd} ->
+        {escalus_user_db, ejabberd} ->
             escalus_ejabberd:create_users(Config, Users)
     end,
     [{escalus_users, Users}] ++ Config.
@@ -95,11 +107,11 @@ delete_users(Config, Who) ->
         _      -> get_users(Who)
     end,
     case auth_type(Config) of
-        {escalus_auth, xmpp} ->
+        {escalus_user_db, xmpp} ->
             [delete_user(Config, User) || User <- Users];
-        {escalus_auth, {module, M}} ->
+        {escalus_user_db, {module, M}} ->
             M:delete_users(Config, Users);
-        {escalus_auth, ejabberd} ->
+        {escalus_user_db, ejabberd} ->
             escalus_ejabberd:delete_users(Config, Users)
     end.
 
@@ -237,13 +249,13 @@ delete_user(Config, {_Name, UserSpec}) ->
     Result.
 
 auth_type(Config) ->
-    Type = case {escalus_config:get_config(escalus_auth, Config, undefined),
+    Type = case {escalus_config:get_config(escalus_user_db, Config, undefined),
                  try_check_mod_register(Config)} of
                {{module, _} = M, _} -> M;
                {_, true} -> xmpp;
                {_, false} -> ejabberd
            end,
-    {escalus_auth, Type}.
+    {escalus_user_db, Type}.
 
 try_check_mod_register(Config) ->
     try is_mod_register_enabled(Config)
