@@ -16,7 +16,7 @@
 
 -module(escalus_users).
 
-% Public API
+%% Public API
 -export([create_users/1,
          create_users/2,
          delete_users/1,
@@ -39,17 +39,21 @@
          is_mod_register_enabled/1
         ]).
 
-% Public Types
--type spec() :: [{escalus_config:key(), any()}].
--export_type([spec/0]).
-
-% deprecated API
+%% Deprecated API
 -export([create_user/1,
          delete_user/1,
          get_usp/1,
          get_jid/1,
          get_username/1,
          get_server/1]).
+
+%% Public types
+-export_type([spec/0,
+              who/0]).
+
+%% Public types
+-type spec() :: [{escalus_config:key(), any()}].
+-type who() :: all | {by_name, [escalus_config:key()]} | [spec()].
 
 -import(escalus_compat, [bin/1]).
 
@@ -60,9 +64,11 @@
 %% Public API
 %%--------------------------------------------------------------------
 
+-spec create_users(escalus:config()) -> escalus:config().
 create_users(Config) ->
     create_users(Config, all).
 
+-spec create_users(escalus:config(), who()) -> escalus:config().
 create_users(Config, Who) ->
     Users = get_users(Who),
     case auth_type(Config) of
@@ -155,7 +161,7 @@ get_options(Config, User, Resource) ->
 get_options(Config, User, Resource, EventClient) ->
     [{event_client, EventClient} | get_options(Config, User, Resource)].
 
--spec get_userspec(escalus_config:config(), escalus_config:key() | spec())
+-spec get_userspec(escalus:config(), escalus_config:key() | spec())
     -> spec().
 get_userspec(Config, Username) when is_atom(Username) ->
     Users = escalus_config:get_config(escalus_users, Config),
@@ -171,6 +177,7 @@ update_userspec(Config, UserName, Option, Value) ->
     NewUsers = lists:keystore(UserName, 1, Users, {UserName, UserSpec}),
     lists:keystore(escalus_users, 1, Config, {escalus_users, NewUsers}).
 
+-spec get_users(who()) -> [spec()].
 get_users(all) ->
     escalus_ct:get_config(escalus_users);
 get_users({by_name, Names}) ->
