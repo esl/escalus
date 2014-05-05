@@ -126,7 +126,7 @@ create_users(Config) ->
 -spec delete_users(escalus:config()) -> escalus:config().
 delete_users(Config) ->
     delete_users(Config, all).
- 
+
 get_jid(Config, User) ->
     Username = get_username(Config, User),
     Server = get_server(Config, User),
