@@ -40,6 +40,9 @@
          wait_for_stanzas/3,
          peek_stanzas/1]).
 
+%% Public types
+-export_type([config/0]).
+
 %%--------------------------------------------------------------------
 %% Public API
 %%--------------------------------------------------------------------
@@ -91,3 +94,9 @@ end_per_testcase(_CaseName, Config) ->
 ?FORWARD1(escalus_client, peek_stanzas).
 
 ?FORWARD3(escalus_overridables, override).
+
+%%--------------------------------------------------------------------
+%% Public types
+%%--------------------------------------------------------------------
+
+-type config() :: escalus_config:config().
