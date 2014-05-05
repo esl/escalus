@@ -52,10 +52,11 @@ suite() ->
 
 init_per_suite(Config) ->
     application:start(exml),
+    escalus_users:start(Config),
     Config.
 
-end_per_suite(_Config) ->
-    ok.
+end_per_suite(Config) ->
+    escalus_users:stop(Config).
 
 init_per_testcase(CaseName, Config) ->
     Config1 = escalus_cleaner:start(Config),
