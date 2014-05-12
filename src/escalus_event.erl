@@ -4,8 +4,8 @@
 -export([start/1,
          stop/1,
          new_client/3,
-	     add_handler/3,
-	     delete_handler/3]).
+         add_handler/3,
+         delete_handler/3]).
 
 %% Notifications
 -export([incoming_stanza/2,

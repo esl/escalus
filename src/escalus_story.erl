@@ -98,6 +98,7 @@ start_ready_clients(Config, FlatCDs) ->
     end, {1, []}, FlatCDs),
     Clients = lists:reverse(RClients),
     ClientsCount = length(Clients),
+
     escalus_utils:each_with_index(fun(Client, N) ->
         %% drop presence updates of guys who have logged in after you did
         drop_presences(Client, ClientsCount - N)
@@ -183,5 +184,3 @@ apply_w_arity_check(Fun, Args) when is_function(Fun, 1) ->
     end;
 apply_w_arity_check(Fun, Args) when is_function(Fun) ->
     apply(Fun, Args).
-             
-    

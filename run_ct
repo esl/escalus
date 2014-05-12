@@ -1,2 +1,7 @@
 #!/bin/bash
-ct_run -config test/test.config -logdir logs -dir test -erl_args -pa $PWD/ebin $PWD/deps/exml/ebin
+if [ ! -z "$TESTSPEC" ] ;
+then
+    ct_run -config test/test.config -logdir logs -dir test -spec "$TESTSPEC" -erl_args -pa $PWD/ebin $PWD/deps/exml/ebin $PWD/deps/*/ebin;
+else
+    ct_run -config test/test.config -logdir logs -dir test -erl_args -pa $PWD/ebin $PWD/deps/exml/ebin $PWD/deps/*/ebin;
+fi

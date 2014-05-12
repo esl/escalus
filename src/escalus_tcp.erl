@@ -18,6 +18,7 @@
          use_zlib/2,
          get_transport/1,
          reset_parser/1,
+         get_sm_h/1,
          stop/1]).
 
 %% gen_server callbacks
@@ -31,11 +32,16 @@
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
 -define(SERVER, ?MODULE).
 
+%% Stream management automation
+%%               :: {Auto-ack?,                H,         counting Hs?}.
+-type sm_state() :: {boolean(), non_neg_integer(), 'active'|'inactive'}.
+
 -record(state, {owner,
                 socket,
                 parser,
-                ssl = false,
-                compress = false,
+                sm_state = {true, 0, inactive} :: sm_state(),
+                ssl = false      :: boolean(),
+                compress = false :: boolean(),
                 event_client}).
 
 %%%===================================================================
@@ -60,6 +66,9 @@ is_connected(#transport{rcv_pid = Pid}) ->
 
 reset_parser(#transport{rcv_pid = Pid}) ->
     gen_server:cast(Pid, reset_parser).
+
+get_sm_h(#transport{rcv_pid = Pid}) ->
+    gen_server:call(Pid, get_sm_h).
 
 stop(#transport{rcv_pid = Pid}) ->
     try
@@ -99,6 +108,13 @@ init([Args, Owner]) ->
     Host = proplists:get_value(host, Args, <<"localhost">>),
     Port = proplists:get_value(port, Args, 5222),
     EventClient = proplists:get_value(event_client, Args),
+    SM = case {proplists:get_value(stream_management, Args, false),
+               proplists:get_value(manual_ack, Args, false)}
+         of
+             {false,_}          -> {false, 0, inactive};
+             {_, true}          -> {false, 0, inactive};
+             {true,false}       -> {true, 0, inactive}
+         end,
     Address = host_to_inet(Host),
     Opts = [binary, {active, once}],
     {ok, Socket} = gen_tcp:connect(Address, Port, Opts),
@@ -106,8 +122,11 @@ init([Args, Owner]) ->
     {ok, #state{owner = Owner,
                 socket = Socket,
                 parser = Parser,
+                sm_state = SM,
                 event_client = EventClient}}.
 
+handle_call(get_sm_h, _From, #state{sm_state = {_, H, _}} = State) ->
+    {reply, H, State};
 handle_call(get_transport, _From, State) ->
     {reply, transport(State), State};
 handle_call({upgrade_to_tls, SSLOpts}, _From, #state{socket = Socket} = State) ->
@@ -184,9 +203,10 @@ code_change(_OldVsn, State, _Extra) ->
 handle_data(Socket, Data, #state{owner = Owner,
                                  parser = Parser,
                                  socket = Socket,
+                                 sm_state = SM0,
                                  compress = Compress,
                                  event_client = EventClient} = State) ->
-    {ok, NewParser, Stanzas} =
+    {ok, NewParser, Stanzas0} =
         case Compress of
             false ->
                 exml_stream:parse(Parser, Data);
@@ -194,15 +214,65 @@ handle_data(Socket, Data, #state{owner = Owner,
                 Decompressed = iolist_to_binary(zlib:inflate(Zin, Data)),
                 exml_stream:parse(Parser, Decompressed)
         end,
-    NewState = State#state{parser = NewParser},
+
+    {SM1, AckRequests,Stanzas1} = separate_ack_requests(SM0, Stanzas0),
+    reply_to_ack_requests(SM1, AckRequests, State),
+    NewState = State#state{parser = NewParser, sm_state=SM1},
+
     lists:foreach(fun(Stanza) ->
         escalus_event:incoming_stanza(EventClient, Stanza),
         Owner ! {stanza, transport(NewState), Stanza}
-    end, Stanzas),
-    case [StrEnd || #xmlstreamend{} = StrEnd <- Stanzas] of
+    end, Stanzas1),
+
+    case [StrEnd || #xmlstreamend{} = StrEnd <- Stanzas1] of
         [] -> {noreply, NewState};
         __ -> {stop, normal, NewState}
     end.
+
+separate_ack_requests({false, H0, A}, Stanzas) ->
+    %% Don't keep track of H
+    {{false, H0, A}, [], Stanzas};
+separate_ack_requests({true, H0, inactive}, Stanzas) ->
+    Enabled = [ S || S <- Stanzas, escalus_pred:is_enabled(S)],
+    Resumed = [ S || S <- Stanzas, escalus_pred:is_resumed(S)],
+
+    case {length(Enabled),length(Resumed)} of
+        %% Enabled SM: set the H param to 0 and activate counter.
+        {1,_} -> {{true, 0, active}, [], Stanzas};
+
+        %% Resumed SM: keep the H param and activate counter.
+        {_,1} -> {{true, H0, active}, [], Stanzas};
+
+        %% No new SM state: continue as usual
+        {0,0} -> {{true, H0, inactive}, [], Stanzas}
+    end;
+separate_ack_requests({true, H0, active}, Stanzas) ->
+    %% Count H and construct appropriate acks
+    F = fun(Stanza, {H, Acks, NonAckRequests}) ->
+                case escalus_pred:is_ack_request(Stanza) of
+                    true -> {H, [make_ack(H)|Acks], NonAckRequests};
+                    false -> {H+1, Acks, [Stanza|NonAckRequests]}
+                end
+        end,
+    {H, Acks, Others} = lists:foldl(F, {H0, [], []}, Stanzas),
+    {{true, H, active}, lists:reverse(Acks), lists:reverse(Others)}.
+
+make_ack(H) -> {escalus_stanza:sm_ack(H), H}.
+
+reply_to_ack_requests({false,H,A}, _, _) -> {false, H, A};
+reply_to_ack_requests({true,H,inactive}, _, _) -> {true, H, inactive};
+reply_to_ack_requests({true, H0, active}, Acks, State) ->
+    {true,
+     lists:foldl(fun({Ack,H}, _) -> raw_send(State, Ack), H end,
+                 H0, Acks),
+     active}.
+
+raw_send(#state{socket=Socket, ssl=true}, Elem) ->
+    ssl:send(Socket, exml:to_iolist(Elem));
+raw_send(#state{socket=Socket, compress=true}, Elem) ->
+    throw({escalus_tcp, auto_ack_not_implemented_for_compressed_streams});
+raw_send(#state{socket=Socket}, Elem) ->
+    gen_tcp:send(Socket, exml:to_iolist(Elem)).
 
 common_terminate(_Reason, #state{parser = Parser}) ->
     exml_stream:free_parser(Parser).

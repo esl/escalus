@@ -15,9 +15,9 @@
 %%==============================================================================
 
 -record(client, {
-        jid :: binary(),
-        conn :: any(),
-        event_client :: any()
+          jid :: binary(),
+          conn :: any(),
+          event_client :: any()
 }).
 
 -record(jid, {
