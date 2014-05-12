@@ -331,7 +331,8 @@ is_error(Type, Condition, Stanza) ->
 
 -spec is_stream_error(stanza_type(), binary(), xmlterm()) -> boolean().
 is_stream_error(Type, Text, Stanza) ->
-    Stanza#xmlel.name =:= <<"stream:error">>
+    (Stanza#xmlel.name =:= <<"stream:error">> orelse
+     (Stanza#xmlel.name =:= <<"error">> andalso exml_query:attr(Stanza,<<"xmlns">>) =:= ?NS_XMPP))
     andalso
     exml_query:subelement(Stanza, Type) =/= undefined
     andalso
@@ -459,6 +460,8 @@ stanza_timeout(Arg) ->
 
 -spec is_stream_end(xmlterm() | xmlstreamelement()) -> boolean().
 is_stream_end(#xmlstreamend{}) ->
+    true;
+is_stream_end(#xmlel{name = <<"close">>}) ->
     true;
 is_stream_end(_) ->
     false.

@@ -58,7 +58,11 @@ start_stream(Conn, Props) ->
                 {server, _} -> <<"jabber:server">>;
                 _ -> <<"jabber:client">>
             end,
-    StreamStartReq = escalus_stanza:stream_start(Server, XMLNS),
+    StreamStartReq = case {proplists:get_value(transport, Props, tcp),
+                           proplists:get_value(wslegacy, Props, false)} of
+                         {ws, false} -> escalus_stanza:ws_open(Server);
+                         _ -> escalus_stanza:stream_start(Server, XMLNS)
+                     end,
     ok = escalus_connection:send(Conn, StreamStartReq),
     StreamStartRep = escalus_connection:get_stanza(Conn, wait_for_stream),
     %% FIXME: verify StreamStartRep

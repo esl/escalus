@@ -32,7 +32,7 @@
 -define(HANDSHAKE_TIMEOUT, 3000).
 -define(SERVER, ?MODULE).
 
--record(state, {owner, socket, parser, compress = false, event_client}).
+-record(state, {owner, socket, parser, legacy_ws, compress = false, event_client}).
 
 %%%===================================================================
 %%% API
@@ -86,6 +86,7 @@ init([Args, Owner]) ->
     Host = get_host(Args, "localhost"),
     Port = get_port(Args, 5222),
     Resource = get_resource(Args, "ws-xmpp"),
+    LegacyWS = get_legacy_ws(Args, false),
     EventClient = proplists:get_value(event_client, Args),
     WSOptions = [],
     {ok, Socket} = wsecli:start(Host, Port, Resource, WSOptions),
@@ -95,10 +96,15 @@ init([Args, Owner]) ->
     wsecli:on_message(Socket, fun(Type, Data) -> Pid ! {Type, Data} end),
     wsecli:on_close(Socket, fun(_) -> Pid ! tcp_closed end),
     wait_for_socket_start(),
-    {ok, Parser} = exml_stream:new_parser(),
+    ParserOpts = if
+                     LegacyWS -> [];
+                     true -> [{infinite_stream, true}, {autoreset, true}]
+                 end,
+    {ok, Parser} = exml_stream:new_parser(ParserOpts),
     {ok, #state{owner = Owner,
                 socket = Socket,
                 parser = Parser,
+                legacy_ws = LegacyWS,
                 event_client = EventClient}}.
 
 handle_call(get_transport, _From, State) ->
@@ -113,7 +119,10 @@ handle_call(use_zlib, _, #state{parser = Parser, socket = Socket} = State) ->
                                 compress = {zlib, {Zin,Zout}}}};
 handle_call(stop, _From, #state{socket = Socket,
                                 compress = Compress} = State) ->
-    StreamEnd = escalus_stanza:stream_end(),
+    StreamEnd = if
+                    State#state.legacy_ws -> escalus_stanza:stream_end();
+                    true -> escalus_stanza:ws_close()
+                end,
     case Compress of
         {zlib, {Zin, Zout}} ->
             try
@@ -227,6 +236,10 @@ get_host(Args, Default) ->
 -spec get_resource(list(), string()) -> string().
 get_resource(Args, Default) ->
     maybe_binary_to_list(get_option(wspath, Args, Default)).
+
+-spec get_legacy_ws(list(), boolean()) -> boolean().
+get_legacy_ws(Args, Default) ->
+    get_option(wslegacy, Args, Default).
 
 -spec maybe_binary_to_list(binary() | string()) -> string().
 maybe_binary_to_list(B) when is_binary(B) -> binary_to_list(B);
