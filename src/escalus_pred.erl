@@ -79,6 +79,7 @@
          is_failed/2,
          is_ack/1, is_ack/2,
          is_ack_request/1,
+         is_resumed/1,
          is_resumed/2,
          has_ns/2,
          is_compressed/1
@@ -177,7 +178,7 @@ has_carbon(Type, From, To, Msg, Stanza) ->
 is_forwarded_message(From, To, Msg, #xmlel{name = <<"forwarded">>} = Stanza) ->
     has_ns(?NS_FORWARD_0, Stanza)
     andalso
-    is_chat_message_from_to(From, To, Msg, 
+    is_chat_message_from_to(From, To, Msg,
                             exml_query:subelement(Stanza, <<"message">>)).
 
 -spec is_chat_message(binary(), xmlterm()) -> boolean().
@@ -229,7 +230,7 @@ has_type(Type, Stanza) ->
 is_0184_request(#xmlel{children = Els}) ->
     #xmlel{ name = <<"request">>,
             attrs = [{<<"xmlns">>, <<"urn:xmpp:receipts">>}],
-            children = [] } =:= lists:keyfind(<<"request">>, 2, Els). 
+            children = [] } =:= lists:keyfind(<<"request">>, 2, Els).
 
 -spec is_0184_receipt(xmlterm(), xmlterm()) -> boolean().
 is_0184_receipt(#xmlel{ attrs = ReqAttrs } = Request, Receipt) ->
@@ -556,6 +557,14 @@ is_ack_request(#xmlel{name = <<"r">>} = Stanza) ->
 is_ack_request(_) ->
     false.
 
+is_resumed(#xmlel{name = <<"resumed">>} = Stanza) ->
+    %% Less strict checking (no SMID verification)
+    has_ns(?NS_STREAM_MGNT_3, Stanza)
+    andalso
+    exml_query:attr(Stanza, <<"h">>) /= undefined;
+is_resumed(_) ->
+    false.
+
 is_resumed(SMID, #xmlel{name = <<"resumed">>} = Stanza) ->
     has_ns(?NS_STREAM_MGNT_3, Stanza)
     andalso
@@ -597,4 +606,3 @@ get_roster_items(Stanza) ->
 -spec has_path(xmlterm(), exml_query:path()) -> boolean().
 has_path(Stanza, Path) ->
     exml_query:path(Stanza, Path) /= undefined.
-

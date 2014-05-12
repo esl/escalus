@@ -68,7 +68,7 @@ stop(#client{conn = Conn}) ->
 kill(#client{conn = #transport{module = escalus_tcp, rcv_pid = Pid}}) ->
     erlang:exit(Pid, kill).
 
-peek_stanzas(#client{conn = Conn}) ->
+peek_stanzas(#client{conn = Conn} = Client) ->
     {messages, Msgs} = process_info(self(), messages),
     lists:flatmap(fun ({stanza, MConn, Stanza}) when MConn == Conn ->
                           [Stanza];
@@ -101,6 +101,7 @@ do_wait_for_stanzas(#client{conn = Conn, event_client=EventClient}=Client,
         TimeoutMsg ->
             do_wait_for_stanzas(Client, 0, TimeoutMsg, Acc)
     end.
+
 
 wait_for_stanza(Client) ->
     wait_for_stanza(Client, ?WAIT_FOR_STANZA_TIMEOUT).

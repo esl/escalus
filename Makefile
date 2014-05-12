@@ -1,11 +1,15 @@
 .PHONY: all compile test clean
+TESTSPEC ?= ''
 
 all: compile
 
 compile: rebar
 	./rebar get-deps compile
 
-test: rebar compile
+ct:	compile
+	./run_ct TESTSPEC=$(TESTSPEC)
+
+test: compile
 	./rebar skip_deps=true eunit
 
 clean: rebar

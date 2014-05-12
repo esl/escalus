@@ -16,6 +16,7 @@
 -export([connect/1,
          send/2,
          get_stanza/2,
+         get_sm_h/1,
          reset_parser/1,
          is_connected/1,
          kill/1]).
@@ -132,6 +133,12 @@ get_stanza(Conn, Name) ->
     after ?TIMEOUT ->
             throw({timeout, Name})
     end.
+
+-spec get_sm_h(transport()) -> non_neg_integer().
+get_sm_h(#transport{module = escalus_tcp} = Conn) ->
+    escalus_tcp:get_sm_h(Conn);
+get_sm_h(#transport{module = Mod}) ->
+    error({get_sm_h, {undefined_for_escalus_module, Mod}}).
 
 reset_parser(#transport{module = Mod} = Transport) ->
     Mod:reset_parser(Transport).
