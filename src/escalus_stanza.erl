@@ -96,7 +96,8 @@
 -export([setattr/3,
          to/2,
          from/2,
-         tags/1]).
+         tags/1,
+         set_id/2]).
 
 -export([get_registration_fields/0,
          register_account/1]).
@@ -184,6 +185,9 @@ from(Stanza, Recipient) when is_binary(Recipient) ->
     setattr(Stanza, <<"from">>, Recipient);
 from(Stanza, Recipient) ->
     setattr(Stanza, <<"from">>, escalus_utils:get_jid(Recipient)).
+
+set_id(Stanza, ID) ->
+    setattr(Stanza, <<"id">>, ID).
 
 setattr(Stanza, Key, Val) ->
     NewAttrs = lists:keystore(Key, 1, Stanza#xmlel.attrs, {Key, Val}),
