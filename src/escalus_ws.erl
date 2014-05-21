@@ -74,7 +74,7 @@ upgrade_to_tls(_, _) ->
 use_zlib(#transport{rcv_pid = Pid} = Conn, Props) ->
     escalus_connection:send(Conn, escalus_stanza:compress(<<"zlib">>)),
     Compressed = escalus_connection:get_stanza(Conn, compressed),
-    %% FIXME: verify Compressed
+    escalus:assert(is_compressed, Compressed),
     gen_server:call(Pid, use_zlib),
     Conn1 = get_transport(Conn),
     {Props2, _} = escalus_session:start_stream(Conn1, Props),
