@@ -18,6 +18,7 @@
 %% New style connection initiation
 -export([start_stream/3,
          maybe_use_ssl/3,
+         maybe_use_carbons/3,
          maybe_use_compression/3,
          maybe_stream_management/3,
          maybe_stream_resumption/3,
@@ -138,6 +139,10 @@ can_use_stream_management(Props, Features) ->
     false /= proplists:get_value(stream_management, Props, false) andalso
     false /= proplists:get_value(stream_management, Features).
 
+can_use_carbons(Props, Features) ->
+    false /= proplists:get_value(carbons, Props, false).
+
+
 %%%===================================================================
 %%% New style connection initiation
 %%%===================================================================
@@ -156,6 +161,22 @@ maybe_use_ssl(Conn, Props, Features) ->
         false ->
             {Conn, Props, Features}
     end.
+
+-spec maybe_use_carbons/3 :: ?CONNECTION_STEP.
+maybe_use_carbons(Conn, Props, Features) ->
+    case can_use_carbons(Props, Features) of
+        true ->
+            use_carbons(Conn, Props, Features);
+        false ->
+            {Conn, Props, Features}
+    end.
+
+-spec use_carbons/3 :: ?CONNECTION_STEP.
+use_carbons(Conn, Props, Features) ->
+    escalus_connection:send(Conn, escalus_stanza:carbons_enable()),
+    Result = escalus_connection:get_stanza(Conn, carbon_iq_response),
+    escalus:assert(is_iq, [<<"result">>], Result),
+    {Conn, Props, Features}.
 
 -spec maybe_use_compression/3 :: ?CONNECTION_STEP.
 maybe_use_compression(Conn, Props, Features) ->

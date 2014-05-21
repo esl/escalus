@@ -47,7 +47,8 @@ start(Props) ->
            authenticate,
            bind,
            session,
-           maybe_stream_management]).
+           maybe_stream_management,
+           maybe_use_carbons]).
 
 %% Usage:
 %%

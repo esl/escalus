@@ -83,6 +83,7 @@
          is_resumed/2,
          has_ns/2,
          is_compressed/1
+         is_mam_archived_message/2
         ]).
 
 -export(['not'/1]).
@@ -201,6 +202,14 @@ is_groupchat_message(Stanza) ->
     is_message(Stanza)
     andalso
     has_type(<<"groupchat">>, Stanza).
+
+%% Xep-0313 archived messages
+is_mam_archived_message(Msg, #xmlel{} = Stanza) ->
+    M = exml_query:path(Stanza, [{element, <<"result">>},
+                                 {element, <<"forwarded">>},
+                                 {element, <<"message">>}]),
+    is_chat_message(Msg,M).
+
 
 %% TODO: escalus_compat:bin/1 should be deprecated;
 %%       let's just use binaries instead of "maybe strings, maybe binaries"

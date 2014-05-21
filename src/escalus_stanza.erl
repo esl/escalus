@@ -76,6 +76,10 @@
 %% XEP-0280: Message Carbons
 -export([carbons_disable/0,carbons_enable/0]).
 
+%% XEP-0313: Message Archive Management
+-export([mam_archive_query/1,
+         mam_lookup_messages_iq/4
+        ]).
 
 %% XEP-0198: Stream Management
 -export([enable_sm/0, enable_sm/1,
@@ -272,7 +276,7 @@ chat_to_short_jid(Recipient, Msg) ->
 
 chat_without_carbon_to(Recipient, Msg) ->
     Stanza = #xmlel{children = Children} = chat_to(Recipient, Msg),
-    Stanza#xmlel{children = Children ++ 
+    Stanza#xmlel{children = Children ++
                   [#xmlel{name = <<"private">>,
                           attrs = [{<<"xmlns">>, ?NS_CARBONS_2}]}]}.
 
@@ -592,6 +596,47 @@ resume(SMID, PrevH) ->
                     {<<"h">>, integer_to_binary(PrevH)}]}.
 
 
+%% XEP-0313 Mam
+%%
+%% @TODO: move the stanza constructors from
+%% tests/mam_SUITE.erl into here.
+
+mam_archive_query(QueryId) ->
+    mam_archive_query(QueryId, []).
+
+mam_archive_query(QueryId, Children) ->
+    escalus_stanza:iq(
+      <<"get">>,
+      [#xmlel{
+          name = <<"query">>,
+          attrs = [mam_ns_attr(), {<<"queryid">>, QueryId}],
+          children = defined(Children)}]).
+
+mam_lookup_messages_iq(QueryId, Start, End, WithJID) ->
+    mam_archive_query(QueryId, [fmapM(fun start_elem/1, Start),
+                                fmapM(fun end_elem/1, End),
+                                fmapM(fun with_elem/1, WithJID)
+                               ]).
+
+fmapM(_F, undefined) -> undefined;
+fmapM(F, MaybeVal) -> F(MaybeVal).
+fmapMs(F, MaybeVals) -> [ R || R <- [ fmapM(F,V) || V <- MaybeVals ], R /= undefined ].
+
+defined(L) when is_list(L) -> [ El || El <- L, El /= undefined ].
+
+
+start_elem(StartTime) ->
+    #xmlel{name = <<"start">>, children = #xmlcdata{content = StartTime}}.
+end_elem(EndTime) ->
+    #xmlel{name = <<"end">>, children = #xmlcdata{content = EndTime}}.
+with_elem(BWithJID) ->
+    #xmlel{name = <<"with">>, children = #xmlcdata{content = BWithJID}}.
+
+mam_ns_attr() -> {<<"xmlns">>,?NS_MAM}.
+
+
+%% XEP-0280 Carbons
+%%
 carbons_enable() ->
     iq_set_nonquery(?NS_JABBER_CLIENT, [enable_carbons_el()]).
 carbons_disable() ->
