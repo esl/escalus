@@ -50,7 +50,7 @@ connect(Args) ->
 
 send(#transport{socket = Socket, ssl = true}, Elem) ->
     ssl:send(Socket, exml:to_iolist(Elem));
-send(#transport{socket = Socket, rcv_pid=Pid, compress = {zlib, {_,Zout}}}, Elem) ->
+send(#transport{rcv_pid=Pid, compress = {zlib, {_,Zout}}}, Elem) ->
     gen_server:cast(Pid, {send_compressed, Zout, Elem});
 send(#transport{socket = Socket}, Elem) ->
     gen_tcp:send(Socket, exml:to_iolist(Elem)).
