@@ -70,6 +70,7 @@ kill(Transport) ->
 upgrade_to_tls(_, _) ->
     throw(starttls_not_supported).
 
+%% TODO: this is en exact duplicate of escalus_tcp:use_zlib/2, DRY!
 use_zlib(#transport{rcv_pid = Pid} = Conn, Props) ->
     escalus_connection:send(Conn, escalus_stanza:compress(<<"zlib">>)),
     Compressed = escalus_connection:get_stanza(Conn, compressed),
