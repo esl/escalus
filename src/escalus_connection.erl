@@ -142,19 +142,9 @@ is_connected(#transport{module = Mod} = Transport) ->
 stop(#transport{module = Mod} = Transport) ->
     Mod:stop(Transport).
 
-kill(#transport{module = escalus_tcp, ssl = SSL,
-                socket = Socket} = Conn) ->
-    %% Ugly, but there's no API for killing the connection
-    %% without sending </stream:stream>.
-    case SSL of
-        true ->
-            ssl:close(Socket);
-        false ->
-            gen_tcp:close(Socket)
-    end,
-    %% There might be open zlib streams left...
-    catch escalus_connection:stop(Conn).
-
+%% Brutally kill the connection without terminating the XMPP stream.
+kill(#transport{module = Mod} = Transport) ->
+    Mod:kill(Transport).
 
 %%%===================================================================
 %%% Helpers

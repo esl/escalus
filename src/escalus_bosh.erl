@@ -20,7 +20,8 @@
          use_zlib/2,
          get_transport/1,
          reset_parser/1,
-         stop/1]).
+         stop/1,
+         kill/1]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -94,6 +95,9 @@ stop(#transport{rcv_pid = Pid}) ->
         exit:{noproc, {gen_server, call, _}} ->
             already_stopped
     end.
+
+kill(Transport) ->
+    error({not_implemented_for, ?MODULE}, [Transport]).
 
 upgrade_to_tls(#transport{} = _Conn, _Props) ->
     not_supported.
