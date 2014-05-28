@@ -45,7 +45,7 @@
                        features()}.
 -export_type([step_state/0]).
 
--include_lib("exml/include/exml.hrl").
+-include_lib("exml/include/exml_stream.hrl").
 -define(DEFAULT_RESOURCE, <<"escalus-default-resource">>).
 
 %%%===================================================================
@@ -65,9 +65,23 @@ start_stream(Conn, Props) ->
                      end,
     ok = escalus_connection:send(Conn, StreamStartReq),
     StreamStartRep = escalus_connection:get_stanza(Conn, wait_for_stream),
-    %% FIXME: verify StreamStartRep
+    case StreamStartRep of
+       #xmlstreamend{} ->
+           error("Stream terminated by server");
+       #xmlstreamstart{} ->
+           ok
+    end,
     StreamFeatures = escalus_connection:get_stanza(Conn, wait_for_features),
-    %% FIXME: verify StreamFeatures
+    case StreamFeatures of
+       #xmlel{name = <<"stream:features">>} ->
+           ok;
+       _ ->
+           error(
+             lists:flatten(
+               io_lib:format(
+                 "Expected stream features, got ~p",
+                 [StreamFeatures])))
+    end,
     {Props, get_stream_features(StreamFeatures)}.
 
 starttls(Conn, Props) ->
