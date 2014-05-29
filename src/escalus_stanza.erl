@@ -77,7 +77,9 @@
 -export([carbons_disable/0,carbons_enable/0]).
 
 %% XEP-0313: Message Archive Management
--export([mam_archive_query/1]).
+-export([mam_archive_query/1,
+         mam_lookup_messages_iq/4
+        ]).
 
 %% XEP-0198: Stream Management
 -export([enable_sm/0, enable_sm/1,
@@ -590,12 +592,28 @@ resume(SMID, PrevH) ->
 %% tests/mam_SUITE.erl into here.
 
 mam_archive_query(QueryId) ->
+    mam_archive_query(QueryId, []).
+
+mam_archive_query(QueryId, Children) ->
     escalus_stanza:iq(
       <<"get">>,
       [#xmlel{
           name = <<"query">>,
           attrs = [mam_ns_attr(), {<<"queryid">>, QueryId}],
-          children = []}]).
+          children = Children}]).
+
+mam_lookup_messages_iq(QueryId, _Start, _End, WithJID) ->
+    mam_archive_query(QueryId, [maybe_with_elem(WithJID)]).
+
+maybe_with_elem(undefined) ->
+    undefined;
+maybe_with_elem(BWithJID) ->
+    #xmlel{
+        name = <<"with">>,
+        children = #xmlcdata{content = BWithJID}}.
+
+
+
 
 
 mam_ns_attr() -> {<<"xmlns">>,mam_ns_binary()}.
