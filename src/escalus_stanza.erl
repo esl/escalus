@@ -600,24 +600,29 @@ mam_archive_query(QueryId, Children) ->
       [#xmlel{
           name = <<"query">>,
           attrs = [mam_ns_attr(), {<<"queryid">>, QueryId}],
-          children = Children}]).
+          children = defined(Children)}]).
 
-mam_lookup_messages_iq(QueryId, _Start, _End, WithJID) ->
-    mam_archive_query(QueryId, [maybe_with_elem(WithJID)]).
+mam_lookup_messages_iq(QueryId, Start, End, WithJID) ->
+    mam_archive_query(QueryId, [fmapM(fun start_elem/1, Start),
+                                fmapM(fun end_elem/1, End),
+                                fmapM(fun with_elem/1, WithJID)
+                               ]).
 
-maybe_with_elem(undefined) ->
-    undefined;
-maybe_with_elem(BWithJID) ->
-    #xmlel{
-        name = <<"with">>,
-        children = #xmlcdata{content = BWithJID}}.
+fmapM(_F, undefined) -> undefined;
+fmapM(F, MaybeVal) -> F(MaybeVal).
+fmapMs(F, MaybeVals) -> [ R || R <- [ fmapM(F,V) || V <- MaybeVals ], R /= undefined ].
+
+defined(L) when is_list(L) -> [ El || El <- L, El /= undefined ].
 
 
+start_elem(StartTime) ->
+    #xmlel{name = <<"start">>, children = #xmlcdata{content = StartTime}}.
+end_elem(EndTime) ->
+    #xmlel{name = <<"end">>, children = #xmlcdata{content = EndTime}}.
+with_elem(BWithJID) ->
+    #xmlel{name = <<"with">>, children = #xmlcdata{content = BWithJID}}.
 
-
-
-mam_ns_attr() -> {<<"xmlns">>,mam_ns_binary()}.
-mam_ns_binary() -> <<"urn:xmpp:mam:tmp">>.
+mam_ns_attr() -> {<<"xmlns">>,?NS_MAM}.
 
 
 %% XEP-0280 Carbons
