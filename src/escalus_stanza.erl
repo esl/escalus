@@ -78,7 +78,8 @@
 
 %% XEP-0313: Message Archive Management
 -export([mam_archive_query/1,
-         mam_lookup_messages_iq/4
+         mam_lookup_messages_iq/4,
+         mam_lookup_messages_iq/5
         ]).
 
 %% XEP-0198: Stream Management
@@ -615,8 +616,15 @@ mam_archive_query(QueryId, Children) ->
 mam_lookup_messages_iq(QueryId, Start, End, WithJID) ->
     mam_archive_query(QueryId, [fmapM(fun start_elem/1, Start),
                                 fmapM(fun end_elem/1, End),
-                                fmapM(fun with_elem/1, WithJID)
-                               ]).
+                                fmapM(fun with_elem/1, WithJID)]).
+
+%% Include an rsm id for a particular message.
+mam_lookup_messages_iq(QueryId, Start, End, WithJID, DirectionWMessageId) ->
+    IQ = #xmlel{children=[Q]} = mam_lookup_messages_iq(QueryId, Start, End, WithJID),
+    Q2 = Q#xmlel{children = defined([
+                                     fmapM(fun rsm_after_or_before/1, DirectionWMessageId)
+                                    ])},
+    IQ#xmlel{children=[Q2]}.
 
 fmapM(_F, undefined) -> undefined;
 fmapM(F, MaybeVal) -> F(MaybeVal).
@@ -624,13 +632,26 @@ fmapMs(F, MaybeVals) -> [ R || R <- [ fmapM(F,V) || V <- MaybeVals ], R /= undef
 
 defined(L) when is_list(L) -> [ El || El <- L, El /= undefined ].
 
-
 start_elem(StartTime) ->
     #xmlel{name = <<"start">>, children = #xmlcdata{content = StartTime}}.
 end_elem(EndTime) ->
     #xmlel{name = <<"end">>, children = #xmlcdata{content = EndTime}}.
 with_elem(BWithJID) ->
     #xmlel{name = <<"with">>, children = #xmlcdata{content = BWithJID}}.
+
+rsm_after_or_before({Direction, AbstractID}) when is_binary(AbstractID) ->
+    #xmlel{name = <<"set">>,
+           attrs = [{<<"xmlns">>, ?NS_RSM}],
+%%           children = [ max(1), direction_el(Direction, AbstractID) ]}.
+           children = [ direction_el(Direction, AbstractID) ]}.
+
+direction_el('after', AbstractID) when is_binary(AbstractID) ->
+    #xmlel{name = <<"after">>, children = #xmlcdata{content = AbstractID}};
+direction_el('before', AbstractID) when is_binary(AbstractID) ->
+    #xmlel{name = <<"before">>, children = #xmlcdata{content = AbstractID}}.
+
+max(N) when is_integer(N) ->
+    #xmlel{name = <<"max">>, children = #xmlcdata{content = integer_to_binary(N)}}.
 
 mam_ns_attr() -> {<<"xmlns">>,?NS_MAM}.
 
