@@ -77,6 +77,7 @@
          is_bosh_report/2,
          is_enabled/1, is_enabled/2,
          is_failed/1,
+         is_failed/2,
          is_ack/1, is_ack/2,
          is_ack_request/1,
          is_resumed/2,
@@ -524,18 +525,23 @@ is_enabled(_) ->
     false.
 
 is_failed(#xmlel{name = <<"failed">>} = Stanza) ->
-    has_ns(?NS_STREAM_MGNT_3, Stanza)
-    andalso
-    begin
-        Unexpected = exml_query:subelement(Stanza, <<"unexpected-request">>),
-        is_unexpected_request(Unexpected)
-    end;
+    is_failed(<<"unexpected-request">>, Stanza);
 is_failed(_) ->
     false.
 
-is_unexpected_request(#xmlel{name = <<"unexpected-request">>} = Stanza) ->
+is_failed(Type, #xmlel{name = <<"failed">>} = Stanza) ->
+    has_ns(?NS_STREAM_MGNT_3, Stanza)
+    andalso
+    begin
+        Subelem = exml_query:subelement(Stanza, Type),
+        is_stanza_error(Type, Subelem)
+    end;
+is_failed(_, _) ->
+    false.
+
+is_stanza_error(Type, #xmlel{name = T} = Stanza) when Type =:= T ->
     has_ns(?NS_STANZA_ERRORS, Stanza);
-is_unexpected_request(_) ->
+is_stanza_error(_, _) ->
     false.
 
 is_ack(#xmlel{name = <<"a">>} = Stanza) ->
