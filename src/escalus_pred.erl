@@ -76,7 +76,6 @@
          is_stream_end/1,
          is_bosh_report/2,
          is_enabled/1, is_enabled/2,
-         is_failed/1,
          is_failed/2,
          is_ack/1, is_ack/2,
          is_ack_request/1,
@@ -522,11 +521,6 @@ is_enabled(Opts, Stanza) ->
 is_enabled(#xmlel{name = <<"enabled">>} = Stanza) ->
     has_ns(?NS_STREAM_MGNT_3, Stanza);
 is_enabled(_) ->
-    false.
-
-is_failed(#xmlel{name = <<"failed">>} = Stanza) ->
-    is_failed(<<"unexpected-request">>, Stanza);
-is_failed(_) ->
     false.
 
 is_failed(Type, #xmlel{name = <<"failed">>} = Stanza) ->
