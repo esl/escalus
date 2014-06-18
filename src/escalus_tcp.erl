@@ -19,6 +19,7 @@
          get_transport/1,
          reset_parser/1,
          get_sm_h/1,
+         set_sm_h/2,
          stop/1]).
 
 %% gen_server callbacks
@@ -69,6 +70,9 @@ reset_parser(#transport{rcv_pid = Pid}) ->
 
 get_sm_h(#transport{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_sm_h).
+
+set_sm_h(#transport{rcv_pid = Pid}, H) ->
+    gen_server:call(Pid, {set_sm_h, H}).
 
 stop(#transport{rcv_pid = Pid}) ->
     try
@@ -127,6 +131,9 @@ init([Args, Owner]) ->
 
 handle_call(get_sm_h, _From, #state{sm_state = {_, H, _}} = State) ->
     {reply, H, State};
+handle_call({set_sm_h, H}, _From, #state{sm_state = {A, OldH, S} = SM} = State) ->
+    NewState = State#state{sm_state={A, H, S}},
+    {reply, {ok, H}, NewState};
 handle_call(get_transport, _From, State) ->
     {reply, transport(State), State};
 handle_call({upgrade_to_tls, SSLOpts}, _From, #state{socket = Socket} = State) ->
