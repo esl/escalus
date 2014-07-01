@@ -80,7 +80,8 @@
          is_ack/1, is_ack/2,
          is_ack_request/1,
          is_resumed/2,
-         has_ns/2
+         has_ns/2,
+         is_compressed/1
         ]).
 
 -export(['not'/1]).
@@ -566,6 +567,11 @@ is_resumed(_, _) ->
 
 has_ns(NS, Stanza) ->
     NS == exml_query:attr(Stanza, <<"xmlns">>).
+
+is_compressed(#xmlel{name = <<"compressed">>} = Stanza) ->
+    has_ns(?NS_COMPRESS, Stanza);
+is_compressed(_) ->
+    false.
 
 %%--------------------------------------------------------------------
 %% Functors

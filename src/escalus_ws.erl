@@ -18,7 +18,8 @@
          use_zlib/2,
          get_transport/1,
          reset_parser/1,
-         stop/1]).
+         stop/1,
+         kill/1]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -63,13 +64,17 @@ stop(#transport{rcv_pid = Pid}) ->
             already_stopped
     end.
 
+kill(Transport) ->
+    error({not_implemented_for, ?MODULE}, [Transport]).
+
 upgrade_to_tls(_, _) ->
     throw(starttls_not_supported).
 
+%% TODO: this is en exact duplicate of escalus_tcp:use_zlib/2, DRY!
 use_zlib(#transport{rcv_pid = Pid} = Conn, Props) ->
     escalus_connection:send(Conn, escalus_stanza:compress(<<"zlib">>)),
     Compressed = escalus_connection:get_stanza(Conn, compressed),
-    %% FIXME: verify Compressed
+    escalus:assert(is_compressed, Compressed),
     gen_server:call(Pid, use_zlib),
     Conn1 = get_transport(Conn),
     {Props2, _} = escalus_session:start_stream(Conn1, Props),

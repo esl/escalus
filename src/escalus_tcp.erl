@@ -18,7 +18,8 @@
          use_zlib/2,
          get_transport/1,
          reset_parser/1,
-         stop/1]).
+         stop/1,
+         kill/1]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -50,7 +51,7 @@ connect(Args) ->
 
 send(#transport{socket = Socket, ssl = true}, Elem) ->
     ssl:send(Socket, exml:to_iolist(Elem));
-send(#transport{socket = Socket, rcv_pid=Pid, compress = {zlib, {_,Zout}}}, Elem) ->
+send(#transport{rcv_pid=Pid, compress = {zlib, {_,Zout}}}, Elem) ->
     gen_server:cast(Pid, {send_compressed, Zout, Elem});
 send(#transport{socket = Socket}, Elem) ->
     gen_tcp:send(Socket, exml:to_iolist(Elem)).
@@ -69,6 +70,10 @@ stop(#transport{rcv_pid = Pid}) ->
             already_stopped
     end.
 
+kill(#transport{rcv_pid = Pid}) ->
+    %% Use `kill_connection` to avoid confusion with exit reason `kill`.
+    gen_server:call(Pid, kill_connection).
+
 upgrade_to_tls(#transport{socket = Socket, rcv_pid = Pid} = Conn, Props) ->
     Starttls = escalus_stanza:starttls(),
     gen_tcp:send(Socket, exml:to_iolist(Starttls)),
@@ -82,7 +87,7 @@ upgrade_to_tls(#transport{socket = Socket, rcv_pid = Pid} = Conn, Props) ->
 use_zlib(#transport{rcv_pid = Pid} = Conn, Props) ->
     escalus_connection:send(Conn, escalus_stanza:compress(<<"zlib">>)),
     Compressed = escalus_connection:get_stanza(Conn, compressed),
-    %% FIXME: verify Compressed
+    escalus:assert(is_compressed, Compressed),
     gen_server:call(Pid, use_zlib),
     Conn1 = get_transport(Conn),
     {Props2, _} = escalus_session:start_stream(Conn1, Props),
@@ -126,29 +131,14 @@ handle_call(use_zlib, _, #state{parser = Parser, socket = Socket} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
     {reply, Socket, State#state{parser = NewParser,
                                 compress = {zlib, {Zin,Zout}}}};
-handle_call(stop, _From, #state{socket = Socket, ssl = Ssl,
-                                compress = Compress} = State) ->
-    StreamEnd = escalus_stanza:stream_end(),
-    case {Ssl, Compress} of
-        {true, _} ->
-            ssl:send(Socket, exml:to_iolist(StreamEnd));
-        {false, {zlib, {Zin, Zout}}} ->
-            try
-                ok = zlib:inflateEnd(Zin)
-            catch
-                error:data_error -> ok
-            end,
-            ok = zlib:close(Zin),
-            gen_tcp:send(Socket, zlib:deflate(Zout,
-                                              exml:to_iolist(StreamEnd),
-                                              finish)),
-            ok = zlib:deflateEnd(Zout),
-            ok = zlib:close(Zout);
-        {false, false} ->
-            gen_tcp:send(Socket, exml:to_iolist(StreamEnd))
-    end,
-    wait_until_closed(State#state.socket),
-    {stop, normal, ok, State}.
+handle_call(kill_connection, _, #state{} = S) ->
+    close_compression_streams(S#state.compress),
+    {stop, normal, ok, S};
+handle_call(stop, _From, #state{} = S) ->
+    send_stream_end(S),
+    close_compression_streams(S#state.compress),
+    wait_until_closed(S#state.socket),
+    {stop, normal, ok, S}.
 
 handle_cast({send_compressed, Zout, Elem}, State) ->
     gen_tcp:send(State#state.socket, zlib:deflate(Zout, exml:to_iolist(Elem), sync)),
@@ -232,3 +222,29 @@ host_to_inet({_,_,_,_} = IP4) -> IP4;
 host_to_inet({_,_,_,_,_,_,_,_} = IP6) -> IP6;
 host_to_inet(Address) when is_list(Address) orelse is_atom(Address) -> Address;
 host_to_inet(BAddress) when is_binary(BAddress) -> binary_to_list(BAddress).
+
+close_compression_streams(false) ->
+    ok;
+close_compression_streams({zlib, {Zin, Zout}}) ->
+    try
+        ok = zlib:inflateEnd(Zin),
+        ok = zlib:deflateEnd(Zout)
+    catch
+        error:data_error -> ok
+    after
+        ok = zlib:close(Zin),
+        ok = zlib:close(Zout)
+    end.
+
+send_stream_end(#state{socket = Socket, ssl = Ssl, compress = Compress}) ->
+    StreamEnd = escalus_stanza:stream_end(),
+    case {Ssl, Compress} of
+        {true, _} ->
+            ssl:send(Socket, exml:to_iolist(StreamEnd));
+        {false, {zlib, {_, Zout}}} ->
+            gen_tcp:send(Socket, zlib:deflate(Zout,
+                                              exml:to_iolist(StreamEnd),
+                                              finish));
+        {false, false} ->
+            gen_tcp:send(Socket, exml:to_iolist(StreamEnd))
+    end.

@@ -17,7 +17,8 @@
          send/2,
          get_stanza/2,
          reset_parser/1,
-         is_connected/1]).
+         is_connected/1,
+         kill/1]).
 
 %% Public Types
 -type transport() :: #transport{}.
@@ -140,6 +141,10 @@ is_connected(#transport{module = Mod} = Transport) ->
 
 stop(#transport{module = Mod} = Transport) ->
     Mod:stop(Transport).
+
+%% Brutally kill the connection without terminating the XMPP stream.
+kill(#transport{module = Mod} = Transport) ->
+    Mod:kill(Transport).
 
 %%%===================================================================
 %%% Helpers
