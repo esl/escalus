@@ -39,24 +39,24 @@
 %%% API
 %%%===================================================================
 
--spec connect({binary(), integer()}) -> {ok, #transport{}}.
+-spec connect({binary(), integer()}) -> {ok, #client{}}.
 connect(Args) ->
     {ok, Pid} = gen_server:start_link(?MODULE, [Args, self()], []),
     Transport = gen_server:call(Pid, get_transport),
     {ok, Transport}.
 
-send(#transport{rcv_pid = Pid, compress = {zlib, {_, Zout}}}, Elem) ->
+send(#client{rcv_pid = Pid, compress = {zlib, {_, Zout}}}, Elem) ->
     gen_server:cast(Pid, {send_compressed, Zout, Elem});
-send(#transport{rcv_pid = Pid}, Elem) ->
+send(#client{rcv_pid = Pid}, Elem) ->
     gen_server:cast(Pid, {send, exml:to_iolist(Elem)}).
 
-is_connected(#transport{rcv_pid = Pid}) ->
+is_connected(#client{rcv_pid = Pid}) ->
     erlang:is_process_alive(Pid).
 
-reset_parser(#transport{rcv_pid = Pid}) ->
+reset_parser(#client{rcv_pid = Pid}) ->
     gen_server:cast(Pid, reset_parser).
 
-stop(#transport{rcv_pid = Pid}) ->
+stop(#client{rcv_pid = Pid}) ->
     try
         gen_server:call(Pid, stop)
     catch
@@ -71,16 +71,16 @@ upgrade_to_tls(_, _) ->
     throw(starttls_not_supported).
 
 %% TODO: this is en exact duplicate of escalus_tcp:use_zlib/2, DRY!
-use_zlib(#transport{rcv_pid = Pid} = Conn, Props) ->
-    escalus_connection:send(Conn, escalus_stanza:compress(<<"zlib">>)),
-    Compressed = escalus_connection:get_stanza(Conn, compressed),
+use_zlib(#client{rcv_pid = Pid} = Client, Props) ->
+    escalus_connection:send(Client, escalus_stanza:compress(<<"zlib">>)),
+    Compressed = escalus_connection:get_stanza(Client, compressed),
     escalus:assert(is_compressed, Compressed),
     gen_server:call(Pid, use_zlib),
-    Conn1 = get_transport(Conn),
-    {Props2, _} = escalus_session:start_stream(Conn1, Props),
-    {Conn1, Props2}.
+    Client1 = get_transport(Client),
+    {Props2, _} = escalus_session:start_stream(Client1, Props),
+    {Client1, Props2}.
 
-get_transport(#transport{rcv_pid = Pid}) ->
+get_transport(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_transport).
 
 %%%===================================================================
@@ -207,7 +207,7 @@ common_terminate(_Reason, #state{parser = Parser}) ->
 transport(#state{socket = Socket,
                  compress = Compress,
                  event_client = EventClient}) ->
-    #transport{module = ?MODULE,
+    #client{module = ?MODULE,
                socket = Socket,
                ssl = undefined,
                compress = Compress,

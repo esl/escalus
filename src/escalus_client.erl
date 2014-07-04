@@ -50,7 +50,7 @@ start(Config, UserSpec, Resource) ->
     case escalus_connection:start(Options) of
         {ok, Conn, Props, _} ->
             Jid = make_jid(Props),
-            Client = #client{jid = Jid, conn = Conn, event_client = EventClient},
+            Client = Conn#client{jid = Jid, event_client = EventClient},
             escalus_cleaner:add_client(Config, Client),
             {ok, Client};
         {error, Error} ->
@@ -62,13 +62,13 @@ start_for(Config, Username, Resource) ->
     %% those two are equivalent now
     start(Config, Username, Resource).
 
-stop(#client{conn = Conn}) ->
+stop(Conn) ->
     escalus_connection:stop(Conn).
 
-kill(#client{conn = #transport{module = escalus_tcp, rcv_pid = Pid}}) ->
+kill(#client{module = escalus_tcp, rcv_pid = Pid}) ->
     erlang:exit(Pid, kill).
 
-peek_stanzas(#client{conn = Conn}) ->
+peek_stanzas(Conn) ->
     {messages, Msgs} = process_info(self(), messages),
     lists:flatmap(fun ({stanza, MConn, Stanza}) when MConn == Conn ->
                           [Stanza];
@@ -91,8 +91,9 @@ wait_for_stanzas(Client, Count, Timeout) ->
 
 do_wait_for_stanzas(_Client, 0, _TimeoutMsg, Acc) ->
     lists:reverse(Acc);
-do_wait_for_stanzas(#client{conn = Conn, event_client=EventClient}=Client,
+do_wait_for_stanzas(#client{event_client=EventClient} = Client,
                     Count, TimeoutMsg, Acc) ->
+    Conn = Client#client{jid = undefined},
     receive
         {stanza, Conn, Stanza} ->
             escalus_event:pop_incoming_stanza(EventClient, Stanza),
@@ -113,8 +114,8 @@ wait_for_stanza(Client, Timeout) ->
             exit({timeout_when_waiting_for_stanza, Client})
     end.
 
-send(#client{conn = Conn}, Packet) ->
-    escalus_connection:send(Conn, Packet).
+send(Client, Packet) ->
+    escalus_connection:send(Client, Packet).
 
 send_and_wait(Client, Packet) ->
     ok = send(Client, Packet),

@@ -73,22 +73,22 @@
 %%% API
 %%%===================================================================
 
--spec connect([{atom(), any()}]) -> {ok, #transport{}}.
+-spec connect([{atom(), any()}]) -> {ok, #client{}}.
 connect(Args) ->
     {ok, Pid} = gen_server:start_link(?MODULE, [Args, self()], []),
     Transport = gen_server:call(Pid, get_transport),
     {ok, Transport}.
 
-send(#transport{rcv_pid = Pid} = Socket, Elem) ->
+send(#client{rcv_pid = Pid} = Socket, Elem) ->
     gen_server:cast(Pid, {send, Socket, Elem}).
 
-is_connected(#transport{rcv_pid = Pid}) ->
+is_connected(#client{rcv_pid = Pid}) ->
     erlang:is_process_alive(Pid).
 
-reset_parser(#transport{rcv_pid = Pid}) ->
+reset_parser(#client{rcv_pid = Pid}) ->
     gen_server:cast(Pid, reset_parser).
 
-stop(#transport{rcv_pid = Pid}) ->
+stop(#client{rcv_pid = Pid}) ->
     try
         gen_server:call(Pid, stop)
     catch
@@ -99,13 +99,13 @@ stop(#transport{rcv_pid = Pid}) ->
 kill(Transport) ->
     error({not_implemented_for, ?MODULE}, [Transport]).
 
-upgrade_to_tls(#transport{} = _Conn, _Props) ->
+upgrade_to_tls(#client{} = _Conn, _Props) ->
     not_supported.
 
-use_zlib(#transport{} = _Conn, _Props) ->
+use_zlib(#client{} = _Conn, _Props) ->
     not_supported.
 
-get_transport(#transport{rcv_pid = Pid}) ->
+get_transport(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_transport).
 
 %%%===================================================================
@@ -181,32 +181,32 @@ pack_rid(Rid) ->
 %%
 %% Otherwise, the non-matching request IDs will
 %% confuse the server and possibly cause errors.
-send_raw(#transport{rcv_pid = Pid} = Transport, Body) ->
+send_raw(#client{rcv_pid = Pid} = Transport, Body) ->
     gen_server:cast(Pid, {send_raw, Transport, Body}).
 
 %% This is much like send_raw/2 except for the fact that
 %% the request ID won't be autoincremented on send.
 %% I.e. it is intended for resending packets which were
 %% already sent.
-resend_raw(#transport{rcv_pid = Pid} = Transport, Body) ->
+resend_raw(#client{rcv_pid = Pid} = Transport, Body) ->
     gen_server:cast(Pid, {resend_raw, Transport, Body}).
 
-get_rid(#transport{rcv_pid = Pid}) ->
+get_rid(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_rid).
 
-get_sid(#transport{rcv_pid = Pid}) ->
+get_sid(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_sid).
 
-get_keepalive(#transport{rcv_pid = Pid}) ->
+get_keepalive(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_keepalive).
 
-set_keepalive(#transport{rcv_pid = Pid}, NewKeepalive) ->
+set_keepalive(#client{rcv_pid = Pid}, NewKeepalive) ->
     gen_server:call(Pid, {set_keepalive, NewKeepalive}).
 
-mark_as_terminated(#transport{rcv_pid = Pid}) ->
+mark_as_terminated(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, mark_as_terminated).
 
-pause(#transport{rcv_pid = Pid} = Transport, Seconds) ->
+pause(#client{rcv_pid = Pid} = Transport, Seconds) ->
     gen_server:cast(Pid, {pause, Transport, Seconds}).
 
 %% get_-/set_active tries to tap into the intuition gained from using
@@ -218,17 +218,17 @@ pause(#transport{rcv_pid = Pid} = Transport, Seconds) ->
 %%
 %% Sometimes it's necessary to intercept the whole BOSH wrapper
 %% not only the wrapped stanzas. That's when this mechanism proves useful.
-get_active(#transport{rcv_pid = Pid}) ->
+get_active(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_active).
 
-set_active(#transport{rcv_pid = Pid}, Active) ->
+set_active(#client{rcv_pid = Pid}, Active) ->
     gen_server:call(Pid, {set_active, Active}).
 
--spec recv(#transport{}) -> xmlstreamelement() | empty.
-recv(#transport{rcv_pid = Pid}) ->
+-spec recv(#client{}) -> xmlstreamelement() | empty.
+recv(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, recv).
 
-get_requests(#transport{rcv_pid = Pid}) ->
+get_requests(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_requests).
 
 %%%===================================================================
@@ -351,7 +351,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Helpers
 %%%===================================================================
 
-request(#transport{socket = {Client, Path}}, Body, OnReplyFun) ->
+request(#client{socket = {Client, Path}}, Body, OnReplyFun) ->
     Headers = [{<<"Content-Type">>, <<"text/xml; charset=utf-8">>}],
     Reply =
         fusco_cp:request(Client, Path, "POST", Headers, exml:to_iolist(Body),
@@ -438,7 +438,7 @@ handle_recv(#state{replies = [Reply | Replies]} = S) ->
     {Reply, S#state{replies = Replies}}.
 
 transport(#state{url = Path, client = Client, event_client = EventClient}) ->
-    #transport{module = ?MODULE,
+    #client{module = ?MODULE,
                ssl = false,
                compress = false,
                rcv_pid = self(),

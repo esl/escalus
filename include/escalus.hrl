@@ -14,18 +14,14 @@
 %% limitations under the License.
 %%==============================================================================
 
--record(client, {
-        jid :: binary(),
-        conn :: any(),
-        event_client :: any()
-}).
 
 -record(jid, {
         user :: binary(),
         server :: binary(),
         resource = <<"">> :: binary()}).
 
--record(transport, {
+-record(client, {
+        jid :: binary(),
         module :: atom(),
         socket :: term(),
         ssl :: boolean(),
