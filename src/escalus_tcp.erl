@@ -20,7 +20,9 @@
          reset_parser/1,
          get_sm_h/1,
          set_sm_h/2,
-         stop/1]).
+         stop/1,
+         kill/1
+        ]).
 
 %% gen_server callbacks
 -export([init/1,
