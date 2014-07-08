@@ -40,6 +40,9 @@
          wait_for_stanzas/3,
          peek_stanzas/1]).
 
+%% Public types
+-export_type([config/0]).
+
 %%--------------------------------------------------------------------
 %% Public API
 %%--------------------------------------------------------------------
@@ -49,10 +52,11 @@ suite() ->
 
 init_per_suite(Config) ->
     application:start(exml),
+    escalus_users:start(Config),
     Config.
 
-end_per_suite(_Config) ->
-    ok.
+end_per_suite(Config) ->
+    escalus_users:stop(Config).
 
 init_per_testcase(CaseName, Config) ->
     Config1 = escalus_cleaner:start(Config),
@@ -91,3 +95,9 @@ end_per_testcase(_CaseName, Config) ->
 ?FORWARD1(escalus_client, peek_stanzas).
 
 ?FORWARD3(escalus_overridables, override).
+
+%%--------------------------------------------------------------------
+%% Public types
+%%--------------------------------------------------------------------
+
+-type config() :: escalus_config:config().
