@@ -1,5 +1,0 @@
-
-escalus_ejabberd.erl:22: Callback info about the escalus_user_db behaviour is not available
-escalus_pred.erl:168: Invalid type specification for function escalus_pred:has_carbon/5. The success typing is (<<_:32,_:_*32>>,_,_,_,#xmlel{name::'undefined' | binary(),attrs::[{binary(),binary()}],children::[#xmlcdata{content::binary() | maybe_improper_list(any(),binary() | [])} | #xmlel{name::'undefined' | binary(),attrs::[any()],children::[any()]}]}) -> boolean()
-escalus_users.erl:19: Callback info about the escalus_user_db behaviour is not available
-escalus_users.erl:94: The call escalus_users:create_user(Config::[{atom(),_}],User::[{_,_}]) will never return since it differs in the 2nd argument from the success typing arguments: ([{atom(),_}],{_,atom() | [{atom(),_}]})
