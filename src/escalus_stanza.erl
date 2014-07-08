@@ -63,7 +63,9 @@
          x_data_form/2]).
 
 -export([disco_info/1,
-         disco_items/1]).
+         disco_info/2,
+         disco_items/1
+        ]).
 
 -export([vcard_update/1,
          vcard_update/2,
@@ -153,10 +155,12 @@ iq(To, Type, Body) ->
     IQ = iq(Type, Body),
     IQ#xmlel{attrs = [{<<"to">>, To} | IQ#xmlel.attrs]}.
 
-%% slightly naughty, this isn't a stanza but it will go in an <iq/>
+%% slightly naughty, this isn't a stanza but it will go inside an <iq/>
 query_el(NS, Children) ->
+    query_el(NS, [], Children).
+query_el(NS, Attrs, Children) ->
     #xmlel{name = <<"query">>,
-           attrs = [{<<"xmlns">>, NS}],
+           attrs = [{<<"xmlns">>, NS} | Attrs],
            children = Children}.
 
 %% http://xmpp.org/extensions/xep-0004.html
@@ -466,7 +470,9 @@ privacy_list_jid_item(Order, Action, Who, Contents) ->
 disco_info(JID) ->
     Query = query_el(?NS_DISCO_INFO, []),
     iq(JID, <<"get">>, [Query]).
-
+disco_info(JID, Node) ->
+    Query = query_el(?NS_DISCO_INFO, [{<<"node">>, Node}], []),
+    iq(JID, <<"get">>, [Query]).
 disco_items(JID) ->
     ItemsQuery = query_el(?NS_DISCO_ITEMS, []),
     iq(JID, <<"get">>, [ItemsQuery]).
@@ -538,9 +544,10 @@ adhoc_request(Node, Payload) ->
                                    {<<"action">>, <<"execute">>}],
                           children = Payload}]).
 
+-spec service_discovery(binary()) -> #xmlel{}.
 service_discovery(Server) ->
-    escalus_stanza:setattr(escalus_stanza:iq_get(?NS_DISCO_ITEMS, []), <<"to">>,
-                           Server).
+    catch(ct:print("ESCALUS_STANZA:SERVICE_DISCOVERY/1: please use disco_info/1 instead",[])),
+    disco_info(Server).
 
 -spec auth(binary()) -> #xmlel{}.
 auth(Mechanism) ->
@@ -618,7 +625,6 @@ mam_lookup_messages_iq(QueryId, Start, End, WithJID, DirectionWMessageId) ->
 
 fmapM(_F, undefined) -> undefined;
 fmapM(F, MaybeVal) -> F(MaybeVal).
-fmapMs(F, MaybeVals) -> [ R || R <- [ fmapM(F,V) || V <- MaybeVals ], R /= undefined ].
 
 defined(L) when is_list(L) -> [ El || El <- L, El /= undefined ].
 
