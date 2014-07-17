@@ -11,6 +11,7 @@
          bind/2,
          compress/2,
          use_ssl/2,
+         can_use_amp/2,
          can_use_compression/2,
          can_use_stream_management/2,
          session/2]).
@@ -114,15 +115,21 @@ use_ssl(Props, Features) ->
 
 -spec can_use_compression(escalus_users:spec(), features()) -> boolean().
 can_use_compression(Props, Features) ->
-    false /= proplists:get_value(compression, Props, false) andalso
-    false /= proplists:get_value(compression, Features).
+    can_use(compression, Props, Features).
 
 can_use_stream_management(Props, Features) ->
-    false /= proplists:get_value(stream_management, Props, false) andalso
-    false /= proplists:get_value(stream_management, Features).
+    can_use(stream_management, Props, Features).
 
-can_use_carbons(Props, Features) ->
+can_use_carbons(Props, _Features) ->
     false /= proplists:get_value(carbons, Props, false).
+
+can_use_amp(Props, Features) ->
+    false /= proplists:get_value(advanced_message_processing, Features).
+
+can_use(Feature, Props, Features) ->
+    false /= proplists:get_value(Feature, Props, false) andalso
+    false /= proplists:get_value(Feature, Features).
+
 
 
 %%%===================================================================
@@ -223,7 +230,9 @@ session(Conn, Props, Features) ->
 get_stream_features(Features) ->
     [{compression, get_compression(Features)},
      {starttls, get_starttls(Features)},
-     {stream_management, get_stream_management(Features)}].
+     {stream_management, get_stream_management(Features)},
+     {advanced_message_processing, get_advanced_message_processing(Features)}
+    ].
 
 -spec get_compression(xmlterm()) -> boolean().
 get_compression(Features) ->
@@ -235,15 +244,10 @@ get_compression(Features) ->
 
 -spec get_starttls(xmlterm()) -> boolean().
 get_starttls(Features) ->
-    case exml_query:subelement(Features, <<"starttls">>) of
-        undefined ->
-            false;
-        _ -> true
-    end.
+    undefined =/= exml_query:subelement(Features, <<"starttls">>).
 
 get_stream_management(Features) ->
-    case exml_query:subelement(Features, <<"sm">>) of
-        undefined ->
-            false;
-        _ -> true
-    end.
+    undefined =/= exml_query:subelement(Features, <<"sm">>).
+
+get_advanced_message_processing(Features) ->
+    undefined =/= exml_query:subelement(Features, <<"amp">>).

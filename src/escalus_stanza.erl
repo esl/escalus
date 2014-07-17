@@ -17,7 +17,8 @@
 -module(escalus_stanza).
 
 %% old ones
--export([chat_to/2,
+-export([id/0,
+         chat_to/2,
          chat/3,
          chat_to_short_jid/2,
          chat_without_carbon_to/2,
