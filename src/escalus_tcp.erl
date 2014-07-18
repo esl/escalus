@@ -145,16 +145,15 @@ handle_call(stop, _From, #state{} = S) ->
 
 handle_cast({send, #transport{socket = Socket, ssl = Ssl, compress = Compress}, 
              Elem}, #state{on_request = OnRequestFun} = State) ->
-    Response =
-        case {Ssl, Compress} of
-    {true, _} ->
-        ssl:send(Socket, exml:to_iolist(Elem));
-    {false, {zlib, {_,Zout}}} ->
-        gen_tcp:send(State#state.socket, zlib:deflate(Zout, exml:to_iolist(Elem), sync));
-    {false, false} ->
-        gen_tcp:send(Socket, exml:to_iolist(Elem))
-    end, 
-    OnRequestFun(Response),
+    Reply = case {Ssl, Compress} of
+                {true, _} ->
+                    ssl:send(Socket, exml:to_iolist(Elem));
+                {false, {zlib, {_,Zout}}} ->
+                    gen_tcp:send(State#state.socket, zlib:deflate(Zout, exml:to_iolist(Elem), sync));
+                {false, false} ->
+                    gen_tcp:send(Socket, exml:to_iolist(Elem))
+            end, 
+    OnRequestFun(Reply),
     {noreply, State};
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
