@@ -37,7 +37,9 @@
                 parser,
                 ssl = false,
                 compress = false,
-                event_client}).
+                event_client,
+                on_reply,
+                on_request}).
 
 %%%===================================================================
 %%% API
@@ -49,12 +51,8 @@ connect(Args) ->
     Transport = gen_server:call(Pid, get_transport),
     {ok, Transport}.
 
-send(#client{socket = Socket, ssl = true}, Elem) ->
-    ssl:send(Socket, exml:to_iolist(Elem));
-send(#client{rcv_pid=Pid, compress = {zlib, {_,Zout}}}, Elem) ->
-    gen_server:cast(Pid, {send_compressed, Zout, Elem});
-send(#client{socket = Socket}, Elem) ->
-    gen_tcp:send(Socket, exml:to_iolist(Elem)).
+send(#client{rcv_pid = Pid} = Client, Elem) ->
+    gen_server:cast(Pid, {send, Client, Elem}).
 
 is_connected(#client{rcv_pid = Pid}) ->
     erlang:is_process_alive(Pid).
@@ -104,14 +102,19 @@ init([Args, Owner]) ->
     Host = proplists:get_value(host, Args, <<"localhost">>),
     Port = proplists:get_value(port, Args, 5222),
     EventClient = proplists:get_value(event_client, Args),
+    OnReplyFun = proplists:get_value(on_reply, Args, fun(_) -> ok end),
+    OnRequestFun = proplists:get_value(on_request, Args, fun(_) -> ok end),
+    OnConnectFun = proplists:get_value(on_connect, Args, fun(_) -> ok end),
     Address = host_to_inet(Host),
     Opts = [binary, {active, once}],
-    {ok, Socket} = gen_tcp:connect(Address, Port, Opts),
+    {ok, Socket} = do_connect(Address, Port, Opts, OnConnectFun),
     {ok, Parser} = exml_stream:new_parser(),
     {ok, #state{owner = Owner,
                 socket = Socket,
                 parser = Parser,
-                event_client = EventClient}}.
+                event_client = EventClient,
+                on_reply = OnReplyFun,
+                on_request = OnRequestFun}}.
 
 handle_call(get_transport, _From, State) ->
     {reply, transport(State), State};
@@ -140,8 +143,18 @@ handle_call(stop, _From, #state{} = S) ->
     wait_until_closed(S#state.socket),
     {stop, normal, ok, S}.
 
-handle_cast({send_compressed, Zout, Elem}, State) ->
-    gen_tcp:send(State#state.socket, zlib:deflate(Zout, exml:to_iolist(Elem), sync)),
+handle_cast({send, #client{socket = Socket, ssl = Ssl, compress = Compress},
+             Elem}, #state{on_request = OnRequestFun} = State) ->
+    Reply = case {Ssl, Compress} of
+                {true, _} ->
+                    ssl:send(Socket, exml:to_iolist(Elem));
+                {false, {zlib, {_,Zout}}} ->
+                    Deflated = zlib:deflate(Zout, exml:to_iolist(Elem), sync),
+                    gen_tcp:send(State#state.socket, Deflated);
+                {false, false} ->
+                    gen_tcp:send(Socket, exml:to_iolist(Elem))
+            end,
+    OnRequestFun(Reply),
     {noreply, State};
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
@@ -175,7 +188,9 @@ handle_data(Socket, Data, #state{owner = Owner,
                                  parser = Parser,
                                  socket = Socket,
                                  compress = Compress,
-                                 event_client = EventClient} = State) ->
+                                 event_client = EventClient,
+                                 on_reply = OnReplyFun} = State) ->
+    OnReplyFun({erlang:byte_size(Data)}),
     {ok, NewParser, Stanzas} =
         case Compress of
             false ->
@@ -248,3 +263,16 @@ send_stream_end(#state{socket = Socket, ssl = Ssl, compress = Compress}) ->
         {false, false} ->
             gen_tcp:send(Socket, exml:to_iolist(StreamEnd))
     end.
+
+do_connect(Address, Port, Opts, OnConnectFun) ->
+    TimeB = os:timestamp(),
+    Reply = gen_tcp:connect(Address, Port, Opts),
+    TimeA = os:timestamp(),
+    ConnectionTime = timer:now_diff(TimeA, TimeB),
+    case Reply of
+        {ok, Socket} ->
+            OnConnectFun({ok, Socket, ConnectionTime});
+        {error, _} ->
+            OnConnectFun(Reply)
+    end,
+    Reply.
