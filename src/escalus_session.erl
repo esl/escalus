@@ -260,9 +260,5 @@ assert_stream_features(StreamFeatures, Transport, IsLegacy) ->
         {#xmlel{name = <<"stream:features">>}, _, _} ->
             ok;
         _ ->
-           error(
-             lists:flatten(
-               io_lib:format(
-                 "Expected stream features, got ~p",
-                 [StreamFeatures])))
+            error("Expected stream features", [StreamFeatures])
     end.
