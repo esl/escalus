@@ -21,8 +21,8 @@
          kill/1]).
 
 %% Public Types
--type transport() :: #transport{}.
--export_type([transport/0]).
+-type client() :: #client{}.
+-export_type([client/0]).
 
 -type step_spec() :: atom() | {module(), atom()} | escalus_session:step().
 -export_type([step_spec/0]).
@@ -36,7 +36,7 @@
 %%% Public API
 %%%===================================================================
 
--spec start(escalus_users:spec()) -> {ok, transport(), escalus_users:spec()} |
+-spec start(escalus_users:spec()) -> {ok, client(), escalus_users:spec()} |
                                      {error, any()}.
 start(Props) ->
     start(Props,
@@ -72,7 +72,7 @@ start(Props) ->
 %% to use a feature.
 %% Others will assume a feature is available and fail if it's not.
 -spec start(escalus_users:spec(),
-            [step_spec()]) -> {ok, transport(), escalus_users:spec()} |
+            [step_spec()]) -> {ok, client(), escalus_users:spec()} |
                               {error, any()}.
 start(Props0, Steps) ->
     try
@@ -97,7 +97,7 @@ connection_step(Step, {Conn, Props, Features}) ->
         end
     catch
         Error ->
-            (Conn#transport.module):stop(Conn),
+            (Conn#client.module):stop(Conn),
             throw({connection_step_failed, {Conn, Props, Features}, Error})
     end.
 
@@ -120,11 +120,11 @@ connect(Props) ->
     {ok, Conn} = Mod:connect(NewProps),
     {ok, Conn, NewProps}.
 
-send(#transport{module = Mod, event_client = EventClient} = Transport, Elem) ->
+send(#client{module = Mod, event_client = EventClient} = Client, Elem) ->
     escalus_event:outgoing_stanza(EventClient, Elem),
-    Mod:send(Transport, Elem).
+    Mod:send(Client, Elem).
 
--spec get_stanza(transport(), any()) -> #xmlel{}.
+-spec get_stanza(client(), any()) -> #xmlel{}.
 get_stanza(Conn, Name) ->
     receive
         {stanza, Conn, Stanza} ->
@@ -133,17 +133,17 @@ get_stanza(Conn, Name) ->
             throw({timeout, Name})
     end.
 
-reset_parser(#transport{module = Mod} = Transport) ->
-    Mod:reset_parser(Transport).
+reset_parser(#client{module = Mod} = Client) ->
+    Mod:reset_parser(Client).
 
-is_connected(#transport{module = Mod} = Transport) ->
-    Mod:is_connected(Transport).
+is_connected(#client{module = Mod} = Client) ->
+    Mod:is_connected(Client).
 
-stop(#transport{module = Mod} = Transport) ->
-    Mod:stop(Transport).
+stop(#client{module = Mod} = Client) ->
+    Mod:stop(Client).
 
 %% Brutally kill the connection without terminating the XMPP stream.
-kill(#transport{module = Mod} = Transport) ->
+kill(#client{module = Mod} = Transport) ->
     Mod:kill(Transport).
 
 %%%===================================================================
