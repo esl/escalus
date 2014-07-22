@@ -48,6 +48,7 @@
 -export_type([step_state/0]).
 
 -include_lib("exml/include/exml.hrl").
+-include_lib("exml/include/exml_stream.hrl").
 -define(DEFAULT_RESOURCE, <<"escalus-default-resource">>).
 
 %%%===================================================================
@@ -60,12 +61,17 @@ start_stream(Conn, Props) ->
                 {server, _} -> <<"jabber:server">>;
                 _ -> <<"jabber:client">>
             end,
-    StreamStartReq = escalus_stanza:stream_start(Server, XMLNS),
+    Transport = proplists:get_value(transport, Props, tcp),
+    IsLegacy = proplists:get_value(wslegacy, Props, false),
+    StreamStartReq = case {Transport, IsLegacy} of
+                         {ws, false} -> escalus_stanza:ws_open(Server);
+                         _ -> escalus_stanza:stream_start(Server, XMLNS)
+                     end,
     ok = escalus_connection:send(Conn, StreamStartReq),
     StreamStartRep = escalus_connection:get_stanza(Conn, wait_for_stream),
-    %% FIXME: verify StreamStartRep
+    assert_stream_start(StreamStartRep, Transport, IsLegacy),
     StreamFeatures = escalus_connection:get_stanza(Conn, wait_for_features),
-    %% FIXME: verify StreamFeatures
+    assert_stream_features(StreamFeatures, Transport, IsLegacy),
     {Props, get_stream_features(StreamFeatures)}.
 
 starttls(Conn, Props) ->
@@ -225,6 +231,41 @@ session(Conn, Props, Features) ->
 %%%===================================================================
 %%% Helpers
 %%%===================================================================
+
+assert_stream_start(StreamStartRep, Transport, IsLegacy) ->
+    case {StreamStartRep, Transport, IsLegacy} of
+        {#xmlel{name = <<"open">>}, ws, false} ->
+            ok;
+        {#xmlel{name = <<"open">>}, ws, true} ->
+            error("<open/> with legacy WebSocket",
+                  [StreamStartRep]);
+        {#xmlstreamstart{}, ws, false} ->
+            error("<stream:stream> with non-legacy WebSocket",
+                  [StreamStartRep]);
+        {#xmlstreamstart{}, _, _} ->
+            ok;
+        _ ->
+            error("Not a valid stream start", [StreamStartRep])
+    end.
+
+assert_stream_features(StreamFeatures, Transport, IsLegacy) ->
+    case {StreamFeatures, Transport, IsLegacy} of
+        {#xmlel{name = <<"features">>}, ws, false} ->
+            ok;
+        {#xmlel{name = <<"features">>}, ws, true} ->
+            error("<features> with legacy WebSocket");
+        {#xmlel{name = <<"stream:features">>}, ws, false} ->
+            error("<stream:features> with non-legacy WebSocket",
+                  [StreamFeatures]);
+        {#xmlel{name = <<"stream:features">>}, _, _} ->
+            ok;
+        _ ->
+           error(
+             lists:flatten(
+               io_lib:format(
+                 "Expected stream features, got ~p",
+                 [StreamFeatures])))
+    end.
 
 -spec get_stream_features(xmlterm()) -> features().
 get_stream_features(Features) ->

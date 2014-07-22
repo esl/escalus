@@ -101,7 +101,7 @@ connection_step(Step, {Conn, Props, Features}) ->
     catch
         Error ->
             (Conn#client.module):stop(Conn),
-            throw({connection_step_failed, {Conn, Props, Features}, Error})
+            throw({connection_step_failed, {Step, Conn, Props, Features}, Error})
     end.
 
 %% By default use predefined connection steps from escalus_session.
