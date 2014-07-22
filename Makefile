@@ -9,10 +9,10 @@ test: rebar compile
 	./rebar skip_deps=true eunit
 
 clean: rebar
+	./rebar clean
 
 ct:	compile
 	./run_ct TESTSPEC=$(TESTSPEC)
-	./rebar clean
 
 rebar:
 	wget https://github.com/rebar/rebar/releases/download/2.2.0/rebar
