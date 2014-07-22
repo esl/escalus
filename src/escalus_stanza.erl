@@ -17,7 +17,8 @@
 -module(escalus_stanza).
 
 %% old ones
--export([chat_to/2,
+-export([id/0,
+         chat_to/2,
          chat/3,
          chat_to_short_jid/2,
          chat_without_carbon_to/2,
@@ -63,7 +64,9 @@
          x_data_form/2]).
 
 -export([disco_info/1,
-         disco_items/1]).
+         disco_info/2,
+         disco_items/1
+        ]).
 
 -export([vcard_update/1,
          vcard_update/2,
@@ -76,6 +79,11 @@
 %% XEP-0280: Message Carbons
 -export([carbons_disable/0,carbons_enable/0]).
 
+%% XEP-0313: Message Archive Management
+-export([mam_archive_query/1,
+         mam_lookup_messages_iq/4,
+         mam_lookup_messages_iq/5
+        ]).
 
 %% XEP-0198: Stream Management
 -export([enable_sm/0, enable_sm/1,
@@ -98,7 +106,8 @@
 -export([setattr/3,
          to/2,
          from/2,
-         tags/1]).
+         tags/1,
+         set_id/2]).
 
 -export([get_registration_fields/0,
          register_account/1]).
@@ -157,10 +166,12 @@ iq(To, Type, Body) ->
     IQ = iq(Type, Body),
     IQ#xmlel{attrs = [{<<"to">>, To} | IQ#xmlel.attrs]}.
 
-%% slightly naughty, this isn't a stanza but it will go in an <iq/>
+%% slightly naughty, this isn't a stanza but it will go inside an <iq/>
 query_el(NS, Children) ->
+    query_el(NS, [], Children).
+query_el(NS, Attrs, Children) ->
     #xmlel{name = <<"query">>,
-           attrs = [{<<"xmlns">>, NS}],
+           attrs = [{<<"xmlns">>, NS} | Attrs],
            children = Children}.
 
 %% http://xmpp.org/extensions/xep-0004.html
@@ -194,6 +205,9 @@ from(Stanza, Recipient) when is_binary(Recipient) ->
     setattr(Stanza, <<"from">>, Recipient);
 from(Stanza, Recipient) ->
     setattr(Stanza, <<"from">>, escalus_utils:get_jid(Recipient)).
+
+set_id(Stanza, ID) ->
+    setattr(Stanza, <<"id">>, ID).
 
 setattr(Stanza, Key, Val) ->
     NewAttrs = lists:keystore(Key, 1, Stanza#xmlel.attrs, {Key, Val}),
@@ -268,7 +282,7 @@ chat_to_short_jid(Recipient, Msg) ->
 
 chat_without_carbon_to(Recipient, Msg) ->
     Stanza = #xmlel{children = Children} = chat_to(Recipient, Msg),
-    Stanza#xmlel{children = Children ++ 
+    Stanza#xmlel{children = Children ++
                   [#xmlel{name = <<"private">>,
                           attrs = [{<<"xmlns">>, ?NS_CARBONS_2}]}]}.
 
@@ -467,7 +481,9 @@ privacy_list_jid_item(Order, Action, Who, Contents) ->
 disco_info(JID) ->
     Query = query_el(?NS_DISCO_INFO, []),
     iq(JID, <<"get">>, [Query]).
-
+disco_info(JID, Node) ->
+    Query = query_el(?NS_DISCO_INFO, [{<<"node">>, Node}], []),
+    iq(JID, <<"get">>, [Query]).
 disco_items(JID) ->
     ItemsQuery = query_el(?NS_DISCO_ITEMS, []),
     iq(JID, <<"get">>, [ItemsQuery]).
@@ -539,6 +555,7 @@ adhoc_request(Node, Payload) ->
                                    {<<"action">>, <<"execute">>}],
                           children = Payload}]).
 
+-spec service_discovery(binary()) -> #xmlel{}.
 service_discovery(Server) ->
     escalus_stanza:setattr(escalus_stanza:iq_get(?NS_DISCO_ITEMS, []), <<"to">>,
                            Server).
@@ -588,6 +605,66 @@ resume(SMID, PrevH) ->
                     {<<"h">>, integer_to_binary(PrevH)}]}.
 
 
+%% XEP-0313 Mam
+%%
+%% @TODO: move the stanza constructors from
+%% tests/mam_SUITE.erl into here.
+
+mam_archive_query(QueryId) ->
+    mam_archive_query(QueryId, []).
+
+mam_archive_query(QueryId, Children) ->
+    escalus_stanza:iq(
+      <<"get">>,
+      [#xmlel{
+          name = <<"query">>,
+          attrs = [mam_ns_attr(), {<<"queryid">>, QueryId}],
+          children = defined(Children)}]).
+
+mam_lookup_messages_iq(QueryId, Start, End, WithJID) ->
+    mam_archive_query(QueryId, [fmapM(fun start_elem/1, Start),
+                                fmapM(fun end_elem/1, End),
+                                fmapM(fun with_elem/1, WithJID)]).
+
+%% Include an rsm id for a particular message.
+mam_lookup_messages_iq(QueryId, Start, End, WithJID, DirectionWMessageId) ->
+    IQ = #xmlel{children=[Q]} = mam_lookup_messages_iq(QueryId, Start, End, WithJID),
+    Q2 = Q#xmlel{children = defined([
+                                     fmapM(fun rsm_after_or_before/1, DirectionWMessageId)
+                                    ])},
+    IQ#xmlel{children=[Q2]}.
+
+fmapM(_F, undefined) -> undefined;
+fmapM(F, MaybeVal) -> F(MaybeVal).
+
+defined(L) when is_list(L) -> [ El || El <- L, El /= undefined ].
+
+start_elem(StartTime) ->
+    #xmlel{name = <<"start">>, children = #xmlcdata{content = StartTime}}.
+end_elem(EndTime) ->
+    #xmlel{name = <<"end">>, children = #xmlcdata{content = EndTime}}.
+with_elem(BWithJID) ->
+    #xmlel{name = <<"with">>, children = #xmlcdata{content = BWithJID}}.
+
+rsm_after_or_before({Direction, AbstractID}) when is_binary(AbstractID) ->
+    #xmlel{name = <<"set">>,
+           attrs = [{<<"xmlns">>, ?NS_RSM}],
+%%           children = [ max(1), direction_el(Direction, AbstractID) ]}.
+           children = [ direction_el(Direction, AbstractID) ]}.
+
+direction_el('after', AbstractID) when is_binary(AbstractID) ->
+    #xmlel{name = <<"after">>, children = #xmlcdata{content = AbstractID}};
+direction_el('before', AbstractID) when is_binary(AbstractID) ->
+    #xmlel{name = <<"before">>, children = #xmlcdata{content = AbstractID}}.
+
+max(N) when is_integer(N) ->
+    #xmlel{name = <<"max">>, children = #xmlcdata{content = integer_to_binary(N)}}.
+
+mam_ns_attr() -> {<<"xmlns">>,?NS_MAM}.
+
+
+%% XEP-0280 Carbons
+%%
 carbons_enable() ->
     iq_set_nonquery(?NS_JABBER_CLIENT, [enable_carbons_el()]).
 carbons_disable() ->

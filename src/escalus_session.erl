@@ -11,6 +11,7 @@
          bind/2,
          compress/2,
          use_ssl/2,
+         can_use_amp/2,
          can_use_compression/2,
          can_use_stream_management/2,
          session/2]).
@@ -18,6 +19,7 @@
 %% New style connection initiation
 -export([start_stream/3,
          maybe_use_ssl/3,
+         maybe_use_carbons/3,
          maybe_use_compression/3,
          maybe_stream_management/3,
          maybe_stream_resumption/3,
@@ -40,12 +42,12 @@
 -type step() :: fun(?CONNECTION_STEP).
 -export_type([step/0]).
 
--type step_state() :: {escalus_connection:client(),
+-type step_state() :: {escalus_connection:transport(),
                        escalus_users:spec(),
                        features()}.
 -export_type([step_state/0]).
 
--include_lib("exml/include/exml_stream.hrl").
+-include_lib("exml/include/exml.hrl").
 -define(DEFAULT_RESOURCE, <<"escalus-default-resource">>).
 
 %%%===================================================================
@@ -58,17 +60,12 @@ start_stream(Conn, Props) ->
                 {server, _} -> <<"jabber:server">>;
                 _ -> <<"jabber:client">>
             end,
-    Transport = proplists:get_value(transport, Props, tcp),
-    IsLegacy = proplists:get_value(wslegacy, Props, false),
-    StreamStartReq = case {Transport, IsLegacy} of
-                         {ws, false} -> escalus_stanza:ws_open(Server);
-                         _ -> escalus_stanza:stream_start(Server, XMLNS)
-                     end,
+    StreamStartReq = escalus_stanza:stream_start(Server, XMLNS),
     ok = escalus_connection:send(Conn, StreamStartReq),
     StreamStartRep = escalus_connection:get_stanza(Conn, wait_for_stream),
-    assert_stream_start(StreamStartRep, Transport, IsLegacy),
+    %% FIXME: verify StreamStartRep
     StreamFeatures = escalus_connection:get_stanza(Conn, wait_for_features),
-    assert_stream_features(StreamFeatures, Transport, IsLegacy),
+    %% FIXME: verify StreamFeatures
     {Props, get_stream_features(StreamFeatures)}.
 
 starttls(Conn, Props) ->
@@ -118,12 +115,22 @@ use_ssl(Props, Features) ->
 
 -spec can_use_compression(escalus_users:spec(), features()) -> boolean().
 can_use_compression(Props, Features) ->
-    false /= proplists:get_value(compression, Props, false) andalso
-    false /= proplists:get_value(compression, Features).
+    can_use(compression, Props, Features).
 
 can_use_stream_management(Props, Features) ->
-    false /= proplists:get_value(stream_management, Props, false) andalso
-    false /= proplists:get_value(stream_management, Features).
+    can_use(stream_management, Props, Features).
+
+can_use_carbons(Props, _Features) ->
+    false /= proplists:get_value(carbons, Props, false).
+
+can_use_amp(Props, Features) ->
+    false /= proplists:get_value(advanced_message_processing, Features).
+
+can_use(Feature, Props, Features) ->
+    false /= proplists:get_value(Feature, Props, false) andalso
+    false /= proplists:get_value(Feature, Features).
+
+
 
 %%%===================================================================
 %%% New style connection initiation
@@ -143,6 +150,22 @@ maybe_use_ssl(Conn, Props, Features) ->
         false ->
             {Conn, Props, Features}
     end.
+
+-spec maybe_use_carbons/3 :: ?CONNECTION_STEP.
+maybe_use_carbons(Conn, Props, Features) ->
+    case can_use_carbons(Props, Features) of
+        true ->
+            use_carbons(Conn, Props, Features);
+        false ->
+            {Conn, Props, Features}
+    end.
+
+-spec use_carbons/3 :: ?CONNECTION_STEP.
+use_carbons(Conn, Props, Features) ->
+    escalus_connection:send(Conn, escalus_stanza:carbons_enable()),
+    Result = escalus_connection:get_stanza(Conn, carbon_iq_response),
+    escalus:assert(is_iq, [<<"result">>], Result),
+    {Conn, Props, Features}.
 
 -spec maybe_use_compression/3 :: ?CONNECTION_STEP.
 maybe_use_compression(Conn, Props, Features) ->
@@ -207,7 +230,9 @@ session(Conn, Props, Features) ->
 get_stream_features(Features) ->
     [{compression, get_compression(Features)},
      {starttls, get_starttls(Features)},
-     {stream_management, get_stream_management(Features)}].
+     {stream_management, get_stream_management(Features)},
+     {advanced_message_processing, get_advanced_message_processing(Features)}
+    ].
 
 -spec get_compression(xmlterm()) -> boolean().
 get_compression(Features) ->
@@ -219,46 +244,10 @@ get_compression(Features) ->
 
 -spec get_starttls(xmlterm()) -> boolean().
 get_starttls(Features) ->
-    case exml_query:subelement(Features, <<"starttls">>) of
-        undefined ->
-            false;
-        _ -> true
-    end.
+    undefined =/= exml_query:subelement(Features, <<"starttls">>).
 
 get_stream_management(Features) ->
-    case exml_query:subelement(Features, <<"sm">>) of
-        undefined ->
-            false;
-        _ -> true
-    end.
+    undefined =/= exml_query:subelement(Features, <<"sm">>).
 
-assert_stream_start(StreamStartRep, Transport, IsLegacy) ->
-    case {StreamStartRep, Transport, IsLegacy} of
-        {#xmlel{name = <<"open">>}, ws, false} ->
-            ok;
-        {#xmlel{name = <<"open">>}, ws, true} ->
-            error("<open/> with legacy WebSocket",
-                  [StreamStartRep]);
-        {#xmlstreamstart{}, ws, false} ->
-            error("<stream:stream> with non-legacy WebSocket",
-                  [StreamStartRep]);
-        {#xmlstreamstart{}, _, _} ->
-            ok;
-        _ ->
-            error("Not a valid stream start", [StreamStartRep])
-    end.
-
-assert_stream_features(StreamFeatures, Transport, IsLegacy) ->
-    case {StreamFeatures, Transport, IsLegacy} of
-        {#xmlel{name = <<"features">>}, ws, false} ->
-            ok;
-        {#xmlel{name = <<"features">>}, ws, true} ->
-            error("<features> with legacy WebSocket");
-        {#xmlel{name = <<"stream:features">>}, ws, false} ->
-            error("<stream:features> with non-legacy WebSocket",
-                  [StreamFeatures]);
-        {#xmlel{name = <<"stream:features">>}, _, _} ->
-            ok;
-        _ ->
-            error("Expected stream features", [StreamFeatures])
-    end.
+get_advanced_message_processing(Features) ->
+    undefined =/= exml_query:subelement(Features, <<"amp">>).

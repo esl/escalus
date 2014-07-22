@@ -9,6 +9,9 @@ test: rebar compile
 	./rebar skip_deps=true eunit
 
 clean: rebar
+
+ct:	compile
+	./run_ct TESTSPEC=$(TESTSPEC)
 	./rebar clean
 
 rebar:

@@ -549,6 +549,9 @@
 % Defined by XEP-0297: Stanza Forwarding
 -define(NS_FORWARD_0, <<"urn:xmpp:forward:0">>).
 
+% Defined by XEP-0313: Message Archive Management (MAM)
+-define(NS_MAM, <<"urn:xmpp:mam:tmp">>).
+
 % Defined by XHTML 1.0.
 -define(NS_XHTML, <<"http://www.w3.org/1999/xhtml">>).
 

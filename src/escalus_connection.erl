@@ -16,6 +16,8 @@
 -export([connect/1,
          send/2,
          get_stanza/2,
+         get_sm_h/1,
+         set_sm_h/2,
          reset_parser/1,
          is_connected/1,
          kill/1]).
@@ -46,7 +48,8 @@ start(Props) ->
            authenticate,
            bind,
            session,
-           maybe_stream_management]).
+           maybe_stream_management,
+           maybe_use_carbons]).
 
 %% Usage:
 %%
@@ -133,6 +136,18 @@ get_stanza(Conn, Name) ->
             throw({timeout, Name})
     end.
 
+-spec get_sm_h(#client{}) -> non_neg_integer().
+get_sm_h(#client{module = escalus_tcp} = Conn) ->
+    escalus_tcp:get_sm_h(Conn);
+get_sm_h(#client{module = Mod}) ->
+    error({get_sm_h, {undefined_for_escalus_module, Mod}}).
+
+-spec set_sm_h(#client{}, non_neg_integer()) -> non_neg_integer().
+set_sm_h(#client{module = escalus_tcp} = Conn, H) ->
+    escalus_tcp:set_sm_h(Conn, H);
+set_sm_h(#client{module = Mod}, _) ->
+    error({set_sm_h, {undefined_for_escalus_module, Mod}}).
+
 reset_parser(#client{module = Mod} = Client) ->
     Mod:reset_parser(Client).
 
@@ -143,8 +158,8 @@ stop(#client{module = Mod} = Client) ->
     Mod:stop(Client).
 
 %% Brutally kill the connection without terminating the XMPP stream.
-kill(#client{module = Mod} = Transport) ->
-    Mod:kill(Transport).
+kill(#client{module = Mod} = Client) ->
+    Mod:kill(Client).
 
 %%%===================================================================
 %%% Helpers
