@@ -42,7 +42,7 @@
 -type step() :: fun(?CONNECTION_STEP).
 -export_type([step/0]).
 
--type step_state() :: {escalus_connection:transport(),
+-type step_state() :: {escalus_connection:client(),
                        escalus_users:spec(),
                        features()}.
 -export_type([step_state/0]).
