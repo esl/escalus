@@ -196,7 +196,7 @@ maybe_stream_management(Conn, Props, Features) ->
 stream_management(Conn, Props, Features) ->
     escalus_connection:send(Conn, escalus_stanza:enable_sm()),
     Enabled = escalus_connection:get_stanza(Conn, stream_management),
-    true = escalus_pred:is_enabled(Enabled),
+    true = escalus_pred:is_sm_enabled(Enabled),
     {Conn, Props, Features}.
 
 -spec maybe_stream_resumption/3 :: ?CONNECTION_STEP.
@@ -212,7 +212,7 @@ maybe_stream_resumption(Conn, Props, Features) ->
 stream_resumption(Conn, Props, Features) ->
     escalus_connection:send(Conn, escalus_stanza:enable_sm([resume])),
     Enabled = escalus_connection:get_stanza(Conn, stream_resumption),
-    true = escalus_pred:is_enabled([resume], Enabled),
+    true = escalus_pred:is_sm_enabled([resume], Enabled),
     SMID = exml_query:attr(Enabled, <<"id">>),
     {Conn, [{smid, SMID} | Props], Features}.
 

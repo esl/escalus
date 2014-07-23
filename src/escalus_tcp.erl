@@ -286,11 +286,6 @@ forward_to_owner(Stanzas0, #state{owner = Owner,
     end,
     NewState#state{replies = StanzasNoRs}.
 
-    %% case StanzasNoRs of
-    %%     []    -> {empty, }};
-    %%     [S|_] -> {S, NewState#state{replies = StanzasNoRs}}
-    %% end.
-
 store_reply(Stanzas, #state{replies = Replies} = S) ->
     S#state{replies = Replies ++ Stanzas}.
 
@@ -311,15 +306,15 @@ separate_ack_requests({false, H0, A}, Stanzas) ->
     %% Don't keep track of H
     {{false, H0, A}, [], Stanzas};
 separate_ack_requests({true, H0, inactive}, Stanzas) ->
-    Enabled = [ S || S <- Stanzas, escalus_pred:is_enabled(S)],
-    Resumed = [ S || S <- Stanzas, escalus_pred:is_resumed(S)],
+    Enabled = [ S || S <- Stanzas, escalus_pred:is_sm_enabled(S)],
+    Resumed = [ S || S <- Stanzas, escalus_pred:is_sm_resumed(S)],
 
     case {length(Enabled),length(Resumed)} of
         %% Enabled SM: set the H param to 0 and activate counter.
-        {1,_} -> {{true, 0, active}, [], Stanzas};
+        {1,0} -> {{true, 0, active}, [], Stanzas};
 
         %% Resumed SM: keep the H param and activate counter.
-        {_,1} -> {{true, H0, active}, [], Stanzas};
+        {0,1} -> {{true, H0, active}, [], Stanzas};
 
         %% No new SM state: continue as usual
         {0,0} -> {{true, H0, inactive}, [], Stanzas}
@@ -327,7 +322,7 @@ separate_ack_requests({true, H0, inactive}, Stanzas) ->
 separate_ack_requests({true, H0, active}, Stanzas) ->
     %% Count H and construct appropriate acks
     F = fun(Stanza, {H, Acks, NonAckRequests}) ->
-                case escalus_pred:is_ack_request(Stanza) of
+                case escalus_pred:is_sm_ack_request(Stanza) of
                     true -> {H, [make_ack(H)|Acks], NonAckRequests};
                     false -> {H+1, Acks, [Stanza|NonAckRequests]}
                 end

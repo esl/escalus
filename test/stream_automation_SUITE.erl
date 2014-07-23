@@ -107,5 +107,5 @@ ack_request_is_visible(Config) ->
     escalus:story(Config2, [{alice_sm, 1}, {bob, 1}], fun(Alice, Bob) ->
         escalus:send(Bob, escalus_stanza:chat_to(Alice, Msg)),
         escalus:assert(is_chat_message, [Msg], escalus:wait_for_stanza(Alice)),
-        escalus:assert(is_ack_request, escalus:wait_for_stanza(Alice))
+        escalus:assert(is_sm_ack_request, escalus:wait_for_stanza(Alice))
     end).

@@ -169,6 +169,7 @@ iq(To, Type, Body) ->
 %% slightly naughty, this isn't a stanza but it will go inside an <iq/>
 query_el(NS, Children) ->
     query_el(NS, [], Children).
+
 query_el(NS, Attrs, Children) ->
     #xmlel{name = <<"query">>,
            attrs = [{<<"xmlns">>, NS} | Attrs],
@@ -481,9 +482,11 @@ privacy_list_jid_item(Order, Action, Who, Contents) ->
 disco_info(JID) ->
     Query = query_el(?NS_DISCO_INFO, []),
     iq(JID, <<"get">>, [Query]).
+
 disco_info(JID, Node) ->
     Query = query_el(?NS_DISCO_INFO, [{<<"node">>, Node}], []),
     iq(JID, <<"get">>, [Query]).
+
 disco_items(JID) ->
     ItemsQuery = query_el(?NS_DISCO_ITEMS, []),
     iq(JID, <<"get">>, [ItemsQuery]).
@@ -641,15 +644,16 @@ defined(L) when is_list(L) -> [ El || El <- L, El /= undefined ].
 
 start_elem(StartTime) ->
     #xmlel{name = <<"start">>, children = #xmlcdata{content = StartTime}}.
+
 end_elem(EndTime) ->
     #xmlel{name = <<"end">>, children = #xmlcdata{content = EndTime}}.
+
 with_elem(BWithJID) ->
     #xmlel{name = <<"with">>, children = #xmlcdata{content = BWithJID}}.
 
 rsm_after_or_before({Direction, AbstractID}) when is_binary(AbstractID) ->
     #xmlel{name = <<"set">>,
            attrs = [{<<"xmlns">>, ?NS_RSM}],
-%%           children = [ max(1), direction_el(Direction, AbstractID) ]}.
            children = [ direction_el(Direction, AbstractID) ]}.
 
 direction_el('after', AbstractID) when is_binary(AbstractID) ->
@@ -667,12 +671,14 @@ mam_ns_attr() -> {<<"xmlns">>,?NS_MAM}.
 %%
 carbons_enable() ->
     iq_set_nonquery(?NS_JABBER_CLIENT, [enable_carbons_el()]).
+
 carbons_disable() ->
     iq_set_nonquery(?NS_JABBER_CLIENT, [disable_carbons_el()]).
 
 disable_carbons_el() ->
     #xmlel{name = <<"disable">>,
            attrs = [{<<"xmlns">>, ?NS_CARBONS_2}]}.
+
 enable_carbons_el() ->
     #xmlel{name = <<"enable">>,
            attrs = [{<<"xmlns">>, ?NS_CARBONS_2}]}.
