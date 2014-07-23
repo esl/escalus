@@ -1,2 +1,2 @@
 #!/bin/bash
-ct_run -config test/test.config -logdir logs -dir test -erl_args -pa $PWD/ebin $PWD/deps/exml/ebin
+ct_run -config test/test.config -logdir logs -dir test -erl_args -pa $PWD/ebin $PWD/deps/exml/ebin $PWD/deps/base16/ebin

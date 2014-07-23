@@ -16,11 +16,17 @@
 
 -module(escalus_users).
 
-% Public API
--export([create_users/1,
+-behaviour(escalus_user_db).
+
+%% `escalus_user_db` callbacks
+-export([start/1,
+         stop/1,
          create_users/2,
+         delete_users/2]).
+
+%% Public API
+-export([create_users/1,
          delete_users/1,
-         delete_users/2,
          get_jid/2,
          get_username/2,
          get_host/2,
@@ -39,11 +45,7 @@
          is_mod_register_enabled/1
         ]).
 
-% Public Types
--type spec() :: [{escalus_config:key(), any()}].
--export_type([spec/0]).
-
-% deprecated API
+%% Deprecated API
 -export([create_user/1,
          delete_user/1,
          get_usp/1,
@@ -51,48 +53,80 @@
          get_username/1,
          get_server/1]).
 
+%% Public types
+-export_type([spec/0,
+              who/0]).
+
+%% Public types
+-type spec() :: [{escalus_config:key(), any()}].
+-type who() :: all | {by_name, [escalus_config:key()]} | [spec()].
+
 -import(escalus_compat, [bin/1]).
 
 -include("include/escalus.hrl").
 -include_lib("exml/include/exml.hrl").
 
 %%--------------------------------------------------------------------
-%% Public API
+%% `escalus_user_db` callbacks
 %%--------------------------------------------------------------------
 
-create_users(Config) ->
-    create_users(Config, all).
+start(Config) ->
+    case auth_type(Config) of
+        {escalus_user_db, {module, M}} ->
+            M:start([]);
+        _ ->
+            ok
+    end.
 
+stop(Config) ->
+    case auth_type(Config) of
+        {escalus_user_db, {module, M}} ->
+            M:stop([]);
+        _ ->
+            ok
+    end.
+
+-spec create_users(escalus:config(), who()) -> escalus:config().
 create_users(Config, Who) ->
     Users = get_users(Who),
     case auth_type(Config) of
-        {escalus_auth, xmpp} ->
+        {escalus_user_db, xmpp} ->
             CreationResults = [create_user(Config, User) || User <- Users],
             lists:foreach(fun verify_creation/1, CreationResults);
-        {escalus_auth, {module, M}} ->
+        {escalus_user_db, {module, M}} ->
             M:create_users(Config, Users);
-        {escalus_auth, ejabberd} ->
+        {escalus_user_db, ejabberd} ->
             escalus_ejabberd:create_users(Config, Users)
     end,
     [{escalus_users, Users}] ++ Config.
 
-delete_users(Config) ->
-    delete_users(Config, all).
-
+-spec delete_users(escalus:config(), who()) -> escalus:config().
 delete_users(Config, Who) ->
     Users = case Who of
         config -> escalus_config:get_config(escalus_users, Config, []);
         _      -> get_users(Who)
     end,
     case auth_type(Config) of
-        {escalus_auth, xmpp} ->
+        {escalus_user_db, xmpp} ->
             [delete_user(Config, User) || User <- Users];
-        {escalus_auth, {module, M}} ->
+        {escalus_user_db, {module, M}} ->
             M:delete_users(Config, Users);
-        {escalus_auth, ejabberd} ->
+        {escalus_user_db, ejabberd} ->
             escalus_ejabberd:delete_users(Config, Users)
     end.
- 
+
+%%--------------------------------------------------------------------
+%% Public API
+%%--------------------------------------------------------------------
+
+-spec create_users(escalus:config()) -> escalus:config().
+create_users(Config) ->
+    create_users(Config, all).
+
+-spec delete_users(escalus:config()) -> escalus:config().
+delete_users(Config) ->
+    delete_users(Config, all).
+
 get_jid(Config, User) ->
     Username = get_username(Config, User),
     Server = get_server(Config, User),
@@ -155,7 +189,7 @@ get_options(Config, User, Resource) ->
 get_options(Config, User, Resource, EventClient) ->
     [{event_client, EventClient} | get_options(Config, User, Resource)].
 
--spec get_userspec(escalus_config:config(), escalus_config:key() | spec())
+-spec get_userspec(escalus:config(), escalus_config:key() | spec())
     -> spec().
 get_userspec(Config, Username) when is_atom(Username) ->
     Users = escalus_config:get_config(escalus_users, Config),
@@ -171,6 +205,7 @@ update_userspec(Config, UserName, Option, Value) ->
     NewUsers = lists:keystore(UserName, 1, Users, {UserName, UserSpec}),
     lists:keystore(escalus_users, 1, Config, {escalus_users, NewUsers}).
 
+-spec get_users(who()) -> [spec()].
 get_users(all) ->
     escalus_ct:get_config(escalus_users);
 get_users({by_name, Names}) ->
@@ -214,13 +249,13 @@ delete_user(Config, {_Name, UserSpec}) ->
     Result.
 
 auth_type(Config) ->
-    Type = case {escalus_config:get_config(escalus_auth, Config, undefined),
+    Type = case {escalus_config:get_config(escalus_user_db, Config, undefined),
                  try_check_mod_register(Config)} of
                {{module, _} = M, _} -> M;
                {_, true} -> xmpp;
                {_, false} -> ejabberd
            end,
-    {escalus_auth, Type}.
+    {escalus_user_db, Type}.
 
 try_check_mod_register(Config) ->
     try is_mod_register_enabled(Config)

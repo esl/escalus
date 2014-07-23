@@ -18,6 +18,8 @@
          use_zlib/2,
          get_transport/1,
          reset_parser/1,
+         get_sm_h/1,
+         set_sm_h/2,
          stop/1,
          kill/1]).
 
@@ -37,6 +39,10 @@
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
 -define(SERVER, ?MODULE).
 
+%% Stream management automation
+%%               :: {Auto-ack?,                H,         counting Hs?}.
+-type sm_state() :: {boolean(), non_neg_integer(), 'active'|'inactive'}.
+
 -record(state, {owner,
                 socket,
                 parser,
@@ -46,7 +52,9 @@
                 on_reply,
                 on_request,
                 active = true,
+                sm_state = {true, 0, inactive} :: sm_state(),
                 replies = []}).
+
 
 %%%===================================================================
 %%% API
@@ -66,6 +74,12 @@ is_connected(#client{rcv_pid = Pid}) ->
 
 reset_parser(#client{rcv_pid = Pid}) ->
     gen_server:cast(Pid, reset_parser).
+
+get_sm_h(#client{rcv_pid = Pid}) ->
+    gen_server:call(Pid, get_sm_h).
+
+set_sm_h(#client{rcv_pid = Pid}, H) ->
+    gen_server:call(Pid, {set_sm_h, H}).
 
 stop(#client{rcv_pid = Pid}) ->
     try
@@ -123,9 +137,19 @@ init([Args, Owner]) ->
     Host = proplists:get_value(host, Args, <<"localhost">>),
     Port = proplists:get_value(port, Args, 5222),
     EventClient = proplists:get_value(event_client, Args),
+
     OnReplyFun = proplists:get_value(on_reply, Args, fun(_) -> ok end),
     OnRequestFun = proplists:get_value(on_request, Args, fun(_) -> ok end),
     OnConnectFun = proplists:get_value(on_connect, Args, fun(_) -> ok end),
+
+    SM = case {proplists:get_value(stream_management, Args, false),
+               proplists:get_value(manual_ack, Args, false)}
+         of
+             {false,_}          -> {false, 0, inactive};
+             {_, true}          -> {false, 0, inactive};
+             {true,false}       -> {true, 0, inactive}
+         end,
+
     Address = host_to_inet(Host),
     Opts = [binary, {active, once}],
     {ok, Socket} = do_connect(Address, Port, Opts, OnConnectFun),
@@ -133,10 +157,16 @@ init([Args, Owner]) ->
     {ok, #state{owner = Owner,
                 socket = Socket,
                 parser = Parser,
+                sm_state = SM,
                 event_client = EventClient,
                 on_reply = OnReplyFun,
                 on_request = OnRequestFun}}.
 
+handle_call(get_sm_h, _From, #state{sm_state = {_, H, _}} = State) ->
+    {reply, H, State};
+handle_call({set_sm_h, H}, _From, #state{sm_state = {A, _OldH, S}} = State) ->
+    NewState = State#state{sm_state={A, H, S}},
+    {reply, {ok, H}, NewState};
 handle_call(get_transport, _From, State) ->
     {reply, transport(State), State};
 handle_call({upgrade_to_tls, SSLOpts}, _From, #state{socket = Socket} = State) ->
@@ -162,7 +192,8 @@ handle_call({set_active, Active}, _From, State) ->
 handle_call(recv, _From, State) ->
     {Reply, NS} = handle_recv(State),
     {reply, Reply, NS};
-handle_call(kill_connection, _, #state{} = S) ->
+handle_call(kill_connection, _, #state{socket = Socket } = S) ->
+    gen_tcp:close(Socket),
     close_compression_streams(S#state.compress),
     {stop, normal, ok, S};
 handle_call(stop, _From, #state{} = S) ->
@@ -232,28 +263,34 @@ handle_data(Socket, Data, #state{parser = Parser,
     NewState = State#state{parser = NewParser},
     case State#state.active of
         true ->
-            forward_to_owner(Stanzas, NewState),
-            NewState;
+            forward_to_owner(Stanzas, NewState);
         false ->
             store_reply(Stanzas, NewState)
     end.
 
-forward_to_owner(Stanzas, #state{owner = Owner,
-                                 event_client = EventClient} = S) ->
+forward_to_owner(Stanzas0, #state{owner = Owner,
+                                  sm_state = SM0,
+                                  event_client = EventClient} = State) ->
+    {SM1, AckRequests,StanzasNoRs} = separate_ack_requests(SM0, Stanzas0),
+    SM2 = reply_to_ack_requests(SM1, AckRequests, State),
+    NewState = State#state{sm_state=SM2},
+
     lists:foreach(fun(Stanza) ->
         escalus_event:incoming_stanza(EventClient, Stanza),
-        Owner ! {stanza, transport(S), Stanza}
-    end, Stanzas),
-    case lists:keyfind(xmlstreamend, 1, Stanzas) of
-        false ->
-            ok;
-        _ ->
-            gen_server:cast(self(), stop)
-    end.
+        Owner ! {stanza, transport(NewState), Stanza}
+    end, StanzasNoRs),
+
+    case lists:keyfind(xmlstreamend, 1, StanzasNoRs) of
+        false -> ok;
+        _     -> gen_server:cast(self(), stop)
+    end,
+    NewState#state{replies = StanzasNoRs}.
 
 store_reply(Stanzas, #state{replies = Replies} = S) ->
     S#state{replies = Replies ++ Stanzas}.
 
+%% @doc this looks like it's only used in esl/escalus_tests bosh_SUITE
+%% Maybe it can be removed?
 handle_recv(#state{replies = []} = S) ->
     {empty, S};
 handle_recv(#state{replies = [Reply | Replies]} = S) ->
@@ -263,6 +300,52 @@ handle_recv(#state{replies = [Reply | Replies]} = S) ->
         _ -> ok
     end,
     {Reply, S#state{replies = Replies}}.
+
+
+separate_ack_requests({false, H0, A}, Stanzas) ->
+    %% Don't keep track of H
+    {{false, H0, A}, [], Stanzas};
+separate_ack_requests({true, H0, inactive}, Stanzas) ->
+    Enabled = [ S || S <- Stanzas, escalus_pred:is_sm_enabled(S)],
+    Resumed = [ S || S <- Stanzas, escalus_pred:is_sm_resumed(S)],
+
+    case {length(Enabled),length(Resumed)} of
+        %% Enabled SM: set the H param to 0 and activate counter.
+        {1,0} -> {{true, 0, active}, [], Stanzas};
+
+        %% Resumed SM: keep the H param and activate counter.
+        {0,1} -> {{true, H0, active}, [], Stanzas};
+
+        %% No new SM state: continue as usual
+        {0,0} -> {{true, H0, inactive}, [], Stanzas}
+    end;
+separate_ack_requests({true, H0, active}, Stanzas) ->
+    %% Count H and construct appropriate acks
+    F = fun(Stanza, {H, Acks, NonAckRequests}) ->
+                case escalus_pred:is_sm_ack_request(Stanza) of
+                    true -> {H, [make_ack(H)|Acks], NonAckRequests};
+                    false -> {H+1, Acks, [Stanza|NonAckRequests]}
+                end
+        end,
+    {H, Acks, Others} = lists:foldl(F, {H0, [], []}, Stanzas),
+    {{true, H, active}, lists:reverse(Acks), lists:reverse(Others)}.
+
+make_ack(H) -> {escalus_stanza:sm_ack(H), H}.
+
+reply_to_ack_requests({false,H,A}, _, _) -> {false, H, A};
+reply_to_ack_requests({true,H,inactive}, _, _) -> {true, H, inactive};
+reply_to_ack_requests({true, H0, active}, Acks, State) ->
+    {true,
+     lists:foldl(fun({Ack,H}, _) -> raw_send(State, Ack), H end,
+                 H0, Acks),
+     active}.
+
+raw_send(#state{socket=Socket, ssl=true}, Elem) ->
+    ssl:send(Socket, exml:to_iolist(Elem));
+raw_send(#state{socket=_Socket, compress=true}, _Elem) ->
+    throw({escalus_tcp, auto_ack_not_implemented_for_compressed_streams});
+raw_send(#state{socket=Socket}, Elem) ->
+    gen_tcp:send(Socket, exml:to_iolist(Elem)).
 
 common_terminate(_Reason, #state{parser = Parser}) ->
     exml_stream:free_parser(Parser).

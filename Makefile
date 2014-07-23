@@ -11,6 +11,9 @@ test: rebar compile
 clean: rebar
 	./rebar clean
 
+ct:	compile
+	./run_ct TESTSPEC=$(TESTSPEC)
+
 rebar:
 	wget https://github.com/rebar/rebar/releases/download/2.2.0/rebar
 	chmod u+x rebar
