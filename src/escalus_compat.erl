@@ -46,7 +46,7 @@ bin(Arg) when is_integer(Arg) ->
     integer_to_binary(Arg);
 bin(Other) ->
     type_complain("???", Other),
-    exit({badarg, Other}).
+    error(badarg, [Other]).
 
 deprecated(Old, New, Result) ->
     error_logger:info_msg("calling deprecated function ~p, use ~p instead~n~p~n",

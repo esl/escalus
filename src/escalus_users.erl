@@ -238,7 +238,7 @@ verify_creation({ok, conflict, Raw}) ->
 verify_creation({error, Error, Raw}) ->
     RawStr = exml:to_iolist(Raw),
     error_logger:error_msg("error when trying to register user: ~s~n", [RawStr]),
-    exit(Error).
+    error(Error).
 
 delete_user(Config, {_Name, UserSpec}) ->
     Options = get_options(Config, UserSpec),
