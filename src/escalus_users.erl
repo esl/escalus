@@ -76,7 +76,8 @@ start(Config) ->
             M:start([]);
         _ ->
             ok
-    end.
+    end,
+    Config.
 
 stop(Config) ->
     case auth_type(Config) of
@@ -84,10 +85,12 @@ stop(Config) ->
             M:stop([]);
         _ ->
             ok
-    end.
+    end,
+    Config.
 
 -spec create_users(escalus:config(), who()) -> escalus:config().
 create_users(Config, Who) ->
+    start(Config),
     Users = get_users(Who),
     case auth_type(Config) of
         {escalus_user_db, xmpp} ->
@@ -113,7 +116,8 @@ delete_users(Config, Who) ->
             M:delete_users(Config, Users);
         {escalus_user_db, ejabberd} ->
             escalus_ejabberd:delete_users(Config, Users)
-    end.
+    end,
+    stop(Config).
 
 %%--------------------------------------------------------------------
 %% Public API
