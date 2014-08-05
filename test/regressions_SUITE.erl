@@ -49,5 +49,9 @@ catch_escalus_compat_bin_badarg(_) ->
     ?a(is_2_tuple(ErrorReason)),
     ?eq(badarg, element(1, ErrorReason)).
 
+%%--------------------------------------------------------------------
+%% Helpers
+%%--------------------------------------------------------------------
+
 is_2_tuple(T) when is_tuple(T), tuple_size(T) == 2 -> true;
 is_2_tuple(_)                                      -> false.
