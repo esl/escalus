@@ -10,7 +10,8 @@
 -import(escalus_story, [story/3]).
 
 all() ->
-    [catch_timeout_when_waiting_for_stanza].
+    [catch_timeout_when_waiting_for_stanza,
+     catch_escalus_compat_bin_badarg].
 
 suite() ->
     escalus:suite().
@@ -42,6 +43,11 @@ catch_timeout_when_waiting_for_stanza(Config) ->
                   ?a(is_2_tuple(ErrorReason)),
                   ?eq(timeout_when_waiting_for_stanza, element(1, ErrorReason))
           end).
+
+catch_escalus_compat_bin_badarg(_) ->
+    {'EXIT', ErrorReason} = (catch escalus_compat:bin({ala, <<"ma">>, {k,o,t,a}})),
+    ?a(is_2_tuple(ErrorReason)),
+    ?eq(badarg, element(1, ErrorReason)).
 
 is_2_tuple(T) when is_tuple(T), tuple_size(T) == 2 -> true;
 is_2_tuple(_)                                      -> false.
