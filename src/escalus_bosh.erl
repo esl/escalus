@@ -247,10 +247,10 @@ init([Args, Owner]) ->
     {MS, S, MMS} = now(),
     InitRid = MS * 1000000 * 1000000 + S * 1000000 + MMS,
     {ok, Parser} = exml_stream:new_parser(),
-    {ok, Client} = fusco_cp:start({HostStr, Port, false},
-                                  [{on_connect, OnConnectFun}],
-                                  %% Max two connections as per BOSH rfc
-                                  2),
+    {ok, Client} = fusco_cp:start_link({HostStr, Port, false},
+                                       [{on_connect, OnConnectFun}],
+                                       %% Max two connections as per BOSH rfc
+                                       2),
     {ok, #state{owner = Owner,
                 url = Path,
                 parser = Parser,
