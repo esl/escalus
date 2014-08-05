@@ -3,6 +3,9 @@
 
 -include_lib("escalus/include/escalus.hrl").
 -include_lib("common_test/include/ct.hrl").
+-include_lib("eunit/include/eunit.hrl").
+-define(a(Condition), ?assert(Condition)).
+-define(eq(A, B), ?assertEqual(A, B)).
 
 -import(escalus_story, [story/3]).
 
@@ -35,6 +38,10 @@ end_per_testcase(CaseName, Config) ->
 catch_timeout_when_waiting_for_stanza(Config) ->
     story(Config, [{alice,1}],
           fun (Alice) ->
-                  Caught = (catch escalus:wait_for_stanza(Alice)),
-                  ct:pal("**** caught: ~p", [Caught])
+                  {'EXIT', ErrorReason} = (catch escalus:wait_for_stanza(Alice)),
+                  ?a(is_2_tuple(ErrorReason)),
+                  ?eq(timeout_when_waiting_for_stanza, element(1, ErrorReason))
           end).
+
+is_2_tuple(T) when is_tuple(T), tuple_size(T) == 2 -> true;
+is_2_tuple(_)                                      -> false.
