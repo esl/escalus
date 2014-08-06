@@ -4,6 +4,7 @@ branches:
                 - master
 notifications:
         email: mongoose-im@erlang-solutions.com
+
 otp_release:
         - 17.0
         - R16B03
@@ -17,3 +18,11 @@ otp_release:
         - R14B04
         - R14B03
         - R14B02
+
+before_script:
+        - make travis-deps
+
+script:
+        - make
+        - make test
+        - make travis-test

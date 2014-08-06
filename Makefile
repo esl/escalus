@@ -54,3 +54,19 @@ dialyzer: erlang_plt deps_plt escalus_plt
 	@dialyzer --plts dialyzer/*.plt --no_check_plt \
 	--get_warnings -o dialyzer/error.log ebin; \
 	status=$$? ; if [ $$status -ne 2 ]; then exit $$status; else exit 0; fi
+
+MIM := deps/mongooseim
+MIM_REL := ${MIM}/rel/mongooseim
+
+travis-test: travis-deps ${MIM_REL}
+	${MIM_REL}/bin/mongooseimctl start && ${MIM_REL}/bin/mongooseimctl started
+	./rebar skip_deps=true ct; \
+	${MIM_REL}/bin/mongooseimctl stop && ${MIM_REL}/bin/mongooseimctl stopped > /dev/null
+
+travis-deps: ${MIM}
+
+${MIM_REL}: ${MIM}
+	cd ${MIM} && make rel
+
+${MIM}:
+	ESCALUS_EXTRA_DEPS=mongooseim ./rebar get-deps
