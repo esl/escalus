@@ -12,6 +12,8 @@
 all() ->
     [catch_timeout_when_waiting_for_stanza,
      catch_escalus_compat_bin_badarg].
+     %% can't run with current build system, see test for the rationale
+     %% catch_assert_false].
 
 suite() ->
     escalus:suite().
@@ -39,15 +41,33 @@ end_per_testcase(CaseName, Config) ->
 catch_timeout_when_waiting_for_stanza(Config) ->
     story(Config, [{alice,1}],
           fun (Alice) ->
+                  %% when
                   {'EXIT', ErrorReason} = (catch escalus:wait_for_stanza(Alice)),
+                  %% then
                   ?a(is_2_tuple(ErrorReason)),
                   ?eq(timeout_when_waiting_for_stanza, element(1, ErrorReason))
           end).
 
 catch_escalus_compat_bin_badarg(_) ->
+    %% when
     {'EXIT', ErrorReason} = (catch escalus_compat:bin({ala, <<"ma">>, {k,o,t,a}})),
+    %% then
     ?a(is_2_tuple(ErrorReason)),
     ?eq(badarg, element(1, ErrorReason)).
+
+%% `escalus_new_assert:assert_true/2` is a module-internal function with
+%% no public API, so without exporting it just for the sake of test,
+%% we can't test it.
+%% Exporting just for the sake of tests would be done best with an ifdef(TEST),
+%% but then we need the build system to support two types of builds:
+%% release and debug. Furthermore, rebar would have to know which to use
+%% when running `rebar ct`.
+catch_assert_false(_) ->
+    %% when
+    {'EXIT', ErrorReason} = (catch escalus_new_assert:assert_true(false, my_reason)),
+    %% then
+    ?a(is_2_tuple(ErrorReason)),
+    ?eq(my_reason, element(1, ErrorReason)).
 
 %%--------------------------------------------------------------------
 %% Helpers
