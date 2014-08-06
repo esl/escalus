@@ -11,8 +11,11 @@ test: rebar compile
 clean: rebar
 	./rebar clean
 
-ct:	compile
+ct:	compile logs
 	./run_ct TESTSPEC=$(TESTSPEC)
+
+logs:
+	mkdir -p logs
 
 rebar:
 	wget https://github.com/rebar/rebar/releases/download/2.2.0/rebar
@@ -58,9 +61,10 @@ dialyzer: erlang_plt deps_plt escalus_plt
 MIM := deps/mongooseim
 MIM_REL := ${MIM}/rel/mongooseim
 
-mongooseim-test: extra-deps ${MIM_REL}
+mongooseim-start: ${MIM_REL}
 	${MIM_REL}/bin/mongooseimctl start && ${MIM_REL}/bin/mongooseimctl started
-	make ct; \
+
+mongooseim-stop: ${MIM_REL}
 	${MIM_REL}/bin/mongooseimctl stop && ${MIM_REL}/bin/mongooseimctl stopped > /dev/null
 
 extra-deps: ${MIM}
