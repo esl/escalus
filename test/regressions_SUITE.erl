@@ -40,6 +40,8 @@ end_per_testcase(CaseName, Config) ->
 %%--------------------------------------------------------------------
 
 catch_timeout_when_waiting_for_stanza(Config) ->
+    %% given
+    escalus:create_users(Config, {by_name, [alice]}),
     story(Config, [{alice,1}],
           fun (Alice) ->
                   %% when
@@ -47,7 +49,8 @@ catch_timeout_when_waiting_for_stanza(Config) ->
                   %% then
                   ?a(is_2_tuple(ErrorReason)),
                   ?eq(timeout_when_waiting_for_stanza, element(1, ErrorReason))
-          end).
+          end),
+    escalus:delete_users(Config, {by_name, [alice]}).
 
 catch_escalus_compat_bin_badarg(_) ->
     %% when
