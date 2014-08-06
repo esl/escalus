@@ -78,8 +78,8 @@ catch_escalus_user_verify_creation(_) ->
     %% when
     {'EXIT', ErrorReason} = (catch M:F({error, my_error, RawXMPPError})),
     %% then
-    ?a(is_atom(ErrorReason)),
-    ?eq(my_error, ErrorReason).
+    ?a(is_2_tuple(ErrorReason)),
+    ?eq(my_error, element(1, ErrorReason)).
 
 %%--------------------------------------------------------------------
 %% Helpers
