@@ -13,17 +13,49 @@ groups() ->
      {manual, [shuffle, {repeat, 1}], [ack_request_is_visible]}].
 
 suite() ->
-    escalus:suite().
+    [{require, ejabberd_domain}] ++ escalus:suite().
+
+%% Turn mod_offline off for the duration of the tests.
+no_mod_offline() ->
+    {no_mod_offline,
+     fun no_mod_offline_setup/0,
+     fun no_mod_offline_reset/1,
+     not_running}.
+
+no_mod_offline_setup() ->
+    Domain = get_domain(),
+    case escalus_ejabberd:rpc(gen_mod, is_loaded,
+                              [Domain, mod_offline]) of
+        true ->
+            escalus_ejabberd:rpc(gen_mod, stop_module,
+                                 [Domain, mod_offline]),
+            running;
+        false ->
+            not_running
+    end.
+
+no_mod_offline_reset(not_running) -> ok;
+no_mod_offline_reset(running) ->
+    Domain = get_domain(),
+    escalus_ejabberd:rpc(gen_mod, start_module, [Domain, mod_offline, []]).
+
+get_domain() ->
+    case ct:get_config(ejabberd_domain, undefined) of
+        undefined -> error({not_found, ejabberd_domain});
+        Domain -> Domain
+    end.
 
 %%--------------------------------------------------------------------
 %% Init & teardown
 %%--------------------------------------------------------------------
 
 init_per_suite(Config) ->
-    escalus:init_per_suite(Config).
+    NewConfig = escalus_ejabberd:setup_option(no_mod_offline(), Config),
+    escalus:init_per_suite(NewConfig).
 
 end_per_suite(Config) ->
-    escalus:end_per_suite(Config).
+    NewConfig = escalus_ejabberd:reset_option(no_mod_offline(), Config),
+    escalus:end_per_suite(NewConfig).
 
 init_per_group(_GroupName, Config) ->
     escalus:create_users(Config).
