@@ -11,9 +11,10 @@
 
 all() ->
     [catch_timeout_when_waiting_for_stanza,
-     catch_escalus_compat_bin_badarg].
+     catch_escalus_compat_bin_badarg,
      %% can't run with current build system, see test for the rationale
-     %% catch_assert_false].
+     %% catch_assert_false,
+     catch_escalus_user_verify_creation].
 
 suite() ->
     escalus:suite().
@@ -68,6 +69,17 @@ catch_assert_false(_) ->
     %% then
     ?a(is_2_tuple(ErrorReason)),
     ?eq(my_reason, element(1, ErrorReason)).
+
+catch_escalus_user_verify_creation(_) ->
+    %% given
+    {M, F} = {escalus_users, verify_creation},
+    RawXMPPError = escalus_stanza:error_element(<<"fake-type">>,
+                                                <<"fake-condition">>),
+    %% when
+    {'EXIT', ErrorReason} = (catch M:F({error, my_error, RawXMPPError})),
+    %% then
+    ?a(is_atom(ErrorReason)),
+    ?eq(my_error, ErrorReason).
 
 %%--------------------------------------------------------------------
 %% Helpers
