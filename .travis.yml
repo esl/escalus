@@ -20,9 +20,9 @@ otp_release:
         - R14B02
 
 before_script:
-        - make travis-deps
+        - make extra-deps
 
 script:
         - make
         - make test
-        - make travis-test
+        - make mongooseim-test

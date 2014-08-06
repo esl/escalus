@@ -58,12 +58,12 @@ dialyzer: erlang_plt deps_plt escalus_plt
 MIM := deps/mongooseim
 MIM_REL := ${MIM}/rel/mongooseim
 
-travis-test: travis-deps ${MIM_REL}
+mongooseim-test: extra-deps ${MIM_REL}
 	${MIM_REL}/bin/mongooseimctl start && ${MIM_REL}/bin/mongooseimctl started
 	make ct; \
 	${MIM_REL}/bin/mongooseimctl stop && ${MIM_REL}/bin/mongooseimctl stopped > /dev/null
 
-travis-deps: ${MIM}
+extra-deps: ${MIM}
 
 ${MIM_REL}: ${MIM}
 	cd ${MIM} && make rel
