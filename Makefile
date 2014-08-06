@@ -60,7 +60,7 @@ MIM_REL := ${MIM}/rel/mongooseim
 
 travis-test: travis-deps ${MIM_REL}
 	${MIM_REL}/bin/mongooseimctl start && ${MIM_REL}/bin/mongooseimctl started
-	./rebar skip_deps=true ct; \
+	make ct; \
 	${MIM_REL}/bin/mongooseimctl stop && ${MIM_REL}/bin/mongooseimctl stopped > /dev/null
 
 travis-deps: ${MIM}
