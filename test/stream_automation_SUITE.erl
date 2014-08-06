@@ -5,14 +5,12 @@
 -include_lib("common_test/include/ct.hrl").
 
 all() ->
-    [{group, automatic}
-    ,{group, manual}
-    ].
+    [{group, automatic},
+     {group, manual}].
 
 groups() ->
-    [{automatic, [shuffle, {repeat, 2}], [simple_ack, ack_after_four_messages]}
-    ,{manual, [shuffle, {repeat, 1}], [ack_request_is_visible]}
-    ].
+    [{automatic, [shuffle, {repeat, 2}], [simple_ack, ack_after_four_messages]},
+     {manual, [shuffle, {repeat, 1}], [ack_request_is_visible]}].
 
 suite() ->
     escalus:suite().
