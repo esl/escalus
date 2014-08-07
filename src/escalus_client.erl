@@ -68,9 +68,10 @@ stop(Conn) ->
 kill(#client{module = escalus_tcp, rcv_pid = Pid}) ->
     erlang:exit(Pid, kill).
 
-peek_stanzas(Conn) ->
+peek_stanzas(Client) ->
     {messages, Msgs} = process_info(self(), messages),
-    lists:flatmap(fun ({stanza, MConn, Stanza}) when MConn == Conn ->
+    Transport = get_transport_for(Client),
+    lists:flatmap(fun ({stanza, T, Stanza}) when T == Transport ->
                           [Stanza];
                       %% FIXME: stream error
                       (_) ->
@@ -93,9 +94,9 @@ do_wait_for_stanzas(_Client, 0, _TimeoutMsg, Acc) ->
     lists:reverse(Acc);
 do_wait_for_stanzas(#client{event_client=EventClient} = Client,
                     Count, TimeoutMsg, Acc) ->
-    Conn = Client#client{jid = undefined},
+    Transport = get_transport_for(Client),
     receive
-        {stanza, Conn, Stanza} ->
+        {stanza, Transport, Stanza} ->
             escalus_event:pop_incoming_stanza(EventClient, Stanza),
             do_wait_for_stanzas(Client, Count - 1, TimeoutMsg, [Stanza|Acc]);
         %% FIXME: stream error
@@ -150,3 +151,6 @@ make_jid(Proplist) ->
     {server, S} = lists:keyfind(server, 1, Proplist),
     {resource, R} = lists:keyfind(resource, 1, Proplist),
     <<U/binary,"@",S/binary,"/",R/binary>>.
+
+get_transport_for(Client) ->
+    Client#client{jid = undefined}.
