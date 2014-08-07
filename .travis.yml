@@ -10,7 +10,6 @@ otp_release:
         - 17.0
         - R16B03
         - R15B03
-        - R14B04
 
 before_script:
         - make extra-deps
