@@ -70,7 +70,7 @@ kill(#client{module = escalus_tcp, rcv_pid = Pid}) ->
 
 peek_stanzas(Client) ->
     {messages, Msgs} = process_info(self(), messages),
-    Transport = get_transport_for(Client),
+    Transport = transport_matching_hack(Client),
     lists:flatmap(fun ({stanza, T, Stanza}) when T == Transport ->
                           [Stanza];
                       %% FIXME: stream error
@@ -94,7 +94,7 @@ do_wait_for_stanzas(_Client, 0, _TimeoutMsg, Acc) ->
     lists:reverse(Acc);
 do_wait_for_stanzas(#client{event_client=EventClient} = Client,
                     Count, TimeoutMsg, Acc) ->
-    Transport = get_transport_for(Client),
+    Transport = transport_matching_hack(Client),
     receive
         {stanza, Transport, Stanza} ->
             escalus_event:pop_incoming_stanza(EventClient, Stanza),
@@ -152,5 +152,8 @@ make_jid(Proplist) ->
     {resource, R} = lists:keyfind(resource, 1, Proplist),
     <<U/binary,"@",S/binary,"/",R/binary>>.
 
-get_transport_for(Client) ->
+
+%% #client{} record for transport is created before assigning client JID
+%% so when we match a Client with it, Client#client.jid needs to be undefined
+transport_matching_hack(Client) ->
     Client#client{jid = undefined}.
