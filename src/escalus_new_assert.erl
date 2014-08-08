@@ -81,6 +81,6 @@ predspec_to_fun(Other, _) ->
 
 assert_true(true, _) -> ok;
 assert_true(false, Fail) ->
-    exit(Fail);
+    error(Fail);
 assert_true(WTF, Pred) ->
-    exit({wtf, bad_predicate_return_value, WTF, Pred}).
+    error(bad_predicate_return_value, [WTF, Pred]).

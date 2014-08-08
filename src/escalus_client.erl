@@ -111,7 +111,7 @@ wait_for_stanza(Client, Timeout) ->
         [Stanza] ->
             Stanza;
         [] ->
-            exit({timeout_when_waiting_for_stanza, Client})
+            error(timeout_when_waiting_for_stanza, [Client, Timeout])
     end.
 
 send(Client, Packet) ->
