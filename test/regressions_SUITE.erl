@@ -14,7 +14,8 @@ all() ->
      catch_escalus_compat_bin_badarg,
      %% can't run with current build system, see test for the rationale
      %% catch_assert_false,
-     catch_escalus_user_verify_creation].
+     catch_escalus_user_verify_creation,
+     test_peek_stanzas].
 
 suite() ->
     escalus:suite().
@@ -84,9 +85,38 @@ catch_escalus_user_verify_creation(_) ->
     ?a(is_2_tuple(ErrorReason)),
     ?eq(my_error, element(1, ErrorReason)).
 
+test_peek_stanzas(Config) ->
+    escalus:create_users(Config, {by_name, [alice]}),
+    story(Config, [{alice, 1}],
+          fun (Alice) ->
+                  %% given
+                  Msg = <<"Haha, I'm talkin' to myself">>,
+                  %% when
+                  escalus:send(Alice, escalus_stanza:chat_to(Alice, Msg)),
+                  timer:sleep(50),
+                  %% then
+                  Peeked = escalus_client:peek_stanzas(Alice),
+                  ?a(Peeked /= []),
+                  ?a(actually_has_stanzas(Peeked))
+          end),
+    escalus:delete_users(Config, {by_name, [alice]}).
+
 %%--------------------------------------------------------------------
 %% Helpers
 %%--------------------------------------------------------------------
 
 is_2_tuple(T) when is_tuple(T), tuple_size(T) == 2 -> true;
 is_2_tuple(_)                                      -> false.
+
+actually_has_stanzas(Peeked) ->
+    {messages, Messages} = process_info(self(), messages),
+    actually_has_stanzas(Messages, Peeked).
+
+actually_has_stanzas(_, []) ->
+    true;
+actually_has_stanzas([], [_|_]) ->
+    false;
+actually_has_stanzas([{stanza, _, P} | MTail], [P | PTail]) ->
+    actually_has_stanzas(MTail, PTail);
+actually_has_stanzas([_ | MTail], [P | PTail]) ->
+    actually_has_stanzas(MTail, [P | PTail]).

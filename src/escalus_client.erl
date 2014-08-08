@@ -68,9 +68,10 @@ stop(Conn) ->
 kill(#client{module = escalus_tcp, rcv_pid = Pid}) ->
     erlang:exit(Pid, kill).
 
-peek_stanzas(Conn) ->
+peek_stanzas(Client) ->
     {messages, Msgs} = process_info(self(), messages),
-    lists:flatmap(fun ({stanza, MConn, Stanza}) when MConn == Conn ->
+    Transport = transport_matching_hack(Client),
+    lists:flatmap(fun ({stanza, T, Stanza}) when T == Transport ->
                           [Stanza];
                       %% FIXME: stream error
                       (_) ->
@@ -93,9 +94,9 @@ do_wait_for_stanzas(_Client, 0, _TimeoutMsg, Acc) ->
     lists:reverse(Acc);
 do_wait_for_stanzas(#client{event_client=EventClient} = Client,
                     Count, TimeoutMsg, Acc) ->
-    Conn = Client#client{jid = undefined},
+    Transport = transport_matching_hack(Client),
     receive
-        {stanza, Conn, Stanza} ->
+        {stanza, Transport, Stanza} ->
             escalus_event:pop_incoming_stanza(EventClient, Stanza),
             do_wait_for_stanzas(Client, Count - 1, TimeoutMsg, [Stanza|Acc]);
         %% FIXME: stream error
@@ -150,3 +151,9 @@ make_jid(Proplist) ->
     {server, S} = lists:keyfind(server, 1, Proplist),
     {resource, R} = lists:keyfind(resource, 1, Proplist),
     <<U/binary,"@",S/binary,"/",R/binary>>.
+
+
+%% #client{} record for transport is created before assigning client JID
+%% so when we match a Client with it, Client#client.jid needs to be undefined
+transport_matching_hack(Client) ->
+    Client#client{jid = undefined}.
