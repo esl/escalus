@@ -11,8 +11,10 @@ test: rebar compile
 clean: rebar
 	./rebar clean
 
+# Usage: make ct SUITE=user_db_module_SUITE
+#
 ct:	compile logs
-	./run_ct TESTSPEC=$(TESTSPEC)
+	./run_ct SUITE=$(SUITE)
 
 logs:
 	mkdir -p logs
