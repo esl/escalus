@@ -49,9 +49,11 @@ suite() ->
 
 init_per_suite(Config) ->
     application:start(exml),
+    escalus_users:start(Config),
     Config.
 
-end_per_suite(_Config) ->
+end_per_suite(Config) ->
+    escalus_users:stop(Config),
     ok.
 
 init_per_testcase(CaseName, Config) ->
