@@ -9,8 +9,8 @@ all() ->
      {group, manual}].
 
 groups() ->
-    [{automatic, [shuffle, {repeat, 2}], [simple_ack, ack_after_four_messages]},
-     {manual, [shuffle, {repeat, 1}], [ack_request_is_visible]}].
+    [{automatic, [shuffle, {repeat, 3}], [simple_ack, ack_after_four_messages]},
+     {manual, [shuffle, {repeat, 3}], [ack_request_is_visible]}].
 
 suite() ->
     [{require, ejabberd_domain}] ++ escalus:suite().
@@ -117,8 +117,8 @@ ack_after_four_messages(Config) ->
             <<"We went surging down the wires">>,
             <<"Through the towns and on the highways">>,
             <<"Through the storms in all their thundering">>,
-            <<"In the blue August moon">>,
-            <<"In the cool August moon">>
+            <<"In the blue August moon!">>,
+            <<"In the cool August moon!">>
            ],
         [escalus:send(Bob, escalus_stanza:chat_to(Alice, M)) || M <- Msgs],
 
