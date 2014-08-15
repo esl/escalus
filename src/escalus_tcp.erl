@@ -31,11 +31,6 @@
          terminate/2,
          code_change/3]).
 
-%% Low level API
--export([get_active/1,
-         set_active/2,
-         recv/1]).
-
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
 -define(SERVER, ?MODULE).
 
@@ -51,9 +46,7 @@
                 event_client,
                 on_reply,
                 on_request,
-                active = true,
-                sm_state = {true, 0, inactive} :: sm_state(),
-                replies = []}).
+                sm_state = {true, 0, inactive} :: sm_state()}).
 
 
 %%%===================================================================
@@ -116,20 +109,6 @@ get_transport(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_transport).
 
 %%%===================================================================
-%%% Low level API
-%%%===================================================================
-
-get_active(#client{rcv_pid = Pid}) ->
-    gen_server:call(Pid, get_active).
-
-set_active(#client{rcv_pid = Pid}, Active) ->
-    gen_server:call(Pid, {set_active, Active}).
-
--spec recv(#client{}) -> xmlstreamelement() | empty.
-recv(#client{rcv_pid = Pid}) ->
-    gen_server:call(Pid, recv).
-
-%%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
 
@@ -185,13 +164,6 @@ handle_call(use_zlib, _, #state{parser = Parser, socket = Socket} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
     {reply, Socket, State#state{parser = NewParser,
                                 compress = {zlib, {Zin,Zout}}}};
-handle_call(get_active, _From, #state{active = Active} = State) ->
-    {reply, Active, State};
-handle_call({set_active, Active}, _From, State) ->
-    {reply, ok, State#state{active = Active}};
-handle_call(recv, _From, State) ->
-    {Reply, NS} = handle_recv(State),
-    {reply, Reply, NS};
 handle_call(kill_connection, _, #state{socket = Socket } = S) ->
     gen_tcp:close(Socket),
     close_compression_streams(S#state.compress),
@@ -217,18 +189,14 @@ handle_cast({send, #client{socket = Socket, ssl = Ssl, compress = Compress},
     {noreply, State};
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
-    {noreply, State#state{parser = NewParser}};
-handle_cast(stop, State) ->
-    {stop, normal, State}.
+    {noreply, State#state{parser = NewParser}}.
 
 handle_info({tcp, Socket, Data}, State) ->
     inet:setopts(Socket, [{active, once}]),
-    NewState = handle_data(Socket, Data, State),
-    {noreply, NewState};
+    handle_data(Socket, Data, State);
 handle_info({ssl, Socket, Data}, State) ->
     ssl:setopts(Socket, [{active, once}]),
-    NewState = handle_data(Socket, Data, State),
-    {noreply, NewState};
+    handle_data(Socket, Data, State);
 handle_info({tcp_closed, Socket}, #state{socket = Socket} = State) ->
     {stop, normal, State};
 handle_info(_, State) ->
@@ -250,7 +218,10 @@ code_change(_OldVsn, State, _Extra) ->
 handle_data(Socket, Data, #state{parser = Parser,
                                  socket = Socket,
                                  compress = Compress,
-                                 on_reply = OnReplyFun} = State) ->
+                                 on_reply = OnReplyFun,
+                                 owner = Owner,
+                                 sm_state = SM0,
+                                 event_client = EventClient} = State) ->
     OnReplyFun({erlang:byte_size(Data)}),
     {ok, NewParser, Stanzas} =
         case Compress of
@@ -260,47 +231,17 @@ handle_data(Socket, Data, #state{parser = Parser,
                 Decompressed = iolist_to_binary(zlib:inflate(Zin, Data)),
                 exml_stream:parse(Parser, Decompressed)
         end,
-    NewState = State#state{parser = NewParser},
-    case State#state.active of
-        true ->
-            forward_to_owner(Stanzas, NewState);
-        false ->
-            store_reply(Stanzas, NewState)
-    end.
-
-forward_to_owner(Stanzas0, #state{owner = Owner,
-                                  sm_state = SM0,
-                                  event_client = EventClient} = State) ->
-    {SM1, AckRequests,StanzasNoRs} = separate_ack_requests(SM0, Stanzas0),
+    {SM1, AckRequests,StanzasNoRs} = separate_ack_requests(SM0, Stanzas),
     SM2 = reply_to_ack_requests(SM1, AckRequests, State),
-    NewState = State#state{sm_state=SM2},
-
+    NewState = State#state{parser = NewParser, sm_state=SM2},
     lists:foreach(fun(Stanza) ->
         escalus_event:incoming_stanza(EventClient, Stanza),
         Owner ! {stanza, transport(NewState), Stanza}
     end, StanzasNoRs),
-
     case lists:keyfind(xmlstreamend, 1, StanzasNoRs) of
-        false -> ok;
-        _     -> gen_server:cast(self(), stop)
-    end,
-    NewState#state{replies = StanzasNoRs}.
-
-store_reply(Stanzas, #state{replies = Replies} = S) ->
-    S#state{replies = Replies ++ Stanzas}.
-
-%% @doc this looks like it's only used in esl/escalus_tests bosh_SUITE
-%% Maybe it can be removed?
-handle_recv(#state{replies = []} = S) ->
-    {empty, S};
-handle_recv(#state{replies = [Reply | Replies]} = S) ->
-    case Reply of
-        #xmlstreamend{} ->
-            gen_server:cast(self(), stop);
-        _ -> ok
-    end,
-    {Reply, S#state{replies = Replies}}.
-
+        false -> {noreply, NewState};
+        _     -> {stop, normal, NewState}
+    end.
 
 separate_ack_requests({false, H0, A}, Stanzas) ->
     %% Don't keep track of H
