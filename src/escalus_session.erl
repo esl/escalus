@@ -36,7 +36,7 @@
 -type features() :: [feature()].
 -export_type([features/0]).
 
--define(CONNECTION_STEP, (escalus_connection:transport(),
+-define(CONNECTION_STEP, (escalus_connection:client(),
                           escalus_users:spec(),
                           features()) -> step_state()).
 -type step() :: fun(?CONNECTION_STEP).
