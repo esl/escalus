@@ -221,6 +221,7 @@ create_user(Config, {_Name, UserSpec}) ->
     ClientProps = get_options(Config, UserSpec),
     {ok, Conn, ClientProps, _} = escalus_connection:start(ClientProps,
                                                           [start_stream,
+                                                           stream_features,
                                                            maybe_use_ssl]),
     escalus_connection:send(Conn, escalus_stanza:get_registration_fields()),
     {ok, result, RegisterInstrs} = wait_for_result(Conn),
@@ -271,6 +272,7 @@ is_mod_register_enabled(Config) ->
                    {port, Port}],
     {ok, Conn, ClientProps, _} = escalus_connection:start(ClientProps,
                                                           [start_stream,
+                                                           stream_features,
                                                            maybe_use_ssl]),
     escalus_connection:send(Conn, escalus_stanza:get_registration_fields()),
     case wait_for_result(Conn) of

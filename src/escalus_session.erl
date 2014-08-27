@@ -18,6 +18,7 @@
 
 %% New style connection initiation
 -export([start_stream/3,
+         stream_features/3,
          maybe_use_ssl/3,
          maybe_use_carbons/3,
          maybe_use_compression/3,
@@ -70,9 +71,10 @@ start_stream(Conn, Props) ->
     ok = escalus_connection:send(Conn, StreamStartReq),
     StreamStartRep = escalus_connection:get_stanza(Conn, wait_for_stream),
     assert_stream_start(StreamStartRep, Transport, IsLegacy),
-    StreamFeatures = escalus_connection:get_stanza(Conn, wait_for_features),
-    assert_stream_features(StreamFeatures, Transport, IsLegacy),
-    {Props, get_stream_features(StreamFeatures)}.
+    %% TODO: deprecate 2-tuple return value
+    %% To preserve the previous interface we still return a 2-tuple,
+    %% but it's guaranteed that the features will be empty.
+    {Props, []}.
 
 starttls(Conn, Props) ->
     escalus_tcp:upgrade_to_tls(Conn, Props).
@@ -82,8 +84,9 @@ authenticate(Conn, Props) ->
     {M, F} = proplists:get_value(auth, Props, {escalus_auth, auth_plain}),
     M:F(Conn, Props),
     escalus_connection:reset_parser(Conn),
-    escalus_session:start_stream(Conn, Props),
-    Props.
+    {Props1, []} = escalus_session:start_stream(Conn, Props),
+    escalus_session:stream_features(Conn, Props1, []),
+    Props1.
 
 bind(Conn, Props) ->
     Resource = proplists:get_value(resource, Props, ?DEFAULT_RESOURCE),
@@ -144,8 +147,16 @@ can_use(Feature, Props, Features) ->
 
 -spec start_stream/3 :: ?CONNECTION_STEP.
 start_stream(Conn, Props, [] = _Features) ->
-    {Props1, Features} = start_stream(Conn, Props),
-    {Conn, Props1, Features}.
+    {Props1, []} = start_stream(Conn, Props),
+    {Conn, Props1, []}.
+
+-spec stream_features/3 :: ?CONNECTION_STEP.
+stream_features(Conn, Props, [] = _Features) ->
+    StreamFeatures = escalus_connection:get_stanza(Conn, wait_for_features),
+    Transport = proplists:get_value(transport, Props, tcp),
+    IsLegacy = proplists:get_value(wslegacy, Props, false),
+    assert_stream_features(StreamFeatures, Transport, IsLegacy),
+    {Conn, Props, get_stream_features(StreamFeatures)}.
 
 -spec maybe_use_ssl/3 :: ?CONNECTION_STEP.
 maybe_use_ssl(Conn, Props, Features) ->

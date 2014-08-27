@@ -43,6 +43,7 @@
 start(Props) ->
     start(Props,
           [start_stream,
+           stream_features,
            maybe_use_ssl,
            maybe_use_compression,
            authenticate,
