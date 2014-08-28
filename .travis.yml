@@ -6,10 +6,7 @@ notifications:
         email: mongoose-im@erlang-solutions.com
 
 otp_release:
-        - 17.1
-        - 17.0
         - R16B03
-        - R15B03
 
 before_script:
         - make extra-deps
