@@ -19,6 +19,9 @@
 
 -module(escalus_ejabberd).
 
+%% TODO: fix interface to comply with escalus_user_db behaviour
+%-behaviour(escalus_user_db).
+
 -export([rpc/3,
          remote_display/1,
          remote_format/1,
