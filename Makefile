@@ -63,10 +63,19 @@ dialyzer: erlang_plt deps_plt escalus_plt
 MIM := deps/mongooseim
 MIM_REL := ${MIM}/rel/mongooseim
 
+ifeq ($(shell uname),Darwin)
+	SED := gsed
+endif
+ifeq ($(shell uname),Linux)
+	SED := sed
+endif
+
 mongooseim-start: ${MIM_REL}
+	${SED} -i '2cset -x' ${MIM_REL}/bin/mongooseimctl
 	${MIM_REL}/bin/mongooseimctl start && ${MIM_REL}/bin/mongooseimctl started
 
 mongooseim-stop: ${MIM_REL}
+	${SED} -i '2cset -x' ${MIM_REL}/bin/mongooseimctl
 	${MIM_REL}/bin/mongooseimctl stop && ${MIM_REL}/bin/mongooseimctl stopped > /dev/null
 
 extra-deps: ${MIM}
