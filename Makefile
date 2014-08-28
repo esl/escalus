@@ -82,6 +82,7 @@ extra-deps: ${MIM}
 
 ${MIM_REL}: ${MIM}
 	cd ${MIM} && make rel
+	${SED} -i '/^{loglevel/c{loglevel, 4}.' ${MIM_REL}/etc/ejabberd.cfg
 
 ${MIM}:
 	ESCALUS_EXTRA_DEPS=mongooseim ./rebar get-deps

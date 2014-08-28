@@ -10,7 +10,7 @@ otp_release:
 
 before_script:
         - make extra-deps
-        - make mongooseim-start
+        - make mongooseim-start || cat deps/mongooseim/rel/mongooseim/log/ejabberd.log
 
 script:
         - make
