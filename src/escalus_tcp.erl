@@ -152,15 +152,19 @@ init([Args, Owner]) ->
 
     Address = host_to_inet(Host),
     Opts = [binary, {active, once}],
-    {ok, Socket} = do_connect(Address, Port, Opts, OnConnectFun),
-    {ok, Parser} = exml_stream:new_parser(),
-    {ok, #state{owner = Owner,
-                socket = Socket,
-                parser = Parser,
-                sm_state = SM,
-                event_client = EventClient,
-                on_reply = OnReplyFun,
-                on_request = OnRequestFun}}.
+    case do_connect(Address, Port, Opts, OnConnectFun) of
+        {ok, Socket} ->
+            {ok, Parser} = exml_stream:new_parser(),
+            {ok, #state{owner = Owner,
+                        socket = Socket,
+                        parser = Parser,
+                        sm_state = SM,
+                        event_client = EventClient,
+                        on_reply = OnReplyFun,
+                        on_request = OnRequestFun}};
+        {error, Reason} ->
+            {stop, {shutdown, Reason}}
+    end.
 
 handle_call(get_sm_h, _From, #state{sm_state = {_, H, _}} = State) ->
     {reply, H, State};
@@ -250,22 +254,28 @@ code_change(_OldVsn, State, _Extra) ->
 handle_data(Socket, Data, #state{parser = Parser,
                                  socket = Socket,
                                  compress = Compress,
-                                 on_reply = OnReplyFun} = State) ->
+                                 on_reply = OnReplyFun,
+                                 owner = Owner} = State) ->
     OnReplyFun({erlang:byte_size(Data)}),
-    {ok, NewParser, Stanzas} =
-        case Compress of
+    Parsed = case Compress of
             false ->
                 exml_stream:parse(Parser, Data);
             {zlib, {Zin,_}} ->
                 Decompressed = iolist_to_binary(zlib:inflate(Zin, Data)),
                 exml_stream:parse(Parser, Decompressed)
         end,
-    NewState = State#state{parser = NewParser},
-    case State#state.active of
-        true ->
-            forward_to_owner(Stanzas, NewState);
-        false ->
-            store_reply(Stanzas, NewState)
+    case Parsed of
+        {ok, NewParser, Stanzas} ->
+            NewState = State#state{parser = NewParser},
+            case State#state.active of
+                true ->
+                    forward_to_owner(Stanzas, NewState);
+                false ->
+                    store_reply(Stanzas, NewState)
+            end;
+        {error, _} ->
+            Owner ! {error, parse_error},
+            State
     end.
 
 forward_to_owner(Stanzas0, #state{owner = Owner,
