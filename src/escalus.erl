@@ -40,12 +40,16 @@
          wait_for_stanzas/3,
          peek_stanzas/1]).
 
--export_type([config/0]).
+-export_type([client/0,
+              config/0]).
+
+-include("escalus.hrl").
 
 %%--------------------------------------------------------------------
 %% Public Types
 %%--------------------------------------------------------------------
 
+-type client() :: #client{}.
 -type config() :: escalus_config:config().
 
 %%--------------------------------------------------------------------
