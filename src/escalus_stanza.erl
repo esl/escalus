@@ -661,9 +661,6 @@ direction_el('after', AbstractID) when is_binary(AbstractID) ->
 direction_el('before', AbstractID) when is_binary(AbstractID) ->
     #xmlel{name = <<"before">>, children = #xmlcdata{content = AbstractID}}.
 
-max(N) when is_integer(N) ->
-    #xmlel{name = <<"max">>, children = #xmlcdata{content = integer_to_binary(N)}}.
-
 mam_ns_attr() -> {<<"xmlns">>,?NS_MAM}.
 
 
