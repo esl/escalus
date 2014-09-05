@@ -217,6 +217,9 @@ get_users(Users) ->
 get_user_by_name(Name) ->
     get_user_by_name(Name, get_users(all)).
 
+-spec create_user(escalus:config(),
+                  {atom(), escalus_config:key() | escalus:config()}) ->
+    {ok, any(), xmlterm()} | {error, any(), xmlterm()}.
 create_user(Config, {_Name, UserSpec}) ->
     ClientProps = get_options(Config, UserSpec),
     {ok, Conn, ClientProps, _} = escalus_connection:start(ClientProps,
@@ -370,6 +373,10 @@ get_defined_option(Config, Name, Short, Long) ->
             Value
     end.
 
+-spec wait_for_result(escalus:client()) -> {ok, result, xmlterm()}
+                                         | {ok, conflict, xmlterm()}
+                                         | {error, Error, xmlterm()}
+      when Error :: 'failed_to_register' | 'bad_response' | 'timeout'.
 wait_for_result(Conn) ->
     receive
         {stanza, Conn, Stanza} ->
