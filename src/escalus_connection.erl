@@ -128,7 +128,7 @@ send(#client{module = Mod, event_client = EventClient} = Client, Elem) ->
     escalus_event:outgoing_stanza(EventClient, Elem),
     Mod:send(Client, Elem).
 
--spec get_stanza(client(), any()) -> #xmlel{}.
+-spec get_stanza(client(), any()) -> xmlstreamelement().
 get_stanza(Conn, Name) ->
     receive
         {stanza, Conn, Stanza} ->
