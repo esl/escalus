@@ -662,13 +662,13 @@ fmapM(F, MaybeVal) -> F(MaybeVal).
 defined(L) when is_list(L) -> [ El || El <- L, El /= undefined ].
 
 start_elem(StartTime) ->
-    #xmlel{name = <<"start">>, children = #xmlcdata{content = StartTime}}.
+    #xmlel{name = <<"start">>, children = [#xmlcdata{content = StartTime}]}.
 
 end_elem(EndTime) ->
-    #xmlel{name = <<"end">>, children = #xmlcdata{content = EndTime}}.
+    #xmlel{name = <<"end">>, children = [#xmlcdata{content = EndTime}]}.
 
 with_elem(BWithJID) ->
-    #xmlel{name = <<"with">>, children = #xmlcdata{content = BWithJID}}.
+    #xmlel{name = <<"with">>, children = [#xmlcdata{content = BWithJID}]}.
 
 rsm_after_or_before({Direction, AbstractID, MaxCount}) ->
     #xmlel{name = <<"set">>,
@@ -676,9 +676,9 @@ rsm_after_or_before({Direction, AbstractID, MaxCount}) ->
            children = defined([max(MaxCount), direction_el(Direction, AbstractID) ])}.
 
 direction_el('after', AbstractID) when is_binary(AbstractID) ->
-    #xmlel{name = <<"after">>, children = #xmlcdata{content = AbstractID}};
+    #xmlel{name = <<"after">>, children = [#xmlcdata{content = AbstractID}]};
 direction_el('before', AbstractID) when is_binary(AbstractID) ->
-    #xmlel{name = <<"before">>, children = #xmlcdata{content = AbstractID}};
+    #xmlel{name = <<"before">>, children = [#xmlcdata{content = AbstractID}]};
 direction_el(_, undefined) ->
     undefined.
 
