@@ -18,6 +18,8 @@
 -export([get_history/1,
          print_history/1]).
 
+-export_type([event_client/0]).
+
 -include_lib("exml/include/exml.hrl").
 -include("no_binary_to_integer.hrl").
 
