@@ -167,7 +167,7 @@ is_forwarded_received_message(OriginalFrom, OriginalTo, Msg, Stanza) ->
 is_forwarded_sent_message(OriginalFrom, OriginalTo, Msg, Stanza) ->
     has_carbon(<<"sent">>, OriginalFrom, OriginalTo, Msg, Stanza).
 
--spec has_carbon(binary(), binary(), binary(), binary(), binary()) -> boolean().
+-spec has_carbon(binary(), binary(), binary(), binary(), xmlterm()) -> boolean().
 has_carbon(Type, From, To, Msg, Stanza) ->
     Carbon = exml_query:subelement(Stanza, Type),
     has_ns(?NS_CARBONS_2, Carbon)
