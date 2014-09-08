@@ -163,7 +163,8 @@ maybe_use_ssl(Conn, Props, Features) ->
     case use_ssl(Props, Features) of
         true ->
             {Conn1, Props1} = starttls(Conn, Props),
-            {Conn1, Props1, Features};
+            {Conn2, Props2, Features2} = stream_features(Conn1, Props1, []),
+            {Conn2, Props2, Features2};
         false ->
             {Conn, Props, Features}
     end.
@@ -189,7 +190,8 @@ maybe_use_compression(Conn, Props, Features) ->
     case can_use_compression(Props, Features) of
         true ->
             {Conn1, Props1} = compress(Conn, Props),
-            {Conn1, Props1, Features};
+            {Conn2, Props2, Features2} = stream_features(Conn1, Props1, []),
+            {Conn2, Props2, Features2};
         false ->
             {Conn, Props, Features}
     end.
