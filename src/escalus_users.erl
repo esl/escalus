@@ -61,6 +61,13 @@
 -type spec() :: [{escalus_config:key(), any()}].
 -type who() :: all | {by_name, [escalus_config:key()]} | [spec()].
 
+%% Not yet public types
+-type user() :: atom() | user_spec().
+-type user_spec() :: escalus:config().
+-type host() :: inet:hostname() | inet:ip4_address() | binary().
+-type xmpp_domain() :: inet:hostname() | binary().
+-type event_client() :: pid().
+
 -import(escalus_compat, [bin/1]).
 
 -include("include/escalus.hrl").
@@ -70,6 +77,7 @@
 %% `escalus_user_db` callbacks
 %%--------------------------------------------------------------------
 
+-spec start(escalus:config()) -> any().
 start(Config) ->
     case auth_type(Config) of
         {escalus_user_db, {module, M}} ->
@@ -78,6 +86,7 @@ start(Config) ->
             ok
     end.
 
+-spec stop(escalus:config()) -> any().
 stop(Config) ->
     case auth_type(Config) of
         {escalus_user_db, {module, M}} ->
@@ -127,35 +136,44 @@ create_users(Config) ->
 delete_users(Config) ->
     delete_users(Config, all).
 
+-spec get_jid(escalus:config(), user()) -> binary().
 get_jid(Config, User) ->
     Username = get_username(Config, User),
     Server = get_server(Config, User),
     <<Username/binary, "@", Server/binary>>.
 
+-spec get_username(escalus:config(), user()) -> binary().
 get_username(Config, User) ->
     get_defined_option(Config, User, username, escalus_username).
 
+-spec get_password(escalus:config(), user()) -> binary().
 get_password(Config, User) ->
     get_defined_option(Config, User, password, escalus_password).
 
+-spec get_host(escalus:config(), user()) -> host().
 get_host(Config, User) ->
     get_user_option(host, User, escalus_host, Config, get_server(Config, User)).
 
+-spec get_port(escalus:config(), user()) -> inet:port_number().
 get_port(Config, User) ->
     get_user_option(port, User, escalus_port, Config, 5222).
 
+-spec get_server(escalus:config(), user()) -> xmpp_domain().
 get_server(Config, User) ->
     get_user_option(server, User, escalus_server, Config, <<"localhost">>).
 
+-spec get_wspath(escalus:config(), user()) -> binary() | 'undefined'.
 get_wspath(Config, User) ->
     get_user_option(wspath, User, escalus_wspath, Config, undefined).
 
+-spec get_auth_method(escalus:config(), user()) -> {module(), atom()}.
 get_auth_method(Config, User) ->
     AuthMethod = get_user_option(auth_method, User,
                                  escalus_auth_method, Config,
                                  <<"PLAIN">>),
     get_auth_method(AuthMethod).
 
+-spec get_auth_method(binary() | {module(), atom()}) -> {module(), atom()}.
 get_auth_method(<<"PLAIN">>) ->
     {escalus_auth, auth_plain};
 get_auth_method(<<"DIGEST-MD5">>) ->
@@ -164,9 +182,10 @@ get_auth_method(<<"SASL-ANON">>) ->
     {escalus_auth, auth_sasl_anon};
 get_auth_method(<<"SCRAM-SHA-1">>) ->
     {escalus_auth, auth_sasl_scram_sha1};
-get_auth_method(Other) ->
-    Other.
+get_auth_method({Mod, Fun}) when is_atom(Mod), is_atom(Fun) ->
+    {Mod, Fun}.
 
+-spec get_usp(escalus:config(), user()) -> [binary() | xmpp_domain()].
 get_usp(Config, User) ->
     [get_username(Config, User),
      get_server(Config, User),
@@ -174,6 +193,7 @@ get_usp(Config, User) ->
 
 %% TODO: get_options/2 and get_userspec/2 are redundant - remove one
 %% TODO: this list of options should be complete and formal!
+-spec get_options(escalus:config(), user()) -> escalus:config().
 get_options(Config, User) ->
     [{username, get_username(Config, User)},
      {server, get_server(Config, User)},
@@ -183,9 +203,12 @@ get_options(Config, User) ->
      {wspath, get_wspath(Config, User)}
      | get_userspec(Config, User)].
 
+-spec get_options(escalus:config(), user(), binary()) -> escalus:config().
 get_options(Config, User, Resource) ->
     [{resource, bin(Resource)} | get_options(Config, User)].
 
+-spec get_options(escalus:config(), user(),
+                  binary(), event_client()) -> escalus:config().
 get_options(Config, User, Resource, EventClient) ->
     [{event_client, EventClient} | get_options(Config, User, Resource)].
 
@@ -198,6 +221,8 @@ get_userspec(Config, Username) when is_atom(Username) ->
 get_userspec(_Config, UserSpec) when is_list(UserSpec) ->
     UserSpec.
 
+-spec update_userspec(escalus:config(), atom(), atom(), any()) ->
+      escalus:config().
 update_userspec(Config, UserName, Option, Value) ->
     UserSpec = [{Option, Value}
                 | escalus_users:get_userspec(Config, UserName)],
@@ -214,11 +239,11 @@ get_users({by_name, Names}) ->
 get_users(Users) ->
     Users.
 
+-spec get_user_by_name(atom()) -> {atom(), escalus:config()}.
 get_user_by_name(Name) ->
     get_user_by_name(Name, get_users(all)).
 
--spec create_user(escalus:config(),
-                  {atom(), escalus_config:key() | escalus:config()}) ->
+-spec create_user(escalus:config(), {atom(), user()}) ->
     {ok, any(), xmlterm()} | {error, any(), xmlterm()}.
 create_user(Config, {_Name, UserSpec}) ->
     ClientProps = get_options(Config, UserSpec),
@@ -234,6 +259,7 @@ create_user(Config, {_Name, UserSpec}) ->
     escalus_connection:stop(Conn),
     Result.
 
+-spec verify_creation({ok, _, _} | {error, _, _}) -> ok.
 verify_creation({ok, result, _}) ->
     ok;
 verify_creation({ok, conflict, Raw}) ->
@@ -244,6 +270,8 @@ verify_creation({error, Error, Raw}) ->
     error_logger:error_msg("error when trying to register user: ~s~n", [RawStr]),
     error(Error).
 
+-spec delete_user(escalus:config(), {atom(), user()}) ->
+      {ok, _, _} | {error, _, _}.
 delete_user(Config, {_Name, UserSpec}) ->
     Options = get_options(Config, UserSpec),
     {ok, Conn, _, _} = escalus_connection:start(Options),
@@ -266,6 +294,7 @@ try_check_mod_register(Config) ->
     catch _ -> false
     end.
 
+-spec is_mod_register_enabled(escalus:config()) -> boolean().
 is_mod_register_enabled(Config) ->
     Server = escalus_config:get_config(escalus_server, Config, <<"localhost">>),
     Host = escalus_config:get_config(escalus_host, Config, Server),
@@ -350,7 +379,7 @@ get_user_by_name(Name, Users) ->
 %% get_user_option is a wrapper on escalus_config:get_config/5,
 %% which can take either UserSpec (a proplist) or user name (atom)
 %% as the second argument
--spec get_user_option(short_option(), atom() | escalus:config(), long_option(),
+-spec get_user_option(short_option(), user(), long_option(),
                       escalus:config(), option_value()) -> option_value().
 get_user_option(Short, Name, Long, Config, Default) when is_atom(Name) ->
     {Name, Spec} = case lists:keysearch(escalus_users, 1, Config) of
@@ -363,7 +392,7 @@ get_user_option(Short, Name, Long, Config, Default) when is_atom(Name) ->
 get_user_option(Short, Spec, Long, Config, Default) ->
     escalus_config:get_config(Short, Spec, Long, Config, Default).
 
--spec get_defined_option(escalus:config(), atom() | escalus:config(),
+-spec get_defined_option(escalus:config(), user(),
                          short_option(), long_option()) -> option_value().
 get_defined_option(Config, Name, Short, Long) ->
     case get_user_option(Short, Name, Long, Config, undefined) of
