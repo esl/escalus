@@ -20,12 +20,11 @@
 -module(escalus_ejabberd).
 
 -behaviour(escalus_user_db).
+
 %% escalus_user_db callbacks
 -export([start/1,
          stop/1,
-         create_users/1,
          create_users/2,
-         delete_users/1,
          delete_users/2]).
 
 -export([rpc/3,
@@ -45,42 +44,7 @@
          setup_option/2,
          reset_option/2]).
 
-
 -include("escalus.hrl").
-
-
-%%%
-%%% Escalus_users API
-%%%
-
-start(_Opts) -> ok.
-stop(_Opts) -> ok.
-
-create_users(Config) ->
-    create_users(Config, all).
-
-create_users(Config, Who) ->
-    AllUsers = escalus_users:get_users(Who),
-    lists:foreach(fun({_Name, UserSpec}) ->
-        register_user(Config, UserSpec)
-    end, AllUsers),
-    Config.
-
-delete_users(Config) ->
-    AllUsers = escalus_config:get_config(escalus_users, Config),
-    lists:foreach(fun({_Name, UserSpec}) ->
-        unregister_user(Config, UserSpec)
-    end, AllUsers).
-
-delete_users(Config, Who) when is_atom(Who); is_tuple(Who) ->
-    Users = escalus_users:get_users(Who),
-    delete_users(Config, Users);
-
-delete_users(Config, Users) ->
-    lists:foreach(fun({_Name, UserSpec}) ->
-        unregister_user(Config, UserSpec)
-    end, Users).
-
 
 %%%
 %%% Business API
@@ -102,7 +66,6 @@ remote_format(Format, Args) ->
     group_leader(rpc(erlang, whereis, [user]), self()),
     io:format(Format, Args),
     group_leader(whereis(user), self()).
-
 
 -spec get_global_option(term()) -> term().
 get_global_option(Option) ->
@@ -230,7 +193,28 @@ reset_option({Option, _, Set, _}, Config) ->
     end,
     proplists:delete({saved, Option}, Config).
 
+%%--------------------------------------------------------------------
+%% escalus_user_db callbacks
+%%--------------------------------------------------------------------
 
+start(_) -> ok.
+stop(_) -> ok.
+
+-spec create_users(escalus:config(), escalus_users:who()) -> escalus:config().
+create_users(Config, Who) ->
+    Users = escalus_users:get_users(Who),
+    lists:foreach(fun({_Name, UserSpec}) ->
+                          register_user(Config, UserSpec)
+                  end, Users),
+    lists:keystore(escalus_users, 1, Config, {escalus_users, Users}).
+
+-spec delete_users(escalus:config(), escalus_users:who()) -> escalus:config().
+delete_users(Config, Who) when is_atom(Who); is_tuple(Who) ->
+    Users = escalus_users:get_users(Who),
+    lists:foreach(fun({_Name, UserSpec}) ->
+                          unregister_user(Config, UserSpec)
+                  end, Users),
+    Config.
 
 %%--------------------------------------------------------------------
 %% Helpers
