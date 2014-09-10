@@ -46,14 +46,6 @@
          is_mod_register_enabled/1
         ]).
 
-%% Deprecated API
--export([create_user/1,
-         delete_user/1,
-         get_usp/1,
-         get_jid/1,
-         get_username/1,
-         get_server/1]).
-
 %% Public types
 -export_type([user_spec/0,
               who/0]).
@@ -312,27 +304,6 @@ is_mod_register_enabled(Config) ->
         _ ->
             true
     end.
-
-%%--------------------------------------------------------------------
-%% Deprecated API
-%%--------------------------------------------------------------------
-
--define(DEFINE_ONE_ARG(FUNCTION_NAME),
-        FUNCTION_NAME(Username) ->
-            error_logger:info_msg("Calling deprecated ~p:~p/1,"
-                                  " please call a version with Config"
-                                  " as additional first argument.~n"
-                                  "Backtrace: ~p~n.",
-                                  [?MODULE, FUNCTION_NAME,
-                                   escalus_compat:backtrace(0)]),
-            FUNCTION_NAME([], Username)).
-
-?DEFINE_ONE_ARG(create_user).
-?DEFINE_ONE_ARG(delete_user).
-?DEFINE_ONE_ARG(get_usp).
-?DEFINE_ONE_ARG(get_jid).
-?DEFINE_ONE_ARG(get_username).
-?DEFINE_ONE_ARG(get_server).
 
 %%--------------------------------------------------------------------
 %% Helpers
