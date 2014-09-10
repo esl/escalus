@@ -91,17 +91,21 @@ stop(Config) ->
 
 -spec create_users(escalus:config(), who()) -> escalus:config().
 create_users(Config, Who) ->
-    Users = get_users(Who),
     case auth_type(Config) of
         {escalus_user_db, xmpp} ->
-            CreationResults = [create_user(Config, User) || User <- Users],
-            lists:foreach(fun verify_creation/1, CreationResults);
+            create_users_via_xmpp(Config, Who);
         {escalus_user_db, {module, M}} ->
-            M:create_users(Config, Users);
+            M:create_users(Config, Who);
         {escalus_user_db, ejabberd} ->
-            escalus_ejabberd:create_users(Config, Users)
-    end,
-    [{escalus_users, Users}] ++ Config.
+            escalus_ejabberd:create_users(Config, Who)
+    end.
+
+-spec create_users_via_xmpp(escalus:config(), who()) -> escalus:config().
+create_users_via_xmpp(Config, Who) ->
+    Users = get_users(Who),
+    CreationResults = [create_user(Config, User) || User <- Users],
+    lists:foreach(fun verify_creation/1, CreationResults),
+    lists:keystore(escalus_users, 1, Config, {escalus_users, Users}).
 
 -spec delete_users(escalus:config(), who()) -> escalus:config().
 delete_users(Config, Who) ->
