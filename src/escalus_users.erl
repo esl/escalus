@@ -229,9 +229,7 @@ get_users(all) ->
     escalus_ct:get_config(escalus_users);
 get_users({by_name, Names}) ->
     All = get_users(all),
-    [get_user_by_name(Name, All) || Name <- Names];
-get_users(Users) ->
-    Users.
+    [get_user_by_name(Name, All) || Name <- Names].
 
 -spec get_user_by_name(atom()) -> {atom(), escalus:config()}.
 get_user_by_name(Name) ->
