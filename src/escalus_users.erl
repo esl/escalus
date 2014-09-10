@@ -50,15 +50,13 @@
               who/0]).
 
 %% Public types
--type who() :: all | {by_name, [escalus_config:key()]} | [named_user()].
-
--type user() :: user_name() | user_spec().
-
--type user_name() :: atom().
--type named_user() :: {user_name(), user_spec()}.
+-type who() :: all | {by_name, [escalus_config:key()]}.
 -type user_spec() :: [{user_option(), any()}].
 
-%% Not yet public types
+%% Internal types
+-type user() :: user_name() | user_spec().
+-type named_user() :: {user_name(), user_spec()}.
+-type user_name() :: atom().
 -type host() :: inet:hostname() | inet:ip4_address() | binary().
 -type xmpp_domain() :: inet:hostname() | binary().
 
