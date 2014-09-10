@@ -19,6 +19,7 @@ script:
         - make
         - make test
         - make ct
+        - make dialyzer
 
 after_script:
         - make mongooseim-stop
