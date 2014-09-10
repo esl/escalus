@@ -38,8 +38,8 @@
 %%% Public API
 %%%===================================================================
 
--spec start(escalus_users:spec()) -> {ok, client(), escalus_users:spec()} |
-                                     {error, any()}.
+-spec start(escalus_users:user_spec()) -> {ok, client(), escalus_users:user_spec()}
+                                        | {error, any()}.
 start(Props) ->
     start(Props,
           [start_stream,
@@ -75,8 +75,8 @@ start(Props) ->
 %% 'maybe_*' will check allowed properties and features to see if it's possible
 %% to use a feature.
 %% Others will assume a feature is available and fail if it's not.
--spec start(escalus_users:spec(),
-            [step_spec()]) -> {ok, client(), escalus_users:spec()} |
+-spec start(escalus_users:user_spec(),
+            [step_spec()]) -> {ok, client(), escalus_users:user_spec()} |
                               {error, any()}.
 start(Props0, Steps) ->
     try

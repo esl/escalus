@@ -18,6 +18,8 @@
 -export([get_history/1,
          print_history/1]).
 
+-export_type([event_client/0]).
+
 -include_lib("exml/include/exml.hrl").
 -include("no_binary_to_integer.hrl").
 
@@ -157,6 +159,9 @@ new_client(Config, User, MaybeResource) when is_list(Config) ->
 maybe_resource_to_binary(undefined) -> <<>>;
 maybe_resource_to_binary(Resource) when is_binary(Resource) -> Resource.
 
+-type event_client() :: list({atom(), any()}).
+
+-spec new_client_1(any(), escalus_users:user_spec(), binary()) -> event_client().
 new_client_1(Mgr, UserSpec, Resource) ->
     [{event_manager, Mgr},
      {server, proplists:get_value(server, UserSpec)},

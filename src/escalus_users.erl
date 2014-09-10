@@ -46,19 +46,21 @@
         ]).
 
 %% Public types
--export_type([spec/0,
+-export_type([user_spec/0,
               who/0]).
 
 %% Public types
--type spec() :: [{escalus_config:key(), any()}].
--type who() :: all | {by_name, [escalus_config:key()]} | [spec()].
+-type who() :: all | {by_name, [escalus_config:key()]} | [named_user()].
+
+-type user() :: user_name() | user_spec().
+
+-type user_name() :: atom().
+-type named_user() :: {user_name(), user_spec()}.
+-type user_spec() :: [{user_option(), any()}].
 
 %% Not yet public types
--type user() :: atom() | user_spec().
--type user_spec() :: escalus:config().
 -type host() :: inet:hostname() | inet:ip4_address() | binary().
 -type xmpp_domain() :: inet:hostname() | binary().
--type event_client() :: pid().
 
 -import(escalus_compat, [bin/1]).
 
@@ -200,12 +202,12 @@ get_options(Config, User, Resource) ->
     [{resource, bin(Resource)} | get_options(Config, User)].
 
 -spec get_options(escalus:config(), user(),
-                  binary(), event_client()) -> escalus:config().
+                  binary(), escalus_event:event_client()) -> escalus:config().
 get_options(Config, User, Resource, EventClient) ->
     [{event_client, EventClient} | get_options(Config, User, Resource)].
 
--spec get_userspec(escalus:config(), escalus_config:key() | spec())
-    -> spec().
+-spec get_userspec(escalus:config(), user_name() | user_spec())
+    -> user_spec().
 get_userspec(Config, Username) when is_atom(Username) ->
     Users = escalus_config:get_config(escalus_users, Config),
     {Username, UserSpec} = lists:keyfind(Username, 1, Users),
@@ -222,7 +224,7 @@ update_userspec(Config, UserName, Option, Value) ->
     NewUsers = lists:keystore(UserName, 1, Users, {UserName, UserSpec}),
     lists:keystore(escalus_users, 1, Config, {escalus_users, NewUsers}).
 
--spec get_users(who()) -> [spec()].
+-spec get_users(who()) -> [named_user()].
 get_users(all) ->
     escalus_ct:get_config(escalus_users);
 get_users({by_name, Names}) ->
@@ -235,10 +237,9 @@ get_users(Users) ->
 get_user_by_name(Name) ->
     get_user_by_name(Name, get_users(all)).
 
--spec create_user(escalus:config(), {atom(), user()}) ->
-    {ok, any(), xmlterm()} | {error, any(), xmlterm()}.
-create_user(Config, {_Name, UserSpec}) ->
-    ClientProps = get_options(Config, UserSpec),
+-spec create_user(escalus:config(), named_user()) -> any().
+create_user(Config, {_Name, Options}) ->
+    ClientProps = get_options(Config, Options),
     {ok, Conn, ClientProps, _} = escalus_connection:start(ClientProps,
                                                           [start_stream,
                                                            stream_features,
