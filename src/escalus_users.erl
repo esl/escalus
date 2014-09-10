@@ -60,8 +60,6 @@
 -type host() :: inet:hostname() | inet:ip4_address() | binary().
 -type xmpp_domain() :: inet:hostname() | binary().
 
--import(escalus_compat, [bin/1]).
-
 -include("include/escalus.hrl").
 -include_lib("exml/include/exml.hrl").
 
@@ -201,7 +199,7 @@ get_options(Config, User) ->
 
 -spec get_options(escalus:config(), user(), binary()) -> escalus:config().
 get_options(Config, User, Resource) ->
-    [{resource, bin(Resource)} | get_options(Config, User)].
+    [{resource, Resource} | get_options(Config, User)].
 
 -spec get_options(escalus:config(), user(),
                   binary(), escalus_event:event_client()) -> escalus:config().
