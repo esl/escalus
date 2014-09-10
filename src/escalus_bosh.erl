@@ -482,7 +482,7 @@ detect_type(Attrs) ->
         {_,         Version} -> {streamstart,Version}
     end.
 
-host_to_list({_,_,_,_} = IP4) -> inet:ntoa(IP4);
-host_to_list({_,_,_,_,_,_,_,_} = IP6) -> inet:ntoa(IP6);
+host_to_list({_,_,_,_} = IP4) -> inet_parse:ntoa(IP4);
+host_to_list({_,_,_,_,_,_,_,_} = IP6) -> inet_parse:ntoa(IP6);
 host_to_list(BHost) when is_binary(BHost) -> binary_to_list(BHost);
 host_to_list(Host) when is_list(Host) -> Host.
