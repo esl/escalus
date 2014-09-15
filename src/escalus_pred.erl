@@ -311,8 +311,8 @@ is_presence_with_priority(Priority, Presence) ->
 
 -spec is_stanza_from(escalus_utils:jid_spec(), xmlterm()) -> boolean().
 is_stanza_from(From, Stanza) ->
-    ExpectedJid = escalus_utils:get_jid(From),
-    ActualJid = exml_query:attr(Stanza, <<"from">>),
+    ExpectedJid = escalus_utils:jid_to_lower(escalus_utils:get_jid(From)),
+    ActualJid = escalus_utils:jid_to_lower(exml_query:attr(Stanza, <<"from">>)),
     escalus_utils:is_prefix(ExpectedJid, ActualJid).
 
 -spec is_roster_get(xmlterm()) -> boolean().
@@ -341,10 +341,10 @@ is_private_error(Stanza) ->
 
 -spec roster_contains(escalus_utils:jid_spec(), xmlterm()) -> boolean().
 roster_contains(Contact, Stanza) ->
-    ExpectedJid = escalus_utils:get_jid(Contact),
+    ExpectedJid = escalus_utils:jid_to_lower(escalus_utils:get_jid(Contact)),
     Items = get_roster_items(Stanza),
     lists:any(fun (#xmlel{} = Element) ->
-                      ContactJid = exml_query:attr(Element, <<"jid">>),
+                      ContactJid = escalus_utils:jid_to_lower(exml_query:attr(Element, <<"jid">>)),
                       Pref = escalus_utils:is_prefix(ContactJid, ExpectedJid),
                       if %% TODO: simplify to `ContactJid == ExpectedJid`
                           ContactJid == ExpectedJid ->

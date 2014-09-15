@@ -27,6 +27,7 @@
          mix_match/3,
          get_jid/1,
          get_short_jid/1,
+         jid_to_lower/1,
          get_username/1,
          get_server/1,
          drop_first_such/2,
@@ -149,6 +150,11 @@ get_short_jid(Jid) when is_list(Jid) ->
     list_to_binary(Jid);
 get_short_jid(Jid) when is_binary(Jid) ->
     Jid.
+
+-spec jid_to_lower(binary()) -> binary().
+jid_to_lower(Jid) ->
+    %% simplified lowercaseing
+    list_to_binary(string:to_lower(binary_to_list(Jid))).
 
 get_username(UserOrClient) ->
     regexp_get(get_short_jid(UserOrClient), <<"^([^@]*)">>).
