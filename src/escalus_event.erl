@@ -18,6 +18,8 @@
 -export([get_history/1,
          print_history/1]).
 
+-export_type([event_client/0]).
+
 -include_lib("exml/include/exml.hrl").
 -include("no_binary_to_integer.hrl").
 
@@ -143,7 +145,10 @@ build_stanza_event_elem(Type, JID, BaseTime, Time, Elem) ->
         children = [Elem || Elem =/= undefined]}.
 
 manager(Config) ->
-    proplists:get_value(escalus_event_mgr, Config).
+    case proplists:get_value(escalus_event_mgr, Config) of
+        undefined -> error(no_event_mgr, [Config]);
+        Mgr -> Mgr
+    end.
 
 %% @doc Create a new event emitter.
 new_client(Config, User, MaybeResource) when is_list(Config) ->
@@ -154,8 +159,9 @@ new_client(Config, User, MaybeResource) when is_list(Config) ->
 maybe_resource_to_binary(undefined) -> <<>>;
 maybe_resource_to_binary(Resource) when is_binary(Resource) -> Resource.
 
-new_client_1(undefined, _UserSpec, _Resource) ->
-    undefined;
+-type event_client() :: list({atom(), any()}).
+
+-spec new_client_1(any(), escalus_users:user_spec(), binary()) -> event_client().
 new_client_1(Mgr, UserSpec, Resource) ->
     [{event_manager, Mgr},
      {server, proplists:get_value(server, UserSpec)},

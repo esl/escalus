@@ -643,13 +643,13 @@ fmapM(F, MaybeVal) -> F(MaybeVal).
 defined(L) when is_list(L) -> [ El || El <- L, El /= undefined ].
 
 start_elem(StartTime) ->
-    #xmlel{name = <<"start">>, children = #xmlcdata{content = StartTime}}.
+    #xmlel{name = <<"start">>, children = [#xmlcdata{content = StartTime}]}.
 
 end_elem(EndTime) ->
-    #xmlel{name = <<"end">>, children = #xmlcdata{content = EndTime}}.
+    #xmlel{name = <<"end">>, children = [#xmlcdata{content = EndTime}]}.
 
 with_elem(BWithJID) ->
-    #xmlel{name = <<"with">>, children = #xmlcdata{content = BWithJID}}.
+    #xmlel{name = <<"with">>, children = [#xmlcdata{content = BWithJID}]}.
 
 rsm_after_or_before({Direction, AbstractID}) when is_binary(AbstractID) ->
     #xmlel{name = <<"set">>,
@@ -657,12 +657,9 @@ rsm_after_or_before({Direction, AbstractID}) when is_binary(AbstractID) ->
            children = [ direction_el(Direction, AbstractID) ]}.
 
 direction_el('after', AbstractID) when is_binary(AbstractID) ->
-    #xmlel{name = <<"after">>, children = #xmlcdata{content = AbstractID}};
+    #xmlel{name = <<"after">>, children = [#xmlcdata{content = AbstractID}]};
 direction_el('before', AbstractID) when is_binary(AbstractID) ->
-    #xmlel{name = <<"before">>, children = #xmlcdata{content = AbstractID}}.
-
-max(N) when is_integer(N) ->
-    #xmlel{name = <<"max">>, children = #xmlcdata{content = integer_to_binary(N)}}.
+    #xmlel{name = <<"before">>, children = [#xmlcdata{content = AbstractID}]}.
 
 mam_ns_attr() -> {<<"xmlns">>,?NS_MAM}.
 

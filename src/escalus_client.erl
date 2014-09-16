@@ -44,6 +44,8 @@
 %% Public API
 %%--------------------------------------------------------------------
 
+-spec start(escalus:config(), escalus_users:user_spec(), binary()) -> {ok, _}
+                                                                    | {error, _}.
 start(Config, UserSpec, Resource) ->
     EventClient = escalus_event:new_client(Config, UserSpec, Resource),
     Options = escalus_users:get_options(Config, UserSpec, Resource, EventClient),
