@@ -67,7 +67,8 @@
                 terminated = false,
                 event_client,
                 client,
-                on_reply}).
+                on_reply,
+                timeout}).
 
 %%%===================================================================
 %%% API
@@ -240,6 +241,7 @@ init([Args, Owner]) ->
     Port = proplists:get_value(port, Args, 5280),
     Path = proplists:get_value(path, Args, <<"/http-bind">>),
     Wait = proplists:get_value(bosh_wait, Args, ?DEFAULT_WAIT),
+    Timeout = proplists:get_value(timeout, Args, infinity),
     EventClient = proplists:get_value(event_client, Args),
     HostStr = host_to_list(Host),
     OnReplyFun = proplists:get_value(on_reply, Args, fun(_) -> ok end),
@@ -248,7 +250,8 @@ init([Args, Owner]) ->
     InitRid = MS * 1000000 * 1000000 + S * 1000000 + MMS,
     {ok, Parser} = exml_stream:new_parser(),
     case fusco_cp:start_link({HostStr, Port, false},
-                                       [{on_connect, OnConnectFun}],
+                                       [{on_connect, OnConnectFun},
+                                        {connect_timeout, Timeout}],
                                        %% Max two connections as per BOSH rfc
                                        2) of
         {ok, Client} ->
@@ -260,7 +263,8 @@ init([Args, Owner]) ->
                         wait = Wait,
                         event_client = EventClient,
                         client = Client,
-                        on_reply = OnReplyFun}};
+                        on_reply = OnReplyFun,
+                        timeout = Timeout}};
         {error, Reason} ->
             {stop, {shutdown, Reason}}
     end.
@@ -360,11 +364,11 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Helpers
 %%%===================================================================
 
-request(#client{socket = {Client, Path}}, Body, OnReplyFun) ->
+request(#client{socket = {Client, Path}}, Body, OnReplyFun, Timeout) ->
     Headers = [{<<"Content-Type">>, <<"text/xml; charset=utf-8">>}],
     Reply =
         fusco_cp:request(Client, Path, "POST", Headers, exml:to_iolist(Body),
-                         2, infinity),
+                         2, Timeout),
     OnReplyFun(Reply),
     case Reply of
         {ok, {_Status, _Headers, RBody, _Size, _Time}} ->
@@ -384,11 +388,13 @@ send(_, _, _, #state{terminated = true} = S) ->
     %% Sending anything to a terminated session is pointless.
     %% We leave it in its current state to pick up any pending replies.
     S;
-send(Transport, Body, NewRid, #state{requests = Requests, on_reply = OnReplyFun} = S) ->
+send(Transport, Body, NewRid, #state{requests = Requests,
+                                     on_reply = OnReplyFun,
+                                     timeout = Timeout} = S) ->
     Ref = make_ref(),
     Self = self(),
     AsyncReq = fun() ->
-            case request(Transport, Body, OnReplyFun) of
+            case request(Transport, Body, OnReplyFun, Timeout) of
                 {ok, Reply} ->
                     Self ! {http_reply, Ref, Reply, Transport};
                 {error, _} = Error ->
@@ -401,8 +407,9 @@ send(Transport, Body, NewRid, #state{requests = Requests, on_reply = OnReplyFun}
 sync_send(_, _, S=#state{terminated = true}) ->
     %% Sending anything to a terminated session is pointless. We're done.
     {ok, already_terminated, S};
-sync_send(Transport, Body, S=#state{on_reply = OnReplyFun}) ->
-    case request(Transport, Body, OnReplyFun) of
+sync_send(Transport, Body, S=#state{on_reply = OnReplyFun,
+                                    timeout = Timeout}) ->
+    case request(Transport, Body, OnReplyFun, Timeout) of
         {ok, Reply} ->
             {ok, Reply, S#state{rid = S#state.rid+1}};
         {error, Reason} ->

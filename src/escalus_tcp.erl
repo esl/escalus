@@ -137,6 +137,7 @@ init([Args, Owner]) ->
     Host = proplists:get_value(host, Args, <<"localhost">>),
     Port = proplists:get_value(port, Args, 5222),
     EventClient = proplists:get_value(event_client, Args),
+    Timeout = proplists:get_value(timeout, Args, infinity),
 
     OnReplyFun = proplists:get_value(on_reply, Args, fun(_) -> ok end),
     OnRequestFun = proplists:get_value(on_request, Args, fun(_) -> ok end),
@@ -151,8 +152,8 @@ init([Args, Owner]) ->
          end,
 
     Address = host_to_inet(Host),
-    Opts = [binary, {active, once}],
-    case do_connect(Address, Port, Opts, OnConnectFun) of
+    Opts = [binary, {active, once}, {send_timeout, Timeout}],
+    case do_connect(Address, Port, Opts, OnConnectFun, Timeout) of
         {ok, Socket} ->
             {ok, Parser} = exml_stream:new_parser(),
             {ok, #state{owner = Owner,
@@ -412,9 +413,9 @@ send_stream_end(#state{socket = Socket, ssl = Ssl, compress = Compress}) ->
             gen_tcp:send(Socket, exml:to_iolist(StreamEnd))
     end.
 
-do_connect(Address, Port, Opts, OnConnectFun) ->
+do_connect(Address, Port, Opts, OnConnectFun, Timeout) ->
     TimeB = os:timestamp(),
-    Reply = gen_tcp:connect(Address, Port, Opts),
+    Reply = gen_tcp:connect(Address, Port, Opts, Timeout),
     TimeA = os:timestamp(),
     ConnectionTime = timer:now_diff(TimeA, TimeB),
     case Reply of
