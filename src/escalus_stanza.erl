@@ -647,9 +647,9 @@ mam_lookup_messages_iq(QueryId, Start, End, WithJID) ->
 %% Include an rsm id for a particular message.
 mam_lookup_messages_iq(QueryId, Start, End, WithJID, DirectionWMessageId) ->
     IQ = #xmlel{children=[Q]} = mam_lookup_messages_iq(QueryId, Start, End, WithJID),
-    Q2 = Q#xmlel{children = defined([
-                                     fmapM(fun rsm_after_or_before/1, DirectionWMessageId)
-                                    ])},
+    RSM  = defined([fmapM(fun rsm_after_or_before/1, DirectionWMessageId)]),
+    Other = Q#xmlel.children,
+    Q2 = Q#xmlel{children = Other ++ RSM},
     IQ#xmlel{children=[Q2]}.
 
 fmapM(_F, undefined) -> undefined;
@@ -666,18 +666,22 @@ end_elem(EndTime) ->
 with_elem(BWithJID) ->
     #xmlel{name = <<"with">>, children = #xmlcdata{content = BWithJID}}.
 
-rsm_after_or_before({Direction, AbstractID}) when is_binary(AbstractID) ->
+rsm_after_or_before({Direction, AbstractID, MaxCount}) ->
     #xmlel{name = <<"set">>,
            attrs = [{<<"xmlns">>, ?NS_RSM}],
-           children = [ direction_el(Direction, AbstractID) ]}.
+           children = defined([max(MaxCount), direction_el(Direction, AbstractID) ])}.
 
 direction_el('after', AbstractID) when is_binary(AbstractID) ->
     #xmlel{name = <<"after">>, children = #xmlcdata{content = AbstractID}};
 direction_el('before', AbstractID) when is_binary(AbstractID) ->
-    #xmlel{name = <<"before">>, children = #xmlcdata{content = AbstractID}}.
+    #xmlel{name = <<"before">>, children = #xmlcdata{content = AbstractID}};
+direction_el(_, undefined) ->
+    undefined.
 
 max(N) when is_integer(N) ->
-    #xmlel{name = <<"max">>, children = #xmlcdata{content = integer_to_binary(N)}}.
+    #xmlel{name = <<"max">>, children = #xmlcdata{content = integer_to_binary(N)}};
+max(_) ->
+    undefined.
 
 mam_ns_attr() -> {<<"xmlns">>,?NS_MAM}.
 
