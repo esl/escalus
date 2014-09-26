@@ -61,7 +61,8 @@
          auth_response/0,
          auth_response/1,
          query_el/2,
-         x_data_form/2]).
+         x_data_form/2,
+         field_el/3]).
 
 -export([disco_info/1,
          disco_info/2,
@@ -612,22 +613,40 @@ resume(SMID, PrevH) ->
 %%
 %% @TODO: move the stanza constructors from
 %% tests/mam_SUITE.erl into here.
+field_el(_Name, _Type, undefined) ->
+    undefined;
+field_el(Name, Type, Values) when is_list(Values) ->
+    Fields = lists:map(fun (E) ->
+                               #xmlel{name = <<"value">>,
+                                      children = [#xmlcdata{content = E}]}
+                       end, Values),
+    #xmlel{name = <<"field">>,
+           attrs = [{<<"type">>, Type},
+                    {<<"var">>, Name}],
+           children = Fields };
+field_el(Name, Type, Value) ->
+    field_el(Name, Type, [Value]).
 
 mam_archive_query(QueryId) ->
     mam_archive_query(QueryId, []).
 
 mam_archive_query(QueryId, Children) ->
+    Form = #xmlel{name = <<"x">>,
+                  attrs = [{"xmlns", <<"jabber:x:data">>}],
+                  children = defined(Children)},
     escalus_stanza:iq(
-      <<"get">>,
+      <<"set">>,
       [#xmlel{
           name = <<"query">>,
           attrs = [mam_ns_attr(), {<<"queryid">>, QueryId}],
-          children = defined(Children)}]).
+          children = [Form]}]).
 
 mam_lookup_messages_iq(QueryId, Start, End, WithJID) ->
-    mam_archive_query(QueryId, [fmapM(fun start_elem/1, Start),
-                                fmapM(fun end_elem/1, End),
-                                fmapM(fun with_elem/1, WithJID)]).
+    mam_archive_query(QueryId, [field_el(<<"FORM_TYPE">>, <<"hidden">>, ?NS_MAM),
+                                field_el(<<"start">>, <<"text-single">>, Start),
+                                field_el(<<"end">>, <<"text-single">>, End),
+                                field_el(<<"with">>, <<"jid-single">>, WithJID)
+                                ]).
 
 %% Include an rsm id for a particular message.
 mam_lookup_messages_iq(QueryId, Start, End, WithJID, DirectionWMessageId) ->
