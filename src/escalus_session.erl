@@ -50,6 +50,7 @@
 
 -include_lib("exml/include/exml.hrl").
 -include_lib("exml/include/exml_stream.hrl").
+-include("escalus_xmlns.hrl").
 -define(DEFAULT_RESOURCE, <<"escalus-default-resource">>).
 
 %%%===================================================================
@@ -92,8 +93,17 @@ bind(Conn, Props) ->
     Resource = proplists:get_value(resource, Props, ?DEFAULT_RESOURCE),
     escalus_connection:send(Conn, escalus_stanza:bind(Resource)),
     BindReply = escalus_connection:get_stanza(Conn, bind_reply),
-    %% FIXME: verify BindReply, add props
-    Props.
+    escalus:assert(is_iq_result, BindReply),
+    ?NS_BIND = exml_query:path(BindReply, [{element, <<"bind">>},
+                                           {attr, <<"xmlns">>}]),
+    case proplists:get_value(auth_method, Props) of
+        <<"SASL-ANON">> ->
+            JID = exml_query:path(BindReply, [{element, <<"bind">>}, {element, <<"jid">>}, cdata]),
+            TMPUsername = escalus_utils:get_username(JID),
+            lists:keyreplace(username, 1, Props, {username, TMPUsername});
+        _ ->
+            Props
+    end.
 
 compress(Conn, Props) ->
     case proplists:get_value(compression, Props, false) of
