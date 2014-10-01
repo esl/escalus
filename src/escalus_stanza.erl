@@ -646,15 +646,25 @@ mam_archive_query(QueryId) ->
     mam_archive_query(QueryId, []).
 
 mam_archive_query(QueryId, Children) ->
-    Form = #xmlel{name = <<"x">>,
-                  attrs = [{"xmlns", <<"jabber:x:data">>}],
-                  children = defined(Children)},
+    DefChilds = defined(Children),
+
+    %%  > 1 -> has not only FORM_TYPE
+    ChildEl = case length(DefChilds) > 1 of
+                  true ->
+                      [#xmlel{name = <<"x">>,
+                              attrs = [{<<"xmlns">>, <<"jabberd:x:data">>}],
+                              children = DefChilds}];
+                  false ->
+                      %% no need to create form element
+                      []
+              end,
     escalus_stanza:iq(
       <<"set">>,
       [#xmlel{
           name = <<"query">>,
           attrs = [mam_ns_attr(), {<<"queryid">>, QueryId}],
-          children = [Form]}]).
+          children = ChildEl}]).
+
 
 mam_lookup_messages_iq(QueryId, Start, End, WithJID) ->
     mam_archive_query(QueryId, [field_el(<<"FORM_TYPE">>, <<"hidden">>, ?NS_MAM),
