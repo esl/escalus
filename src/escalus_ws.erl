@@ -30,10 +30,17 @@
          code_change/3]).
 
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
--define(HANDSHAKE_TIMEOUT, 3000).
 -define(SERVER, ?MODULE).
 
--record(state, {owner, socket, parser, legacy_ws, compress = false, event_client}).
+-record(state, {owner,
+                socket,
+                parser,
+                legacy_ws,
+                compress = false,
+                event_client,
+                timeout,
+                on_reply,
+                on_request}).
 
 %%%===================================================================
 %%% API
@@ -93,6 +100,12 @@ init([Args, Owner]) ->
     Resource = get_resource(Args, "/ws-xmpp"),
     LegacyWS = get_legacy_ws(Args, false),
     EventClient = proplists:get_value(event_client, Args),
+    Timeout = proplists:get_value(timeout, Args, infinity),
+
+    OnReplyFun = proplists:get_value(on_reply, Args, fun(_) -> ok end),
+    OnRequestFun = proplists:get_value(on_request, Args, fun(_) -> ok end),
+    OnConnectFun = proplists:get_value(on_connect, Args, fun(_) -> ok end),
+
     WSOptions = [],
     {ok, Socket} = wsecli:start(Host, Port, Resource, WSOptions),
     Pid = self(),
@@ -100,7 +113,7 @@ init([Args, Owner]) ->
     wsecli:on_error(Socket, fun(Reason) -> Pid ! {error, Reason} end),
     wsecli:on_message(Socket, fun(Type, Data) -> Pid ! {Type, Data} end),
     wsecli:on_close(Socket, fun(_) -> Pid ! tcp_closed end),
-    wait_for_socket_start(),
+    wait_for_socket_start(OnConnectFun, os:timestamp(), Timeout),
     ParserOpts = if
                      LegacyWS -> [];
                      true -> [{infinite_stream, true}, {autoreset, true}]
@@ -110,7 +123,10 @@ init([Args, Owner]) ->
                 socket = Socket,
                 parser = Parser,
                 legacy_ws = LegacyWS,
-                event_client = EventClient}}.
+                event_client = EventClient,
+                timeout = Timeout,
+                on_reply = OnReplyFun,
+                on_request = OnRequestFun}}.
 
 handle_call(get_transport, _From, State) ->
     {reply, transport(State), State};
@@ -147,11 +163,13 @@ handle_call(stop, _From, #state{socket = Socket,
     wait_until_closed(),
     {stop, normal, ok, State}.
 
-handle_cast({send_compressed, Zout, Elem}, State) ->
+handle_cast({send_compressed, Zout, Elem}, #state{on_request = OnRequestFun} = State) ->
     wsecli:send(State#state.socket, zlib:deflate(Zout, exml:to_iolist(Elem), sync)),
+    OnRequestFun(ok),
     {noreply, State};
-handle_cast({send, Data}, State) ->
+handle_cast({send, Data}, #state{on_request = OnRequestFun} = State) ->
     wsecli:send(State#state.socket, Data),
+    OnRequestFun(ok),
     {noreply, State};
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
@@ -159,7 +177,8 @@ handle_cast(reset_parser, #state{parser = Parser} = State) ->
 
 handle_info(tcp_closed, State) ->
     {stop, normal, State};
-handle_info({error, Reason}, State) ->
+handle_info({error, Reason}, {on_reply = OnReplyFun} = State) ->
+    OnReplyFun({error, Reason}),
     {stop, Reason, State};
 handle_info({text, Data}, State) ->
     handle_info({binary, list_to_binary(lists:flatten(Data))}, State);
@@ -182,23 +201,30 @@ code_change(_OldVsn, State, _Extra) ->
 handle_data(Data, State = #state{owner = Owner,
                                  parser = Parser,
                                  compress = Compress,
-                                 event_client = EventClient}) ->
-    {ok, NewParser, Stanzas} =
-        case Compress of
+                                 event_client = EventClient,
+                                 on_reply = OnReplyFun}) ->
+    OnReplyFun({ok, erlang:byte_size(Data)}),
+    Parsed = case Compress of
             false ->
                 exml_stream:parse(Parser, Data);
             {zlib, {Zin,_}} ->
                 Decompressed = iolist_to_binary(zlib:inflate(Zin, Data)),
                 exml_stream:parse(Parser, Decompressed)
         end,
-    NewState = State#state{parser = NewParser},
-    lists:foreach(fun(Stanza) ->
-                          escalus_event:incoming_stanza(EventClient, Stanza),
-                          Owner ! {stanza, transport(NewState), Stanza}
-                  end, Stanzas),
-    case [StrEnd || #xmlstreamend{} = StrEnd <- Stanzas] of
-        [] -> {noreply, NewState};
-        __ -> {stop, normal, NewState}
+    case Parsed of
+        {ok, NewParser, Stanzas} ->
+            NewState = State#state{parser = NewParser},
+            lists:foreach(fun(Stanza) ->
+                                  escalus_event:incoming_stanza(EventClient, Stanza),
+                                  Owner ! {stanza, transport(NewState), Stanza}
+                          end, Stanzas),
+            case [StrEnd || #xmlstreamend{} = StrEnd <- Stanzas] of
+                [] -> {noreply, NewState};
+                __ -> {stop, normal, NewState}
+            end;
+        _Error ->
+            Owner ! {error, parse_error},
+            {noreply, State}
     end.
 
 common_terminate(_Reason, #state{parser = Parser}) ->
@@ -222,12 +248,16 @@ wait_until_closed() ->
             ok
     end.
 
-wait_for_socket_start() ->
+wait_for_socket_start(OnConnectFun, TimeB, Timeout) ->
     receive
         opened ->
+            TimeA = os:timestamp(),
+            ConnectionTime = timer:now_diff(TimeA, TimeB),
+            OnConnectFun({ok, ConnectionTime}),
             ok
-    after ?HANDSHAKE_TIMEOUT ->
-            throw(handshake_timeout)
+    after Timeout ->
+        OnConnectFun({error, timeout}),
+        throw(handshake_timeout)
     end.
 
 -spec get_port(list(), inet:port_number()) -> inet:port_number().
