@@ -67,7 +67,8 @@
 
 -export([disco_info/1,
          disco_info/2,
-         disco_items/1
+         disco_items/1,
+         disco_items/2
         ]).
 
 -export([vcard_update/1,
@@ -505,6 +506,9 @@ disco_info(JID, Node) ->
 
 disco_items(JID) ->
     ItemsQuery = query_el(?NS_DISCO_ITEMS, []),
+    iq(JID, <<"get">>, [ItemsQuery]).
+disco_items(JID, Node) ->
+    ItemsQuery = query_el(?NS_DISCO_ITEMS, [{<<"node">>, Node}], []),
     iq(JID, <<"get">>, [ItemsQuery]).
 
 search_fields([]) ->
