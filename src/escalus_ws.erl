@@ -107,26 +107,31 @@ init([Args, Owner]) ->
     OnConnectFun = proplists:get_value(on_connect, Args, fun(_) -> ok end),
 
     WSOptions = [],
-    {ok, Socket} = wsecli:start(Host, Port, Resource, WSOptions),
-    Pid = self(),
-    wsecli:on_open(Socket, fun() -> Pid ! opened end),
-    wsecli:on_error(Socket, fun(Reason) -> Pid ! {error, Reason} end),
-    wsecli:on_message(Socket, fun(Type, Data) -> Pid ! {Type, Data} end),
-    wsecli:on_close(Socket, fun(_) -> Pid ! tcp_closed end),
-    wait_for_socket_start(OnConnectFun, os:timestamp(), Timeout),
-    ParserOpts = if
-                     LegacyWS -> [];
-                     true -> [{infinite_stream, true}, {autoreset, true}]
-                 end,
-    {ok, Parser} = exml_stream:new_parser(ParserOpts),
-    {ok, #state{owner = Owner,
-                socket = Socket,
-                parser = Parser,
-                legacy_ws = LegacyWS,
-                event_client = EventClient,
-                timeout = Timeout,
-                on_reply = OnReplyFun,
-                on_request = OnRequestFun}}.
+    case wsecli:start(Host, Port, Resource, WSOptions) of
+        {ok, Socket} ->
+            Pid = self(),
+            wsecli:on_open(Socket, fun() -> Pid ! opened end),
+            wsecli:on_error(Socket, fun(Reason) -> Pid ! {error, Reason} end),
+            wsecli:on_message(Socket, fun(Type, Data) -> Pid ! {Type, Data} end),
+            wsecli:on_close(Socket, fun(_) -> Pid ! tcp_closed end),
+            wait_for_socket_start(OnConnectFun, os:timestamp(), Timeout),
+            ParserOpts = if
+                             LegacyWS -> [];
+                             true -> [{infinite_stream, true}, {autoreset, true}]
+                         end,
+            {ok, Parser} = exml_stream:new_parser(ParserOpts),
+            {ok, #state{owner = Owner,
+                        socket = Socket,
+                        parser = Parser,
+                        legacy_ws = LegacyWS,
+                        event_client = EventClient,
+                        timeout = Timeout,
+                        on_reply = OnReplyFun,
+                        on_request = OnRequestFun}};
+        {error, _} = Error ->
+            OnConnectFun(Error),
+            {stop, normal}
+    end.
 
 handle_call(get_transport, _From, State) ->
     {reply, transport(State), State};
