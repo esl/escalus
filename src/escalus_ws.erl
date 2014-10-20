@@ -164,12 +164,12 @@ handle_call(stop, _From, #state{socket = Socket,
     {stop, normal, ok, State}.
 
 handle_cast({send_compressed, Zout, Elem}, #state{on_request = OnRequestFun} = State) ->
-    wsecli:send(State#state.socket, zlib:deflate(Zout, exml:to_iolist(Elem), sync)),
-    OnRequestFun(ok),
+    Reply = wsecli:send(State#state.socket, zlib:deflate(Zout, exml:to_iolist(Elem), sync)),
+    OnRequestFun(Reply),
     {noreply, State};
 handle_cast({send, Data}, #state{on_request = OnRequestFun} = State) ->
-    wsecli:send(State#state.socket, Data),
-    OnRequestFun(ok),
+    Reply = wsecli:send(State#state.socket, Data),
+    OnRequestFun(Reply),
     {noreply, State};
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
@@ -177,8 +177,8 @@ handle_cast(reset_parser, #state{parser = Parser} = State) ->
 
 handle_info(tcp_closed, State) ->
     {stop, normal, State};
-handle_info({error, Reason}, {on_reply = OnReplyFun} = State) ->
-    OnReplyFun({error, Reason}),
+handle_info({error, Reason} = Error, {on_reply = OnReplyFun} = State) ->
+    OnReplyFun(Error),
     {stop, Reason, State};
 handle_info({text, Data}, State) ->
     handle_info({binary, list_to_binary(lists:flatten(Data))}, State);
