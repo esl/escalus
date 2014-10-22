@@ -98,10 +98,14 @@ upgrade_to_tls(#client{socket = Socket, rcv_pid = Pid} = Client, Props) ->
     gen_tcp:send(Socket, exml:to_iolist(Starttls)),
     escalus_connection:get_stanza(Client, proceed),
     SSLOpts = proplists:get_value(ssl_opts, Props, []),
-    gen_server:call(Pid, {upgrade_to_tls, SSLOpts}),
-    Client2 = get_transport(Client),
-    {Props2, _} = escalus_session:start_stream(Client2, Props),
-    {Client2, Props2}.
+    case gen_server:call(Pid, {upgrade_to_tls, SSLOpts}) of
+        {error, Error} ->
+            error(Error);
+        _ ->
+            Client2 = get_transport(Client),
+            {Props2, _} = escalus_session:start_stream(Client2, Props),
+            {Client2, Props2}
+    end.
 
 use_zlib(#client{rcv_pid = Pid} = Client, Props) ->
     escalus_connection:send(Client, escalus_stanza:compress(<<"zlib">>)),
@@ -174,9 +178,14 @@ handle_call({upgrade_to_tls, SSLOpts}, _From, #state{socket = Socket} = State) -
     SSLOpts1 = [{reuse_sessions, true}],
     SSLOpts2 = lists:keymerge(1, lists:keysort(1, SSLOpts),
                               lists:keysort(1, SSLOpts1)),
-    {ok, Socket2} = ssl:connect(Socket, SSLOpts2),
-    {ok, Parser} = exml_stream:new_parser(),
-    {reply, Socket2, State#state{socket = Socket2, parser = Parser, ssl=true}};
+    case ssl:connect(Socket, SSLOpts2) of
+        {ok, Socket2} ->
+            {ok, Parser} = exml_stream:new_parser(),
+            {reply, Socket2,
+             State#state{socket = Socket2, parser = Parser, ssl=true}};
+        {error, closed} = E ->
+            {reply, E, State}
+    end;
 handle_call(use_zlib, _, #state{parser = Parser, socket = Socket} = State) ->
     Zin = zlib:open(),
     Zout = zlib:open(),
