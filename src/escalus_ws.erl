@@ -114,23 +114,31 @@ init([Args, Owner]) ->
             wsecli:on_error(Socket, fun(Reason) -> Pid ! {error, Reason} end),
             wsecli:on_message(Socket, fun(Type, Data) -> Pid ! {Type, Data} end),
             wsecli:on_close(Socket, fun(_) -> Pid ! tcp_closed end),
-            wait_for_socket_start(OnConnectFun, os:timestamp(), Timeout),
-            ParserOpts = if
-                             LegacyWS -> [];
-                             true -> [{infinite_stream, true}, {autoreset, true}]
-                         end,
-            {ok, Parser} = exml_stream:new_parser(ParserOpts),
-            {ok, #state{owner = Owner,
-                        socket = Socket,
-                        parser = Parser,
-                        legacy_ws = LegacyWS,
-                        event_client = EventClient,
-                        timeout = Timeout,
-                        on_reply = OnReplyFun,
-                        on_request = OnRequestFun}};
-        {error, _} = Error ->
-            OnConnectFun(Error),
-            {stop, normal}
+            try
+                wait_for_socket_start(OnConnectFun, os:timestamp(), Timeout),
+                ParserOpts = if
+                    LegacyWS -> [];
+                    true -> [{infinite_stream, true}, {autoreset, true}]
+                  end,
+                {ok, Parser} = exml_stream:new_parser(ParserOpts),
+                {ok, #state{owner = Owner,
+                            socket = Socket,
+                            parser = Parser,
+                            legacy_ws = LegacyWS,
+                            event_client = EventClient,
+                            timeout = Timeout,
+                            on_reply = OnReplyFun,
+                            on_request = OnRequestFun}}
+            catch
+                handshake_failure ->
+                    {stop, {shutdown, handshake_failure}}
+            end;
+        {error, {shutdown, Reason}} ->
+            OnConnectFun({error, Reason}),
+            {stop, {shutdown, Reason}};
+        {error, Reason} ->
+            OnConnectFun({error, Reason}),
+            {stop, {shutdown, Reason}}
     end.
 
 handle_call(get_transport, _From, State) ->
@@ -259,10 +267,13 @@ wait_for_socket_start(OnConnectFun, TimeB, Timeout) ->
             TimeA = os:timestamp(),
             ConnectionTime = timer:now_diff(TimeA, TimeB),
             OnConnectFun({ok, ConnectionTime}),
-            ok
+            ok;
+        {error, _} = Error ->
+            OnConnectFun(Error),
+            throw(handshake_failure)
     after Timeout ->
         OnConnectFun({error, timeout}),
-        throw(handshake_timeout)
+        throw(handshake_failure)
     end.
 
 -spec get_port(list(), inet:port_number()) -> inet:port_number().
