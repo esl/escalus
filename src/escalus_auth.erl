@@ -191,7 +191,7 @@ wait_for_success(Username, Conn) ->
     case AuthReply#xmlel.name of
         <<"success">> ->
             ok;
-        <<"failure">> ->
+        R when R =:= <<"failure">> orelse R =:= <<"stream:error">> ->
             throw({auth_failed, Username, AuthReply})
     end.
 
