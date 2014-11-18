@@ -89,8 +89,8 @@ get_transport(#client{rcv_pid = Pid}) ->
 
 init([Args, Owner]) ->
     Host = get_host(Args, "localhost"),
-    Port = get_port(Args, 5222),
-    Resource = get_resource(Args, "ws-xmpp"),
+    Port = get_port(Args, 5280),
+    Resource = get_resource(Args, "/ws-xmpp"),
     LegacyWS = get_legacy_ws(Args, false),
     EventClient = proplists:get_value(event_client, Args),
     WSOptions = [],
