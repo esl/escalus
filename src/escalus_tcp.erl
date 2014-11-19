@@ -141,6 +141,7 @@ init([Args, Owner]) ->
     Host = proplists:get_value(host, Args, <<"localhost">>),
     Port = proplists:get_value(port, Args, 5222),
     EventClient = proplists:get_value(event_client, Args),
+    InterfaceIp = proplists:get_value(ip, Args),
 
     OnReplyFun = proplists:get_value(on_reply, Args, fun(_) -> ok end),
     OnRequestFun = proplists:get_value(on_request, Args, fun(_) -> ok end),
