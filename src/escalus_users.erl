@@ -37,7 +37,9 @@
          get_options/3,
          get_options/4,
          get_users/1,
+         get_users/2,
          get_user_by_name/1,
+         get_user_by_name/2,
          create_user/2,
          verify_creation/1,
          delete_user/2,
@@ -208,14 +210,26 @@ update_userspec(Config, UserName, Option, Value) ->
 -spec get_users(who()) -> [spec()].
 get_users(all) ->
     escalus_ct:get_config(escalus_users);
-get_users({by_name, Names}) ->
+get_users({by_name, _} = Names) ->
     All = get_users(all),
-    [get_user_by_name(Name, All) || Name <- Names];
+    get_users(Names, All);
 get_users(Users) ->
     Users.
 
+-spec get_users(who(), [spec()]) -> [spec()].
+get_users(all, Users) ->
+    Users;
+get_users({by_name, Names}, Users) ->
+    [get_user_by_name(Name, Users) || Name <- Names].
+
+-spec get_user_by_name(atom()) -> spec().
 get_user_by_name(Name) ->
     get_user_by_name(Name, get_users(all)).
+
+-spec get_user_by_name(atom(), [spec()]) -> [spec()].
+get_user_by_name(Name, Users) ->
+    {Name, _} = proplists:lookup(Name, Users).
+
 
 create_user(Config, {_Name, UserSpec}) ->
     ClientProps = get_options(Config, UserSpec),
@@ -306,9 +320,6 @@ is_mod_register_enabled(Config) ->
 %%--------------------------------------------------------------------
 %% Helpers
 %%--------------------------------------------------------------------
-
-get_user_by_name(Name, Users) ->
-    {Name, _} = proplists:lookup(Name, Users).
 
 %% get_user_option is a wrapper on escalus_config:get_config/5,
 %% which can take either UserSpec (a proplist) or user name (atom)
