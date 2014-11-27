@@ -74,16 +74,16 @@
 
 start(Config) ->
     case auth_type(Config) of
-        {escalus_user_db, {module, M}} ->
-            M:start([]);
+        {escalus_user_db, {module, M, Opts}} ->
+            M:start(Opts);
         _ ->
             ok
     end.
 
 stop(Config) ->
     case auth_type(Config) of
-        {escalus_user_db, {module, M}} ->
-            M:stop([]);
+        {escalus_user_db, {module, M, Opts}} ->
+            M:stop(Opts);
         _ ->
             ok
     end.
@@ -95,10 +95,8 @@ create_users(Config, Who) ->
         {escalus_user_db, xmpp} ->
             CreationResults = [create_user(Config, User) || User <- Users],
             lists:foreach(fun verify_creation/1, CreationResults);
-        {escalus_user_db, {module, M}} ->
-            M:create_users(Config, Users);
-        {escalus_user_db, ejabberd} ->
-            escalus_ejabberd:create_users(Config, Users)
+        {escalus_user_db, {module, M, _}} ->
+            M:create_users(Config, Users)
     end,
     [{escalus_users, Users}] ++ Config.
 
@@ -111,10 +109,8 @@ delete_users(Config, Who) ->
     case auth_type(Config) of
         {escalus_user_db, xmpp} ->
             [delete_user(Config, User) || User <- Users];
-        {escalus_user_db, {module, M}} ->
-            M:delete_users(Config, Users);
-        {escalus_user_db, ejabberd} ->
-            escalus_ejabberd:delete_users(Config, Users)
+        {escalus_user_db, {module, M, _}} ->
+            M:delete_users(Config, Users)
     end.
 
 %%--------------------------------------------------------------------
@@ -263,13 +259,14 @@ delete_user(Config, {_Name, UserSpec}) ->
     escalus_connection:stop(Conn),
     Result.
 
+-spec auth_type(ct:config()) -> {module, atom(), list()} | xmpp.
 auth_type(Config) ->
     Type = case {escalus_config:get_config(escalus_user_db, Config, undefined),
                  try_check_mod_register(Config)} of
-               {{module, _} = M, _} -> M;
-               {ejabberd, _} -> ejabberd;
-               {_, true} -> xmpp;
-               {_, false} -> ejabberd
+               {{module, M, Args}, _} -> {module, M, Args};
+               {{module, M}, _} -> {module, M, []};
+               {_, false} -> {module, escalus_ejabberd, []};
+               {_, true} -> xmpp
            end,
     {escalus_user_db, Type}.
 
