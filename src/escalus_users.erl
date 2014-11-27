@@ -267,6 +267,7 @@ auth_type(Config) ->
     Type = case {escalus_config:get_config(escalus_user_db, Config, undefined),
                  try_check_mod_register(Config)} of
                {{module, _} = M, _} -> M;
+               {ejabberd, _} -> ejabberd;
                {_, true} -> xmpp;
                {_, false} -> ejabberd
            end,
