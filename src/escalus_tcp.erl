@@ -20,6 +20,7 @@
          reset_parser/1,
          get_sm_h/1,
          set_sm_h/2,
+         set_drop_pred/2,
          stop/1,
          kill/1]).
 
@@ -46,6 +47,7 @@
 -record(state, {owner,
                 socket,
                 parser,
+                drop_pred,
                 ssl = false,
                 compress = false,
                 event_client,
@@ -80,6 +82,9 @@ get_sm_h(#client{rcv_pid = Pid}) ->
 
 set_sm_h(#client{rcv_pid = Pid}, H) ->
     gen_server:call(Pid, {set_sm_h, H}).
+
+set_drop_pred(#client{rcv_pid = Pid}, Pred) ->
+    gen_server:call(Pid, {set_drop_pred, Pred}).
 
 stop(#client{rcv_pid = Pid}) ->
     try
@@ -199,6 +204,8 @@ handle_call(get_active, _From, #state{active = Active} = State) ->
     {reply, Active, State};
 handle_call({set_active, Active}, _From, State) ->
     {reply, ok, State#state{active = Active}};
+handle_call({set_drop_pred, Pred}, _From, State) ->
+    {reply, ok, State#state{drop_pred = Pred}};
 handle_call(recv, _From, State) ->
     {Reply, NS} = handle_recv(State),
     {reply, Reply, NS};
@@ -273,9 +280,17 @@ handle_data(Socket, Data, #state{parser = Parser,
     NewState = State#state{parser = NewParser},
     case State#state.active of
         true ->
-            forward_to_owner(Stanzas, NewState);
+            maybe_forward_to_owner(State, Stanzas, NewState);
         false ->
             store_reply(Stanzas, NewState)
+    end.
+
+maybe_forward_to_owner(State, Stanzas, NewState) ->
+    case State#state.drop_pred of
+        undefined ->
+            forward_to_owner(Stanzas, NewState);
+        _ ->
+            NewState
     end.
 
 forward_to_owner(Stanzas0, #state{owner = Owner,
