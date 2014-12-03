@@ -18,6 +18,7 @@
          get_stanza/2,
          get_sm_h/1,
          set_sm_h/2,
+         set_drop_predicate/2,
          reset_parser/1,
          is_connected/1,
          kill/1]).
@@ -148,6 +149,11 @@ set_sm_h(#client{module = escalus_tcp} = Conn, H) ->
     escalus_tcp:set_sm_h(Conn, H);
 set_sm_h(#client{module = Mod}, _) ->
     error({set_sm_h, {undefined_for_escalus_module, Mod}}).
+
+set_drop_predicate(#client{module = escalus_tcp} = Conn, Pred) ->
+    escalus_tcp:set_drop_pred(Conn, Pred);
+set_drop_predicate(#client{module = Mod}, Pred) ->
+    error({set_drop_pred, {undefined_for_escalus_module, Mod}}).
 
 reset_parser(#client{module = Mod} = Client) ->
     Mod:reset_parser(Client).
