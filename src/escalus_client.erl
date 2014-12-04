@@ -85,9 +85,9 @@ wait_for_stanzas(Client, Count) ->
     wait_for_stanzas(Client, Count, ?WAIT_FOR_STANZA_TIMEOUT).
 
 wait_for_stanzas(Client, Count, Timeout) ->
-    {ok, Tref} = timer:send_after(Timeout, self(), TimeoutMsg={timeout, make_ref()}),
+    Tref = erlang:send_after(Timeout, self(), TimeoutMsg={timeout, make_ref()}),
     Result = do_wait_for_stanzas(Client, Count, TimeoutMsg, []),
-    timer:cancel(Tref),
+    erlang:cancel_timer(Tref),
     Result.
 
 do_wait_for_stanzas(_Client, 0, _TimeoutMsg, Acc) ->
