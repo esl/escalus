@@ -100,7 +100,7 @@ connection_step(Step, {Conn, Props, Features}) ->
                 apply(Fun, [Conn, Props, Features])
         end
     catch
-        Error ->
+       _:Error ->
             (Conn#client.module):stop(Conn),
             throw({connection_step_failed, {Step, Conn, Props, Features}, Error})
     end.

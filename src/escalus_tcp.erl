@@ -141,6 +141,7 @@ init([Args, Owner]) ->
     Host = proplists:get_value(host, Args, <<"localhost">>),
     Port = proplists:get_value(port, Args, 5222),
     EventClient = proplists:get_value(event_client, Args),
+    Timeout = proplists:get_value(timeout, Args, infinity),
 
     OnReplyFun = proplists:get_value(on_reply, Args, fun(_) -> ok end),
     OnRequestFun = proplists:get_value(on_request, Args, fun(_) -> ok end),
@@ -155,16 +156,20 @@ init([Args, Owner]) ->
          end,
 
     Address = host_to_inet(Host),
-    Opts = [binary, {active, once}],
-    {ok, Socket} = do_connect(Address, Port, Opts, OnConnectFun),
-    {ok, Parser} = exml_stream:new_parser(),
-    {ok, #state{owner = Owner,
-                socket = Socket,
-                parser = Parser,
-                sm_state = SM,
-                event_client = EventClient,
-                on_reply = OnReplyFun,
-                on_request = OnRequestFun}}.
+    Opts = [binary, {active, once}, {send_timeout, Timeout}],
+    case do_connect(Address, Port, Opts, OnConnectFun, Timeout) of
+        {ok, Socket} ->
+            {ok, Parser} = exml_stream:new_parser(),
+            {ok, #state{owner = Owner,
+                        socket = Socket,
+                        parser = Parser,
+                        sm_state = SM,
+                        event_client = EventClient,
+                        on_reply = OnReplyFun,
+                        on_request = OnRequestFun}};
+        {error, Reason} ->
+            {stop, {shutdown, Reason}}
+    end.
 
 handle_call(get_sm_h, _From, #state{sm_state = {_, H, _}} = State) ->
     {reply, H, State};
@@ -259,22 +264,28 @@ code_change(_OldVsn, State, _Extra) ->
 handle_data(Socket, Data, #state{parser = Parser,
                                  socket = Socket,
                                  compress = Compress,
-                                 on_reply = OnReplyFun} = State) ->
+                                 on_reply = OnReplyFun,
+                                 owner = Owner} = State) ->
     OnReplyFun({erlang:byte_size(Data)}),
-    {ok, NewParser, Stanzas} =
-        case Compress of
+    Parsed = case Compress of
             false ->
                 exml_stream:parse(Parser, Data);
             {zlib, {Zin,_}} ->
                 Decompressed = iolist_to_binary(zlib:inflate(Zin, Data)),
                 exml_stream:parse(Parser, Decompressed)
         end,
-    NewState = State#state{parser = NewParser},
-    case State#state.active of
-        true ->
-            forward_to_owner(Stanzas, NewState);
-        false ->
-            store_reply(Stanzas, NewState)
+    case Parsed of
+        {ok, NewParser, Stanzas} ->
+            NewState = State#state{parser = NewParser},
+            case State#state.active of
+                true ->
+                    forward_to_owner(Stanzas, NewState);
+                false ->
+                    store_reply(Stanzas, NewState)
+            end;
+        {error, _} ->
+            Owner ! {error, parse_error},
+            State
     end.
 
 forward_to_owner(Stanzas0, #state{owner = Owner,
@@ -411,9 +422,9 @@ send_stream_end(#state{socket = Socket, ssl = Ssl, compress = Compress}) ->
             gen_tcp:send(Socket, exml:to_iolist(StreamEnd))
     end.
 
-do_connect(Address, Port, Opts, OnConnectFun) ->
+do_connect(Address, Port, Opts, OnConnectFun, Timeout) ->
     TimeB = os:timestamp(),
-    Reply = gen_tcp:connect(Address, Port, Opts),
+    Reply = gen_tcp:connect(Address, Port, Opts, Timeout),
     TimeA = os:timestamp(),
     ConnectionTime = timer:now_diff(TimeA, TimeB),
     case Reply of

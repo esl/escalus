@@ -67,7 +67,8 @@
                 terminated = false,
                 event_client,
                 client,
-                on_reply}).
+                on_reply,
+                timeout}).
 
 %%%===================================================================
 %%% API
@@ -240,6 +241,7 @@ init([Args, Owner]) ->
     Port = proplists:get_value(port, Args, 5280),
     Path = proplists:get_value(path, Args, <<"/http-bind">>),
     Wait = proplists:get_value(bosh_wait, Args, ?DEFAULT_WAIT),
+    Timeout = proplists:get_value(timeout, Args, infinity),
     EventClient = proplists:get_value(event_client, Args),
     HostStr = host_to_list(Host),
     OnReplyFun = proplists:get_value(on_reply, Args, fun(_) -> ok end),
@@ -247,20 +249,25 @@ init([Args, Owner]) ->
     {MS, S, MMS} = now(),
     InitRid = MS * 1000000 * 1000000 + S * 1000000 + MMS,
     {ok, Parser} = exml_stream:new_parser(),
-    {ok, Client} = fusco_cp:start_link({HostStr, Port, false},
-                                       [{on_connect, OnConnectFun}],
+    case fusco_cp:start_link({HostStr, Port, false},
+                                       [{on_connect, OnConnectFun},
+                                        {connect_timeout, Timeout}],
                                        %% Max two connections as per BOSH rfc
-                                       2),
-    {ok, #state{owner = Owner,
-                url = Path,
-                parser = Parser,
-                rid = InitRid,
-                keepalive = proplists:get_value(keepalive, Args, true),
-                wait = Wait,
-                event_client = EventClient,
-                client = Client,
-                on_reply = OnReplyFun}}.
-
+                                       2) of
+        {ok, Client} ->
+            {ok, #state{owner = Owner,
+                        url = Path,
+                        parser = Parser,
+                        rid = InitRid,
+                        keepalive = proplists:get_value(keepalive, Args, true),
+                        wait = Wait,
+                        event_client = EventClient,
+                        client = Client,
+                        on_reply = OnReplyFun,
+                        timeout = Timeout}};
+        {error, Reason} ->
+            {stop, {shutdown, Reason}}
+    end.
 
 handle_call(get_transport, _From, State) ->
     {reply, transport(State), State};
@@ -295,7 +302,8 @@ handle_call(get_requests, _From, State) ->
 
 handle_call(stop, _From, #state{} = State) ->
     StreamEnd = escalus_stanza:stream_end(),
-    {ok, _Reply, NewState} =
+    % We are stopping so don't care if streamend send failed
+    {_, _Reply, NewState} =
     sync_send0(transport(State), exml:to_iolist(StreamEnd), State),
     {stop, normal, ok, NewState}.
 
@@ -320,20 +328,25 @@ handle_cast(reset_parser, #state{parser = Parser} = State) ->
 
 
 %% Handle async HTTP request replies.
-handle_info({http_reply, Ref, Body, Transport}, S) ->
+handle_info({http_reply, Ref, Body, Transport}, #state{owner = Owner} = S) ->
     NewRequests = lists:keydelete(Ref, 1, S#state.requests),
-    {ok, #xmlel{attrs=Attrs} = XmlBody} = exml:parse(Body),
-    NS = handle_data(XmlBody, S#state{requests = NewRequests}),
-    NNS = case {detect_type(Attrs), NS#state.keepalive, NS#state.requests == []}
-          of
-              {streamend, _, _} -> close_requests(NS#state{terminated=true});
-              {_, false, _}     -> NS;
-              {_, true, true}   -> send(Transport, 
-                                        empty_body(NS#state.rid, NS#state.sid),
-                                        NS);
-              {_, true, false}  -> NS
-    end,
-    {noreply, NNS};
+    case exml:parse(Body) of
+        {ok, #xmlel{attrs=Attrs} = XmlBody} ->     
+            NS = handle_data(XmlBody, S#state{requests = NewRequests}),
+            NNS = case {detect_type(Attrs), NS#state.keepalive, NS#state.requests == []}
+            of
+                {streamend, _, _} -> close_requests(NS#state{terminated=true});
+                {_, false, _}     -> NS;
+                {_, true, true}   -> send(Transport, 
+                                          empty_body(NS#state.rid, NS#state.sid),
+                                          NS);
+                {_, true, false}  -> NS
+            end,
+            {noreply, NNS};
+        {error, _} ->
+            Owner ! {error, parse_error},
+            {noreply, S}
+    end;
 handle_info(_, State) ->
     {noreply, State}.
 
@@ -351,14 +364,18 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Helpers
 %%%===================================================================
 
-request(#client{socket = {Client, Path}}, Body, OnReplyFun) ->
+request(#client{socket = {Client, Path}}, Body, OnReplyFun, Timeout) ->
     Headers = [{<<"Content-Type">>, <<"text/xml; charset=utf-8">>}],
     Reply =
         fusco_cp:request(Client, Path, "POST", Headers, exml:to_iolist(Body),
-                         2, infinity),
+                         2, Timeout),
     OnReplyFun(Reply),
-    {ok, {_Status, _Headers, RBody, _Size, _Time}} = Reply,
-    {ok, RBody}.
+    case Reply of
+        {ok, {_Status, _Headers, RBody, _Size, _Time}} ->
+            {ok, RBody};
+        {error, _} = Error ->
+            Error
+    end.
 
 close_requests(#state{requests=Reqs} = S) ->
     [exit(Pid, normal) || {_Ref, Pid} <- Reqs],
@@ -371,12 +388,18 @@ send(_, _, _, #state{terminated = true} = S) ->
     %% Sending anything to a terminated session is pointless.
     %% We leave it in its current state to pick up any pending replies.
     S;
-send(Transport, Body, NewRid, #state{requests = Requests, on_reply = OnReplyFun} = S) ->
+send(Transport, Body, NewRid, #state{requests = Requests,
+                                     on_reply = OnReplyFun,
+                                     timeout = Timeout} = S) ->
     Ref = make_ref(),
     Self = self(),
     AsyncReq = fun() ->
-            {ok, Reply} = request(Transport, Body, OnReplyFun),
-            Self ! {http_reply, Ref, Reply, Transport}
+            case request(Transport, Body, OnReplyFun, Timeout) of
+                {ok, Reply} ->
+                    Self ! {http_reply, Ref, Reply, Transport};
+                {error, _} = Error ->
+                    Error
+            end
     end,
     NewRequests = [{Ref, proc_lib:spawn_link(AsyncReq)} | Requests],
     S#state{rid = NewRid, requests = NewRequests}.
@@ -384,9 +407,14 @@ send(Transport, Body, NewRid, #state{requests = Requests, on_reply = OnReplyFun}
 sync_send(_, _, S=#state{terminated = true}) ->
     %% Sending anything to a terminated session is pointless. We're done.
     {ok, already_terminated, S};
-sync_send(Transport, Body, S=#state{on_reply = OnReplyFun}) ->
-    {ok, Reply} = request(Transport, Body, OnReplyFun),
-    {ok, Reply, S#state{rid = S#state.rid+1}}.
+sync_send(Transport, Body, S=#state{on_reply = OnReplyFun,
+                                    timeout = Timeout}) ->
+    case request(Transport, Body, OnReplyFun, Timeout) of
+        {ok, Reply} ->
+            {ok, Reply, S#state{rid = S#state.rid+1}};
+        {error, Reason} ->
+            {error, Reason, S}
+    end.
 
 send0(Transport, Elem, State) ->
     send(Transport, wrap_elem(Elem, State), State).
