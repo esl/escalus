@@ -20,7 +20,7 @@
          reset_parser/1,
          get_sm_h/1,
          set_sm_h/2,
-         set_drop_pred/2,
+         set_filter_predicate/2,
          stop/1,
          kill/1]).
 
@@ -47,7 +47,7 @@
 -record(state, {owner,
                 socket,
                 parser,
-                drop_pred,
+                filter_pred,
                 ssl = false,
                 compress = false,
                 event_client,
@@ -83,8 +83,10 @@ get_sm_h(#client{rcv_pid = Pid}) ->
 set_sm_h(#client{rcv_pid = Pid}, H) ->
     gen_server:call(Pid, {set_sm_h, H}).
 
-set_drop_pred(#client{rcv_pid = Pid}, Pred) ->
-    gen_server:call(Pid, {set_drop_pred, Pred}).
+-spec set_filter_predicate(escalus_connection:client(),
+                           escalus_connection:filter_pred()) -> ok.
+set_filter_predicate(#client{rcv_pid = Pid}, Pred) ->
+    gen_server:call(Pid, {set_filter_pred, Pred}).
 
 stop(#client{rcv_pid = Pid}) ->
     try
@@ -204,8 +206,8 @@ handle_call(get_active, _From, #state{active = Active} = State) ->
     {reply, Active, State};
 handle_call({set_active, Active}, _From, State) ->
     {reply, ok, State#state{active = Active}};
-handle_call({set_drop_pred, Pred}, _From, State) ->
-    {reply, ok, State#state{drop_pred = Pred}};
+handle_call({set_filter_pred, Pred}, _From, State) ->
+    {reply, ok, State#state{filter_pred = Pred}};
 handle_call(recv, _From, State) ->
     {Reply, NS} = handle_recv(State),
     {reply, Reply, NS};
@@ -285,11 +287,11 @@ handle_data(Socket, Data, #state{parser = Parser,
             store_reply(Stanzas, NewState)
     end.
 
-maybe_forward_to_owner(#state{drop_pred = all} = NewState, _Stanzas) ->
+maybe_forward_to_owner(#state{filter_pred = none} = NewState, _Stanzas) ->
     NewState;
-maybe_forward_to_owner(#state{drop_pred = DropPred} = NewState, Stanzas)
-        when is_function(DropPred) ->
-    AllowedStanzas = [Stanza || Stanza <- Stanzas, DropPred(Stanza) =:= false],
+maybe_forward_to_owner(#state{filter_pred = FilterPred} = NewState, Stanzas)
+        when is_function(FilterPred) ->
+    AllowedStanzas = lists:filter(FilterPred, Stanzas),
     case AllowedStanzas of
         [] ->
             NewState;

@@ -19,7 +19,7 @@
          get_stanza/3,
          get_sm_h/1,
          set_sm_h/2,
-         set_drop_predicate/2,
+         set_filter_predicate/2,
          reset_parser/1,
          is_connected/1,
          kill/1]).
@@ -30,6 +30,9 @@
 
 -type step_spec() :: atom() | {module(), atom()} | escalus_session:step().
 -export_type([step_spec/0]).
+
+-type filter_pred() :: fun((#xmlel{}) -> boolean()) | none.
+-export_type([filter_pred/0]).
 
 %% Private
 -export([connection_step/2]).
@@ -155,10 +158,9 @@ set_sm_h(#client{module = escalus_tcp} = Conn, H) ->
 set_sm_h(#client{module = Mod}, _) ->
     error({set_sm_h, {undefined_for_escalus_module, Mod}}).
 
-set_drop_predicate(#client{module = escalus_tcp} = Conn, Pred) ->
-    escalus_tcp:set_drop_pred(Conn, Pred);
-set_drop_predicate(#client{module = Mod}, Pred) ->
-    error({set_drop_pred, {undefined_for_escalus_module, Mod}}).
+-spec set_filter_predicate(client(), filter_pred()) -> ok.
+set_filter_predicate(#client{module = Module} = Conn, Pred) ->
+    Module:set_filter_predicate(Conn, Pred).
 
 reset_parser(#client{module = Mod} = Client) ->
     Mod:reset_parser(Client).
