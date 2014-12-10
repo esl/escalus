@@ -6,10 +6,11 @@
 
 -module(escalus_bosh).
 -behaviour(gen_server).
+-behaviour(escalus_connection).
 
 -include_lib("exml/include/exml_stream.hrl").
--include("include/escalus.hrl").
--include("include/escalus_xmlns.hrl").
+-include("escalus.hrl").
+-include("escalus_xmlns.hrl").
 -include("no_binary_to_integer.hrl").
 
 %% Escalus transport callbacks
@@ -21,7 +22,8 @@
          get_transport/1,
          reset_parser/1,
          stop/1,
-         kill/1]).
+         kill/1,
+         set_filter_predicate/2]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -67,7 +69,8 @@
                 terminated = false,
                 event_client,
                 client,
-                on_reply}).
+                on_reply,
+                filter_pred}).
 
 %%%===================================================================
 %%% API
@@ -108,6 +111,11 @@ use_zlib(#client{} = _Conn, _Props) ->
 
 get_transport(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_transport).
+
+-spec set_filter_predicate(escalus_connection:client(),
+    escalus_connection:filter_pred()) -> ok.
+set_filter_predicate(#client{rcv_pid = Pid}, Pred) ->
+    gen_server:call(Pid, {set_filter_pred, Pred}).
 
 %%%===================================================================
 %%% BOSH XML elements
@@ -295,6 +303,9 @@ handle_call(recv, _From, State) ->
 handle_call(get_requests, _From, State) ->
     {reply, length(State#state.requests), State};
 
+handle_call({set_filter_pred, Pred}, _From, State) ->
+    {reply, ok, State#state{filter_pred = Pred}};
+
 handle_call(stop, _From, #state{} = State) ->
     StreamEnd = escalus_stanza:stream_end(),
     {ok, _Reply, NewState} =
@@ -407,7 +418,9 @@ handle_data(#xmlel{} = Body, #state{} = State) ->
     Stanzas = unwrap_elem(Body),
     case State#state.active of
         true ->
-            forward_to_owner(Stanzas, NewState),
+            escalus_connection:maybe_forward_to_owner(NewState#state.filter_pred,
+                                                      NewState, Stanzas,
+                                                      fun forward_to_owner/2),
             NewState;
         false ->
             store_reply(Body, NewState)

@@ -24,6 +24,9 @@
          is_connected/1,
          kill/1]).
 
+%% Behaviour helpers
+-export([maybe_forward_to_owner/4]).
+
 %% Public Types
 -type client() :: #client{}.
 -export_type([client/0]).
@@ -38,6 +41,19 @@
 -export([connection_step/2]).
 
 -define(TIMEOUT, 1000).
+
+%%%===================================================================
+%%% Behaviour callback
+%%%===================================================================
+-callback connect([proplists:property()]) -> {ok, client()}.
+-callback send(client(), #xmlel{}) -> no_return().
+-callback stop(client()) -> ok | already_stopped.
+
+-callback is_connected(client()) -> boolean().
+-callback reset_parser(client()) -> no_return().
+-callback kill(client()) -> no_return().
+-callback set_filter_predicate(client(), filter_pred()) -> ok.
+
 
 %%%===================================================================
 %%% Public API
@@ -174,6 +190,25 @@ stop(#client{module = Mod} = Client) ->
 %% Brutally kill the connection without terminating the XMPP stream.
 kill(#client{module = Mod} = Client) ->
     Mod:kill(Client).
+
+
+-spec maybe_forward_to_owner(filter_pred(), term(), [#xmlel{}],
+                             fun(([#xmlel{}], term()) -> term()))
+        -> term().
+maybe_forward_to_owner(none, State, _Stanzas, _Fun) ->
+    State;
+maybe_forward_to_owner(FilterPred, State, Stanzas, Fun)
+    when is_function(FilterPred) ->
+    AllowedStanzas = lists:filter(FilterPred, Stanzas),
+    case AllowedStanzas of
+        [] ->
+            State;
+        _ ->
+            Fun(AllowedStanzas, State)
+    end;
+maybe_forward_to_owner(_, State, Stanzas, Fun) ->
+    Fun(Stanzas, State).
+
 
 %%%===================================================================
 %%% Helpers
