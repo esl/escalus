@@ -6,9 +6,10 @@
 
 -module(escalus_ws).
 -behaviour(gen_server).
+-behaviour(escalus_connection).
 
 -include_lib("exml/include/exml_stream.hrl").
--include("include/escalus.hrl").
+-include("escalus.hrl").
 
 %% API exports
 -export([connect/1,
@@ -19,7 +20,8 @@
          get_transport/1,
          reset_parser/1,
          stop/1,
-         kill/1]).
+         kill/1,
+         set_filter_predicate/2]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -33,7 +35,8 @@
 -define(HANDSHAKE_TIMEOUT, 3000).
 -define(SERVER, ?MODULE).
 
--record(state, {owner, socket, parser, legacy_ws, compress = false, event_client}).
+-record(state, {owner, socket, parser, legacy_ws, compress = false,
+                event_client, filter_pred}).
 
 %%%===================================================================
 %%% API
@@ -66,6 +69,12 @@ stop(#client{rcv_pid = Pid}) ->
 
 kill(Transport) ->
     error({not_implemented_for, ?MODULE}, [Transport]).
+
+-spec set_filter_predicate(escalus_connection:client(),
+    escalus_connection:filter_pred()) -> ok.
+set_filter_predicate(#client{rcv_pid = Pid}, Pred) ->
+    gen_server:call(Pid, {set_filter_pred, Pred}).
+
 
 upgrade_to_tls(_, _) ->
     throw(starttls_not_supported).
@@ -122,6 +131,8 @@ handle_call(use_zlib, _, #state{parser = Parser, socket = Socket} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
     {reply, Socket, State#state{parser = NewParser,
                                 compress = {zlib, {Zin,Zout}}}};
+handle_call({set_filter_pred, Pred}, _From, State) ->
+    {reply, ok, State#state{filter_pred = Pred}};
 handle_call(stop, _From, #state{socket = Socket,
                                 compress = Compress} = State) ->
     StreamEnd = if
@@ -179,10 +190,8 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Helpers
 %%%===================================================================
 
-handle_data(Data, State = #state{owner = Owner,
-                                 parser = Parser,
-                                 compress = Compress,
-                                 event_client = EventClient}) ->
+handle_data(Data, State = #state{parser = Parser,
+                                 compress = Compress}) ->
     {ok, NewParser, Stanzas} =
         case Compress of
             false ->
@@ -192,6 +201,10 @@ handle_data(Data, State = #state{owner = Owner,
                 exml_stream:parse(Parser, Decompressed)
         end,
     NewState = State#state{parser = NewParser},
+    escalus_connection:maybe_forward_to_owner(NewState#state.filter_pred, NewState, Stanzas, fun forward_to_owner/2).
+
+forward_to_owner(Stanzas, #state{owner = Owner,
+                                 event_client = EventClient} = NewState) ->
     lists:foreach(fun(Stanza) ->
                           escalus_event:incoming_stanza(EventClient, Stanza),
                           Owner ! {stanza, transport(NewState), Stanza}
