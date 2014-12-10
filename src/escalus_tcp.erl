@@ -6,6 +6,7 @@
 
 -module(escalus_tcp).
 -behaviour(gen_server).
+-behaviour(escalus_connection).
 
 -include_lib("exml/include/exml_stream.hrl").
 -include("escalus.hrl").
@@ -282,24 +283,12 @@ handle_data(Socket, Data, #state{parser = Parser,
     NewState = State#state{parser = NewParser},
     case State#state.active of
         true ->
-            maybe_forward_to_owner(NewState, Stanzas);
+            escalus_connection:maybe_forward_to_owner(NewState#state.filter_pred,
+                                                      NewState, Stanzas,
+                                                      fun forward_to_owner/2);
         false ->
             store_reply(Stanzas, NewState)
     end.
-
-maybe_forward_to_owner(#state{filter_pred = none} = NewState, _Stanzas) ->
-    NewState;
-maybe_forward_to_owner(#state{filter_pred = FilterPred} = NewState, Stanzas)
-        when is_function(FilterPred) ->
-    AllowedStanzas = lists:filter(FilterPred, Stanzas),
-    case AllowedStanzas of
-        [] ->
-            NewState;
-        _ ->
-            forward_to_owner(AllowedStanzas, NewState)
-    end;
-maybe_forward_to_owner(NewState, Stanzas) ->
-    forward_to_owner(Stanzas, NewState).
 
 
 forward_to_owner(Stanzas0, #state{owner = Owner,
