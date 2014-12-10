@@ -280,18 +280,25 @@ handle_data(Socket, Data, #state{parser = Parser,
     NewState = State#state{parser = NewParser},
     case State#state.active of
         true ->
-            maybe_forward_to_owner(State, Stanzas, NewState);
+            maybe_forward_to_owner(NewState, Stanzas);
         false ->
             store_reply(Stanzas, NewState)
     end.
 
-maybe_forward_to_owner(State, Stanzas, NewState) ->
-    case State#state.drop_pred of
-        undefined ->
-            forward_to_owner(Stanzas, NewState);
+maybe_forward_to_owner(#state{drop_pred = all} = NewState, _Stanzas) ->
+    NewState;
+maybe_forward_to_owner(#state{drop_pred = DropPred} = NewState, Stanzas)
+        when is_function(DropPred) ->
+    AllowedStanzas = [Stanza || Stanza <- Stanzas, DropPred(Stanza) =:= false],
+    case AllowedStanzas of
+        [] ->
+            NewState;
         _ ->
-            NewState
-    end.
+            forward_to_owner(AllowedStanzas, NewState)
+    end;
+maybe_forward_to_owner(NewState, Stanzas) ->
+    forward_to_owner(Stanzas, NewState).
+
 
 forward_to_owner(Stanzas0, #state{owner = Owner,
                                   sm_state = SM0,
