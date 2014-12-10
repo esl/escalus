@@ -6,7 +6,7 @@
 -module(escalus_connection).
 
 -include_lib("exml/include/exml_stream.hrl").
--include("include/escalus.hrl").
+-include("escalus.hrl").
 
 %% High-level API
 -export([start/1, start/2,
@@ -16,6 +16,7 @@
 -export([connect/1,
          send/2,
          get_stanza/2,
+         get_stanza/3,
          get_sm_h/1,
          set_sm_h/2,
          set_drop_predicate/2,
@@ -131,10 +132,14 @@ send(#client{module = Mod, event_client = EventClient} = Client, Elem) ->
 
 -spec get_stanza(client(), any()) -> #xmlel{}.
 get_stanza(Conn, Name) ->
+    get_stanza(Conn, Name, ?TIMEOUT).
+
+-spec get_stanza(client(), any(), timeout()) -> #xmlel{}.
+get_stanza(Conn, Name, Timeout) ->
     receive
         {stanza, Conn, Stanza} ->
             Stanza
-    after ?TIMEOUT ->
+    after Timeout ->
             throw({timeout, Name})
     end.
 
