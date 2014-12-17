@@ -272,7 +272,7 @@ auth_type(Config) ->
 
 try_check_mod_register(Config) ->
     try is_mod_register_enabled(Config)
-    catch _ -> false
+    catch _:_ -> false
     end.
 
 is_mod_register_enabled(Config) ->

@@ -56,7 +56,7 @@ suite() ->
     [{require, escalus_users}].
 
 init_per_suite(Config) ->
-    application:start(exml),
+    ensure_started(escalus),
     escalus_users:start(Config),
     Config.
 
@@ -101,3 +101,14 @@ end_per_testcase(_CaseName, Config) ->
 ?FORWARD1(escalus_client, peek_stanzas).
 
 ?FORWARD3(escalus_overridables, override).
+
+ensure_started(App) ->
+    case application:start(App) of
+        {error, {not_started, NotStartedApp}} ->
+            ensure_started(NotStartedApp),
+            ensure_started(App);
+        ok ->
+            ok;
+        {error, {already_started, _}} ->
+            ok
+    end.

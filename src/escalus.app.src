@@ -5,7 +5,9 @@
   {registered, []},
   {applications, [
                   kernel,
-                  stdlib
+                  stdlib,
+                  ssl,
+                  exml
                  ]},
   {mod, { escalus_app, []}},
   {env, [%% Set config_file in case of using Escalus without Common Test

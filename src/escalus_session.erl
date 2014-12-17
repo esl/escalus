@@ -121,7 +121,7 @@ session(Conn, Props) ->
     Props.
 
 use_ssl(Props, Features) ->
-    UserNeedSSL = proplists:get_value(ssl, Props, false),
+    UserNeedSSL = proplists:get_value(starttls, Props, false),
     StreamAllowSSL = proplists:get_value(starttls, Features),
     case {UserNeedSSL, StreamAllowSSL} of
         {required, true} -> true;
