@@ -58,7 +58,6 @@
                 sm_state = {true, 0, inactive} :: sm_state(),
                 replies = []}).
 
-
 %%%===================================================================
 %%% API
 %%%===================================================================
@@ -148,8 +147,11 @@ recv(#client{rcv_pid = Pid}) ->
 init([Args, Owner]) ->
     Host = proplists:get_value(host, Args, <<"localhost">>),
     Port = proplists:get_value(port, Args, 5222),
+
+    Address = host_to_inet(Host),
     EventClient = proplists:get_value(event_client, Args),
     InterfaceIp = proplists:get_value(ip, Args),
+    IsSSLConnection = proplists:get_value(ssl, Args, false),
 
     OnReplyFun = proplists:get_value(on_reply, Args, fun(_) -> ok end),
     OnRequestFun = proplists:get_value(on_request, Args, fun(_) -> ok end),
@@ -163,9 +165,14 @@ init([Args, Owner]) ->
              {true,false}       -> {true, 0, inactive}
          end,
 
-    Address = host_to_inet(Host),
-    IsSSLConnection = proplists:get_value(ssl, Args, false),
-    {ok, Socket} = do_connect(IsSSLConnection, Address, Port, Args, OnConnectFun),
+
+    BasicOpts = [binary, {active, once}],
+    SocketOpts = case InterfaceIp of
+               undefined -> BasicOpts;
+               _         -> BasicOpts ++ {ip, InterfaceIp} end,
+
+    {ok, Socket} = do_connect(IsSSLConnection, Address, Port, Args,
+                              SocketOpts, OnConnectFun),
     {ok, Parser} = exml_stream:new_parser(),
     {ok, #state{owner = Owner,
                 socket = Socket,
@@ -324,7 +331,6 @@ handle_recv(#state{replies = [Reply | Replies]} = S) ->
     end,
     {Reply, S#state{replies = Replies}}.
 
-
 separate_ack_requests({false, H0, A}, Stanzas) ->
     %% Don't keep track of H
     {{false, H0, A}, [], Stanzas};
@@ -425,10 +431,9 @@ send_stream_end(#state{socket = Socket, ssl = Ssl, compress = Compress}) ->
             gen_tcp:send(Socket, exml:to_iolist(StreamEnd))
     end.
 
-do_connect(IsSSLConnection, Address, Port, Args, OnConnectFun) ->
-    Opts = [binary, {active, once}],
+do_connect(IsSSLConnection, Address, Port, Args, SocketOpts, OnConnectFun) ->
     TimeB = os:timestamp(),
-    Reply = maybe_ssl_connection(IsSSLConnection, Address, Port, Opts, Args),
+    Reply = maybe_ssl_connection(IsSSLConnection, Address, Port, SocketOpts, Args),
     TimeA = os:timestamp(),
     ConnectionTime = timer:now_diff(TimeA, TimeB),
     case Reply of
