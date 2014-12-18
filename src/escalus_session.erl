@@ -121,9 +121,9 @@ session(Conn, Props) ->
     Props.
 
 use_ssl(Props, Features) ->
-    UserNeedSSL = proplists:get_value(starttls, Props, false),
-    StreamAllowSSL = proplists:get_value(starttls, Features),
-    case {UserNeedSSL, StreamAllowSSL} of
+    UserNeedsSSL = proplists:get_value(starttls, Props, false),
+    StreamAllowsSSL = proplists:get_value(starttls, Features),
+    case {UserNeedsSSL, StreamAllowsSSL} of
         {required, true} -> true;
         {required, false} -> error("Client requires StartTLS "
                                    "but server doesn't offer it");

@@ -155,13 +155,13 @@ init([Args, Owner]) ->
          end,
 
     Address = host_to_inet(Host),
-    SSLConnection = proplists:get_value(ssl, Args, false),
-    {ok, Socket} = do_connect(SSLConnection, Address, Port, Args, OnConnectFun),
+    IsSSLConnection = proplists:get_value(ssl, Args, false),
+    {ok, Socket} = do_connect(IsSSLConnection, Address, Port, Args, OnConnectFun),
     {ok, Parser} = exml_stream:new_parser(),
     {ok, #state{owner = Owner,
                 socket = Socket,
                 parser = Parser,
-                ssl = SSLConnection,
+                ssl = IsSSLConnection,
                 sm_state = SM,
                 event_client = EventClient,
                 on_reply = OnReplyFun,
@@ -411,10 +411,10 @@ send_stream_end(#state{socket = Socket, ssl = Ssl, compress = Compress}) ->
             gen_tcp:send(Socket, exml:to_iolist(StreamEnd))
     end.
 
-do_connect(SSLConnection, Address, Port, Args, OnConnectFun) ->
+do_connect(IsSSLConnection, Address, Port, Args, OnConnectFun) ->
     Opts = [binary, {active, once}],
     TimeB = os:timestamp(),
-    Reply = maybe_ssl_connection(SSLConnection, Address, Port, Opts, Args),
+    Reply = maybe_ssl_connection(IsSSLConnection, Address, Port, Opts, Args),
     TimeA = os:timestamp(),
     ConnectionTime = timer:now_diff(TimeA, TimeB),
     case Reply of
