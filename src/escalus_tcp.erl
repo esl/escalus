@@ -8,7 +8,7 @@
 -behaviour(gen_server).
 
 -include_lib("exml/include/exml_stream.hrl").
--include("include/escalus.hrl").
+-include("escalus.hrl").
 
 %% API exports
 -export([connect/1,
@@ -155,12 +155,13 @@ init([Args, Owner]) ->
          end,
 
     Address = host_to_inet(Host),
-    Opts = [binary, {active, once}],
-    {ok, Socket} = do_connect(Address, Port, Opts, OnConnectFun),
+    IsSSLConnection = proplists:get_value(ssl, Args, false),
+    {ok, Socket} = do_connect(IsSSLConnection, Address, Port, Args, OnConnectFun),
     {ok, Parser} = exml_stream:new_parser(),
     {ok, #state{owner = Owner,
                 socket = Socket,
                 parser = Parser,
+                ssl = IsSSLConnection,
                 sm_state = SM,
                 event_client = EventClient,
                 on_reply = OnReplyFun,
@@ -174,7 +175,6 @@ handle_call({set_sm_h, H}, _From, #state{sm_state = {A, _OldH, S}} = State) ->
 handle_call(get_transport, _From, State) ->
     {reply, transport(State), State};
 handle_call({upgrade_to_tls, SSLOpts}, _From, #state{socket = Socket} = State) ->
-    ssl:start(),
     SSLOpts1 = [{reuse_sessions, true}],
     SSLOpts2 = lists:keymerge(1, lists:keysort(1, SSLOpts),
                               lists:keysort(1, SSLOpts1)),
@@ -411,9 +411,10 @@ send_stream_end(#state{socket = Socket, ssl = Ssl, compress = Compress}) ->
             gen_tcp:send(Socket, exml:to_iolist(StreamEnd))
     end.
 
-do_connect(Address, Port, Opts, OnConnectFun) ->
+do_connect(IsSSLConnection, Address, Port, Args, OnConnectFun) ->
+    Opts = [binary, {active, once}],
     TimeB = os:timestamp(),
-    Reply = gen_tcp:connect(Address, Port, Opts),
+    Reply = maybe_ssl_connection(IsSSLConnection, Address, Port, Opts, Args),
     TimeA = os:timestamp(),
     ConnectionTime = timer:now_diff(TimeA, TimeB),
     case Reply of
@@ -423,3 +424,9 @@ do_connect(Address, Port, Opts, OnConnectFun) ->
             OnConnectFun(Reply)
     end,
     Reply.
+
+maybe_ssl_connection(true, Address, Port, Opts, Args) ->
+    SSLOpts = proplists:get_value(ssl_opts, Args, []),
+    ssl:connect(Address, Port, Opts ++ SSLOpts);
+maybe_ssl_connection(_, Address, Port, Opts, _) ->
+    gen_tcp:connect(Address, Port, Opts).
