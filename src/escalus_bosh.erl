@@ -96,8 +96,9 @@ stop(#client{rcv_pid = Pid}) ->
             already_stopped
     end.
 
-kill(Transport) ->
-    error({not_implemented_for, ?MODULE}, [Transport]).
+kill(#client{} = Client) ->
+    mark_as_terminated(Client),
+    stop(Client).
 
 upgrade_to_tls(#client{} = _Conn, _Props) ->
     not_supported.
