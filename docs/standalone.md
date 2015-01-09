@@ -71,6 +71,8 @@ Fire an Erlang shell:
 
     erl -pa ebin deps/*/ebin
 
+### Basic example
+
 Run example:
 
     application:ensure_all_started(escalus).
@@ -80,3 +82,20 @@ Run example:
     {ok, Carol, _, _} = escalus_connection:start(CarolSpec).
     escalus_connection:send(Carol, escalus_stanza:chat_to(alice, "hi")).
     escalus_connection:stop(Carol).
+
+### Story example
+
+Run example:
+
+    X2SFun = fun(X) -> lists:flatten(io_lib:format("~p~n", [X])) end.
+    {ok, Config0} = file:consult("priv/escalus.config").
+    application:ensure_all_started(escalus).
+    application:set_env(escalus, common_test, false).
+    escalus:create_users(Config0, {by_name, [alice, mike]}).
+    Config = escalus_event:start(escalus_cleaner:start(Config0)).
+    SendFun = fun(A, B) -> escalus:send(A, escalus_stanza:chat_to(B, "hi")), ok end.
+    RecvFun = fun(B) -> [S] = escalus:wait_for_stanzas(B, 1), {ok, S} end.
+    StoryFun = fun(A, B) -> SendFun(A, B), {ok, S} = RecvFun(B), erlang:display(X2SFun(S)) end.
+    escalus:story(Config, [{mike, 1}, {alice,1}], StoryFun).
+    escalus_cleaner:stop(escalus_event:stop(Config)).
+    escalus:delete_users(Config, {by_name, [alice, mike]}).
