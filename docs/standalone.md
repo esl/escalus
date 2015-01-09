@@ -7,7 +7,7 @@ To do so some prerequisites must be met.
 
 Firstly, Escalus must be started just like any other application:
 
-    > application:start(escalus).
+    > application:ensure_all_started(escalus).
 
 This makes predefined environment variables from `escalus.app` available
 for access by `application:get_env`.
@@ -37,12 +37,12 @@ If you don't want to rely on the application resource file
 (`escalus.app`/`escalus.app.src`) you can set both of these options just
 after loading Escalus:
 
-    > application:start(escalus).
+    > application:ensure_all_started(escalus).
     > application:set_env(escalus, common_test, false).
     > application:set_env(escalus, config_file, "/absolute/or/relative/path").
 
-Keep in mind that calling `application:start(escalus)` will overwrite
-the values with stuff from `escalus.app`.
+Keep in mind that calling `application:ensure_all_started(escalus)` will
+overwrite the values with stuff from `escalus.app`.
 Set the variables after the application is started.
 
 ## Config file location
@@ -67,9 +67,15 @@ In case of a standard Git checkout the project directory is simply `escalus`.
 
 ## Example shell session
 
-    application:start(escalus).
+Fire an Erlang shell:
+
+    erl -pa ebin deps/*/ebin
+
+Run example:
+
+    application:ensure_all_started(escalus).
     application:set_env(escalus, common_test, false).
-    {ok, Config} = file:consult("test.config").
+    {ok, Config} = file:consult("priv/escalus.config").
     CarolSpec = escalus_users:get_options(Config, carol).
     {ok, Carol, _, _} = escalus_connection:start(CarolSpec).
     escalus_connection:send(Carol, escalus_stanza:chat_to(alice, "hi")).
