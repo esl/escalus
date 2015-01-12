@@ -85,6 +85,8 @@ Run example:
 
 ### Story example
 
+Please note that `escalus:story/3` and `escalus:create_users/2` are intended to be used in a testing environment, i.e. with Common Test available. Specifically, `escalus:create_users/2` will not work without Common Test and with non-XMPP registration method chosen (i.e. RPC based user registration). In case of MongooseIM or ejabberd, please ensure `mod_register` is enabled (and, depending on your scenario, probably configured not to send a _welcome message_).
+
 Run example:
 
     X2SFun = fun(X) -> lists:flatten(io_lib:format("~p~n", [X])) end.
