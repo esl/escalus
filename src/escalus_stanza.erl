@@ -36,6 +36,7 @@
          receipt_req/1,
          receipt_conf/1,
          roster_get/0,
+         roster_get/1,
          roster_add_contact/3,
          roster_add_contacts/1,
          roster_remove_contact/1,
@@ -391,6 +392,11 @@ iq_with_type(Type, NS, Payload, nonquery) ->
 
 roster_get() ->
     iq_get(?NS_ROSTER, []).
+
+roster_get(Ver) ->
+    #xmlel{children = [Query]} = Stanza = iq_get(?NS_ROSTER, []),
+    NewQuery = Query#xmlel{attrs = [{<<"ver">>, Ver} | Query#xmlel.attrs]},
+    Stanza#xmlel{children = [NewQuery]}.
 
 roster_add_contacts(ItemSpecs) ->
     iq_set(?NS_ROSTER, lists:map(fun contact_item/1, ItemSpecs)).
