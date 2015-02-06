@@ -10,7 +10,8 @@
 
 all() ->
     [sanity_check,
-     nullary_snippet_to_xmlel].
+     nullary_snippet_to_xmlel,
+     unary_snippet_to_xmlel].
 
 %%
 %% Tests
@@ -23,3 +24,10 @@ nullary_snippet_to_xmlel(_) ->
     M = escalus_stanza,
     ?eq(#xmlel{name = <<"el">>}, M:from_xml("<el/>")),
     ?eq(#xmlel{name = <<"el">>}, M:from_xml(<<"<el/>">>)).
+
+unary_snippet_to_xmlel(_) ->
+    M = escalus_stanza,
+    ?eq(#xmlel{name = <<"el">>,
+               attrs = [{<<"attr">>, <<"value">>}]},
+        M:from_template("<el attr='{{val}}'/>",
+                        [{val, "value"}])).

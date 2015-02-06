@@ -116,7 +116,8 @@
 -export([remove_account/0]).
 
 %% Stanzas from inline XML
--export([from_xml/1]).
+-export([from_template/2,
+         from_xml/1]).
 
 -import(escalus_compat, [bin/1]).
 
@@ -125,6 +126,8 @@
 -include("no_binary_to_integer.hrl").
 -include_lib("exml/include/exml.hrl").
 -include_lib("exml/include/exml_stream.hrl").
+
+-define(b2l(B), erlang:binary_to_list(B)).
 
 %%--------------------------------------------------------------------
 %% Stream - related functions
@@ -697,21 +700,70 @@ enable_carbons_el() ->
 %% Stanzas from inline XML
 %%--------------------------------------------------------------------
 
+%% @doc An xml_snippet() is a textual representation of XML,
+%% possibly with formatting parameters (places where to insert substitutions).
+%% It may be a string() or a binary().
+%% A parameterless snippet might look like:
+%%
+%%   <example_element/>
+%%
+%% Snippet with formatting parameters will look like:
+%%
+%%   <example_element some_attr="{{attr_value}}"/>
+%%
+%% Parameter names must be valid atoms, so if you want to use punctuation
+%% use single quotes:
+%%
+%%   <example_element some_attr="{{'fancy:param-name'}}"/>
+%%
+-type xml_snippet() :: string() | binary().
+
 -spec from_xml(Snippet) -> Term when
-      Snippet :: string(),
+      Snippet :: xml_snippet(),
       Term :: xmlterm().
 from_xml(Snippet) ->
-    to_element(Snippet).
+    from_template(Snippet, []).
+
+-type context() :: [{atom(), binary() | list() | xmlterm()}].
+
+-spec from_template(Snippet, Ctx) -> Term when
+      Snippet :: xml_snippet(),
+      Ctx :: context(),
+      Term :: xmlterm().
+from_template(Snippet, Ctx) ->
+    xml_to_xmlterm(iolist_to_binary(render(Snippet, Ctx))).
 
 %%--------------------------------------------------------------------
 %% Helpers for stanzas from XML
 %%--------------------------------------------------------------------
 
-to_element(XMLSnippet) when is_binary(XMLSnippet) ->
-    {ok, El} = exml:parse(XMLSnippet),
-    El;
-to_element(XMLSnippet) ->
-    to_element(iolist_to_binary(XMLSnippet)).
+%% @doc An xml() is a well-formed XML document.
+%% No multiple top-level elements are allowed.
+-type xml() :: binary().
+
+-spec xml_to_xmlterm(XML) -> Term when
+      XML :: xml(),
+      Term :: xmlterm().
+xml_to_xmlterm(XML) when is_binary(XML) ->
+    {ok, Term} = exml:parse(XML),
+    Term.
+
+-spec render(Snippet, Ctx) -> Text when
+      Snippet :: xml_snippet(),
+      Ctx :: context(),
+      Text :: string().
+render(Snippet, Ctx) ->
+    mustache:render(xml_snippet_to_string(Snippet),
+                    validate_context(Ctx)).
+
+xml_snippet_to_string(Snippet) when is_binary(Snippet) -> ?b2l(Snippet);
+xml_snippet_to_string(Snippet) -> Snippet.
+
+validate_context(Ctx) ->
+    [ {Key, to_string(Value)} || {Key, Value} <- Ctx ].
+
+to_string(E) when is_binary(E) -> ?b2l(E);
+to_string(E) when is_list(E) -> E.
 
 %%--------------------------------------------------------------------
 %% Helpers
