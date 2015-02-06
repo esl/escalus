@@ -115,12 +115,20 @@
 
 -export([remove_account/0]).
 
+%% Stanzas from inline XML
+-export([from_template/2,
+         from_xml/1]).
+
 -import(escalus_compat, [bin/1]).
 
 -include("escalus.hrl").
 -include("escalus_xmlns.hrl").
 -include("no_binary_to_integer.hrl").
+-include_lib("exml/include/exml.hrl").
 -include_lib("exml/include/exml_stream.hrl").
+
+-define(b2l(B), erlang:binary_to_list(B)).
+-define(io2b(IOList), erlang:iolist_to_binary(IOList)).
 
 %%--------------------------------------------------------------------
 %% Stream - related functions
@@ -689,7 +697,92 @@ enable_carbons_el() ->
     #xmlel{name = <<"enable">>,
            attrs = [{<<"xmlns">>, ?NS_CARBONS_2}]}.
 
+%%--------------------------------------------------------------------
+%% Stanzas from inline XML
+%%--------------------------------------------------------------------
 
+%% @doc An xml_snippet() is a textual representation of XML,
+%% possibly with formatting parameters (places where to insert substitutions).
+%% It may be a string() or a binary().
+%% A parameterless snippet might look like:
+%%
+%%   <example_element/>
+%%
+%% Snippet with formatting parameters will look like:
+%%
+%%   <example_element some_attr="{{attr_value}}"/>
+%%
+%% Parameter names must be valid atoms, so if you want to use punctuation
+%% use single quotes:
+%%
+%%   <example_element some_attr="{{'fancy:param-name'}}"/>
+%%
+%% If the argument you pass as the parameter value is an xmlterm()
+%% then use triple brackets at the parameter expansion site.
+%% Otherwise, the argument term will end up HTML-encoded
+%% after expansion.
+%%
+%%   <example_element>
+%%      {{{argument_will_be_xmlterm}}}
+%%   </example_element>
+%%
+%% It's also possible to substitute whole attributes, not just their values:
+%%
+%%   <example_element {{myattr}}/>
+%%
+%% Refer to escalus_stanza_SUITE for usage examples.
+-type xml_snippet() :: string() | binary().
+
+-spec from_xml(Snippet) -> Term when
+      Snippet :: xml_snippet(),
+      Term :: xmlterm().
+from_xml(Snippet) ->
+    from_template(Snippet, []).
+
+-type context() :: [{atom(), binary() | list() | xmlterm()}].
+
+-spec from_template(Snippet, Ctx) -> Term when
+      Snippet :: xml_snippet(),
+      Ctx :: context(),
+      Term :: xmlterm().
+from_template(Snippet, Ctx) ->
+    xml_to_xmlterm(iolist_to_binary(render(Snippet, Ctx))).
+
+%%--------------------------------------------------------------------
+%% Helpers for stanzas from XML
+%%--------------------------------------------------------------------
+
+%% @doc An xml() is a well-formed XML document.
+%% No multiple top-level elements are allowed.
+-type xml() :: binary().
+
+-spec xml_to_xmlterm(XML) -> Term when
+      XML :: xml(),
+      Term :: xmlterm().
+xml_to_xmlterm(XML) when is_binary(XML) ->
+    {ok, Term} = exml:parse(XML),
+    Term.
+
+-spec render(Snippet, Ctx) -> Text when
+      Snippet :: xml_snippet(),
+      Ctx :: context(),
+      Text :: string().
+render(Snippet, Ctx) ->
+    mustache:render(xml_snippet_to_string(Snippet),
+                    validate_context(Ctx)).
+
+xml_snippet_to_string(Snippet) when is_binary(Snippet) -> ?b2l(Snippet);
+xml_snippet_to_string(Snippet) -> Snippet.
+
+validate_context(Ctx) ->
+    [ {Key, argument_to_string(Value)} || {Key, Value} <- Ctx ].
+
+argument_to_string({Name, Value}) ->
+    ?b2l(?io2b([Name, "='", exml:escape_attr(Value), "'"]));
+argument_to_string(E = #xmlel{}) ->
+    ?b2l(?io2b(exml:to_iolist(E)));
+argument_to_string(E) when is_binary(E) -> ?b2l(E);
+argument_to_string(E) when is_list(E) -> E.
 
 %%--------------------------------------------------------------------
 %% Helpers
