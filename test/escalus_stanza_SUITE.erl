@@ -9,8 +9,7 @@
 -define(eq(E, A), ?assertEqual(E, A)).
 
 all() ->
-    [sanity_check,
-     nullary_snippet_to_xmlel,
+    [nullary_snippet_to_xmlel,
      unary_snippet_to_xmlel,
      type_matrix_accepted,
      term_as_argument,
@@ -19,9 +18,6 @@ all() ->
 %%
 %% Tests
 %%
-
-sanity_check(_) ->
-    ok.
 
 nullary_snippet_to_xmlel(_) ->
     M = escalus_stanza,
