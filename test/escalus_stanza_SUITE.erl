@@ -13,7 +13,8 @@ all() ->
      nullary_snippet_to_xmlel,
      unary_snippet_to_xmlel,
      type_matrix_accepted,
-     term_as_argument].
+     term_as_argument,
+     attribute_as_argument].
 
 %%
 %% Tests
@@ -49,3 +50,10 @@ term_as_argument(_) ->
     Example = #xmlel{name = <<"outer">>,
                      children = [Inner]},
     ?eq(Example, M:from_template("<outer>{{{inner}}}</outer>", [{inner, Inner}])).
+
+attribute_as_argument(_) ->
+    M = escalus_stanza,
+    Attr = {<<"name">>, <<"value">>},
+    Example = #xmlel{name = <<"el">>,
+                     attrs = [Attr]},
+    ?eq(Example, M:from_template("<el {{attr}}/>", [{attr, Attr}])).

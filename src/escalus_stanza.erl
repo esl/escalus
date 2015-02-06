@@ -726,6 +726,10 @@ enable_carbons_el() ->
 %%      {{{argument_will_be_xmlterm}}}
 %%   </example_element>
 %%
+%% It's also possible to substitute whole attributes, not just their values:
+%%
+%%   <example_element {{myattr}}/>
+%%
 %% Refer to escalus_stanza_SUITE for usage examples.
 -type xml_snippet() :: string() | binary().
 
@@ -771,11 +775,14 @@ xml_snippet_to_string(Snippet) when is_binary(Snippet) -> ?b2l(Snippet);
 xml_snippet_to_string(Snippet) -> Snippet.
 
 validate_context(Ctx) ->
-    [ {Key, to_string(Value)} || {Key, Value} <- Ctx ].
+    [ {Key, argument_to_string(Value)} || {Key, Value} <- Ctx ].
 
-to_string(E = #xmlel{}) -> ?b2l(?io2b(exml:to_iolist(E)));
-to_string(E) when is_binary(E) -> ?b2l(E);
-to_string(E) when is_list(E) -> E.
+argument_to_string({Name, Value}) ->
+    ?b2l(?io2b([Name, "='", exml:escape_attr(Value), "'"]));
+argument_to_string(E = #xmlel{}) ->
+    ?b2l(?io2b(exml:to_iolist(E)));
+argument_to_string(E) when is_binary(E) -> ?b2l(E);
+argument_to_string(E) when is_list(E) -> E.
 
 %%--------------------------------------------------------------------
 %% Helpers
