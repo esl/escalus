@@ -11,7 +11,8 @@
 all() ->
     [sanity_check,
      nullary_snippet_to_xmlel,
-     unary_snippet_to_xmlel].
+     unary_snippet_to_xmlel,
+     type_matrix_accepted].
 
 %%
 %% Tests
@@ -31,3 +32,12 @@ unary_snippet_to_xmlel(_) ->
                attrs = [{<<"attr">>, <<"value">>}]},
         M:from_template("<el attr='{{val}}'/>",
                         [{val, "value"}])).
+
+type_matrix_accepted(_) ->
+    M = escalus_stanza,
+    Example = #xmlel{name = <<"el">>,
+                     attrs = [{<<"attr">>, <<"value">>}]},
+    ?eq(Example, M:from_template("<el attr='{{val}}'/>", [{val, "value"}])),
+    ?eq(Example, M:from_template(<<"<el attr='{{val}}'/>">>, [{val, "value"}])),
+    ?eq(Example, M:from_template(<<"<el attr='{{val}}'/>">>, [{val, <<"value">>}])),
+    ?eq(Example, M:from_template("<el attr='{{val}}'/>", [{val, <<"value">>}])).
