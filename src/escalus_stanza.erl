@@ -115,11 +115,15 @@
 
 -export([remove_account/0]).
 
+%% Stanzas from inline XML
+-export([from_xml/1]).
+
 -import(escalus_compat, [bin/1]).
 
 -include("escalus.hrl").
 -include("escalus_xmlns.hrl").
 -include("no_binary_to_integer.hrl").
+-include_lib("exml/include/exml.hrl").
 -include_lib("exml/include/exml_stream.hrl").
 
 %%--------------------------------------------------------------------
@@ -689,7 +693,25 @@ enable_carbons_el() ->
     #xmlel{name = <<"enable">>,
            attrs = [{<<"xmlns">>, ?NS_CARBONS_2}]}.
 
+%%--------------------------------------------------------------------
+%% Stanzas from inline XML
+%%--------------------------------------------------------------------
 
+-spec from_xml(Snippet) -> Term when
+      Snippet :: string(),
+      Term :: xmlterm().
+from_xml(Snippet) ->
+    to_element(Snippet).
+
+%%--------------------------------------------------------------------
+%% Helpers for stanzas from XML
+%%--------------------------------------------------------------------
+
+to_element(XMLSnippet) when is_binary(XMLSnippet) ->
+    {ok, El} = exml:parse(XMLSnippet),
+    El;
+to_element(XMLSnippet) ->
+    to_element(iolist_to_binary(XMLSnippet)).
 
 %%--------------------------------------------------------------------
 %% Helpers
