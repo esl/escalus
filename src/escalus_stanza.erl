@@ -128,6 +128,7 @@
 -include_lib("exml/include/exml_stream.hrl").
 
 -define(b2l(B), erlang:binary_to_list(B)).
+-define(i2l(I), erlang:integer_to_list(I)).
 -define(io2b(IOList), erlang:iolist_to_binary(IOList)).
 
 %%--------------------------------------------------------------------
@@ -782,7 +783,9 @@ argument_to_string({Name, Value}) ->
 argument_to_string(E = #xmlel{}) ->
     ?b2l(?io2b(exml:to_iolist(E)));
 argument_to_string(E) when is_binary(E) -> ?b2l(E);
-argument_to_string(E) when is_list(E) -> E.
+argument_to_string(E) when is_list(E) -> E;
+argument_to_string(I) when is_integer(I) -> ?i2l(I);
+argument_to_string(F) when is_float(F) -> io_lib:format("~.2f", [F]).
 
 %%--------------------------------------------------------------------
 %% Helpers

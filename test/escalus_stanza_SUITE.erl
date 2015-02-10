@@ -13,7 +13,8 @@ all() ->
      unary_snippet_to_xmlel,
      type_matrix_accepted,
      term_as_argument,
-     attribute_as_argument].
+     attribute_as_argument,
+     numbers_as_arguments].
 
 %%
 %% Tests
@@ -53,3 +54,11 @@ attribute_as_argument(_) ->
     Example = #xmlel{name = <<"el">>,
                      attrs = [Attr]},
     ?eq(Example, M:from_template("<el {{attr}}/>", [{attr, Attr}])).
+
+numbers_as_arguments(_) ->
+    M = escalus_stanza,
+    Example = #xmlel{name = <<"el">>,
+                     attrs = [{<<"int">>, <<"666">>}, {<<"pi">>, <<"3.14">>}]},
+    ?eq(Example,
+        M:from_template("<el int='{{int}}' pi='{{pi}}'/>",
+                        [{int, 666}, {pi, math:pi()}])).
