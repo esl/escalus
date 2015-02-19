@@ -41,6 +41,7 @@
          get_user_by_name/1,
          get_user_by_name/2,
          create_user/2,
+         create_user/1,
          verify_creation/1,
          delete_user/2,
          get_usp/2,
@@ -48,8 +49,7 @@
         ]).
 
 %% Deprecated API
--export([create_user/1,
-         delete_user/1,
+-export([delete_user/1,
          get_usp/1,
          get_jid/1,
          get_username/1,
@@ -229,6 +229,9 @@ get_user_by_name(Name, Users) ->
 
 create_user(Config, {_Name, UserSpec}) ->
     ClientProps = get_options(Config, UserSpec),
+    create_user(ClientProps).
+
+create_user(ClientProps) ->
     {ok, Conn, ClientProps, _} = escalus_connection:start(ClientProps,
                                                           [start_stream,
                                                            stream_features,
@@ -308,7 +311,6 @@ is_mod_register_enabled(Config) ->
                                    escalus_compat:backtrace(0)]),
             FUNCTION_NAME([], Username)).
 
-?DEFINE_ONE_ARG(create_user).
 ?DEFINE_ONE_ARG(delete_user).
 ?DEFINE_ONE_ARG(get_usp).
 ?DEFINE_ONE_ARG(get_jid).
