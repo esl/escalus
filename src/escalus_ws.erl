@@ -174,7 +174,7 @@ handle_info(tcp_closed, State) ->
 handle_info({error, Reason}, State) ->
     {stop, Reason, State};
 handle_info({text, Data}, State) ->
-    handle_info({binary, list_to_binary(lists:flatten(Data))}, State);
+    handle_data(list_to_binary(lists:flatten(Data)), State);
 handle_info({binary, Data}, State) ->
     handle_data(Data, State);
 handle_info(_, State) ->
@@ -202,18 +202,18 @@ handle_data(Data, State = #state{parser = Parser,
                 exml_stream:parse(Parser, Decompressed)
         end,
     NewState = State#state{parser = NewParser},
-    escalus_connection:maybe_forward_to_owner(NewState#state.filter_pred, NewState, Stanzas, fun forward_to_owner/2).
+    escalus_connection:maybe_forward_to_owner(NewState#state.filter_pred, NewState, Stanzas, fun forward_to_owner/2),
+    case [StrEnd || #xmlstreamend{} = StrEnd <- Stanzas] of
+        [] -> {noreply, NewState};
+        __ -> {stop, normal, NewState}
+    end.
 
 forward_to_owner(Stanzas, #state{owner = Owner,
                                  event_client = EventClient} = NewState) ->
     lists:foreach(fun(Stanza) ->
                           escalus_event:incoming_stanza(EventClient, Stanza),
                           Owner ! {stanza, transport(NewState), Stanza}
-                  end, Stanzas),
-    case [StrEnd || #xmlstreamend{} = StrEnd <- Stanzas] of
-        [] -> {noreply, NewState};
-        __ -> {stop, normal, NewState}
-    end.
+                  end, Stanzas).
 
 common_terminate(_Reason, #state{parser = Parser}) ->
     exml_stream:free_parser(Parser).
