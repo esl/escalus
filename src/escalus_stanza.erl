@@ -708,6 +708,8 @@ direction_el('after', AbstractID) when is_binary(AbstractID) ->
     #xmlel{name = <<"after">>, children = #xmlcdata{content = AbstractID}};
 direction_el('before', AbstractID) when is_binary(AbstractID) ->
     #xmlel{name = <<"before">>, children = #xmlcdata{content = AbstractID}};
+direction_el('before', empty) ->
+    #xmlel{name = <<"before">>};
 direction_el(_, undefined) ->
     undefined.
 
