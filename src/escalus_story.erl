@@ -33,12 +33,14 @@
 story(Config, ResourceCounts, Story) ->
     ClientDescs = clients_from_resource_counts(Config, ResourceCounts),
     try
+        CountersToCheck = counters_to_check(Config),
         Clients = start_clients(Config, ClientDescs),
         ensure_all_clean(Clients),
         escalus_event:story_start(Config),
         apply_w_arity_check(Story, Clients),
         escalus_event:story_end(Config),
-        post_story_checks(Config, Clients)
+        post_story_checks(Config, Clients),
+        post_story_check_counters(CountersToCheck)
     catch Class:Reason ->
         Stacktrace = erlang:get_stacktrace(),
         escalus_event:print_history(Config),
@@ -185,3 +187,86 @@ apply_w_arity_check(Fun, Args) when is_function(Fun) ->
     apply(Fun, Args).
              
     
+counters_to_check(Config) ->
+    Counters = proplists:get_value(mongoose_metrics, Config, undefined),
+    case Counters of
+        undefined ->
+            [];
+        _ ->
+            read_metrics_initial_value(escalus_ejabberd:is_mongoose(), Counters)
+    end.
+
+read_metrics_initial_value(true, Metrics) ->
+    lists:foldl(fun read_metric_initial_value/2, [], Metrics);
+read_metrics_initial_value(_, _) ->
+    [].
+
+read_metric_initial_value({Metric, _} = MetricSpec, Acc) ->
+    Type = metric_type(Metric),
+    Value = get_value(Metric, Type),
+    [{MetricSpec, Type, Value} | Acc];
+read_metric_initial_value({Precond, Metric, Change}, Acc) ->
+    case Precond() of
+        true ->
+            read_metric_initial_value({Metric, Change}, Acc);
+        _ ->
+            Acc
+    end.
+
+post_story_check_counters(CountersToCheck) ->
+    After = [{MetricSpec, OldValue, get_value(Metric, Type)} || {{Metric, _} = MetricSpec, Type, OldValue } <- CountersToCheck],
+    [] = lists:foldl(fun check_metric_change/2, [], After),
+    ok.
+
+get_value(Metric, spiral) ->
+    Values = get_values(Metric),
+    lists:foldl(fun({_, [{count, X}, _]}, Sum) ->
+        Sum + X
+    end, 0, Values);
+
+get_value(Metric, _) ->
+    get_value(Metric).
+
+get_value(Metric) ->
+    {ok, Value} = escalus_ejabberd:rpc(mongoose_metrics, get_metric_value, [Metric]),
+    Value.
+
+get_values(Metric) ->
+    escalus_ejabberd:rpc(mongoose_metrics, get_metric_values, [Metric]).
+
+metric_type(Metric) ->
+    [{_, Type, _} | _] = escalus_ejabberd:rpc(exometer, find_entries, [Metric]),
+    Type.
+
+check_metric_change({{Metric, Change}, Before, After}, Acc) when is_integer(Change) ->
+    case Before + Change =:= After of
+        true ->
+            Acc;
+        _ ->
+            [{Metric, {expected_diff, Change}, {before_story, Before}, {after_story, After}} | Acc]
+    end;
+
+check_metric_change({{Metric, changed}, Before, After}, Acc) ->
+    case After of
+        Before ->
+            [{Metric, expected_change, {before_story, Before}, {after_story, After}} | Acc];
+        _ ->
+            Acc
+    end;
+check_metric_change({{Metric, Changes}, Before, After}, Acc) when is_list(Changes)->
+    Check = fun({Property, Change}) ->
+        {Property, BeforeProp} = lists:keyfind(Property, 1, Before),
+        {Property, AfterProp} = lists:keyfind(Property, 1, After),
+        check_change(BeforeProp, AfterProp, Change)
+    end,
+    case lists:all(Check, Changes) of
+        false ->
+            [{Metric, {expected_change, Changes}, {before_story, Before}, {after_story, After}} | Acc];
+        _ ->
+            Acc
+    end.
+
+check_change(Before, After, Change) when is_atom(Change) ->
+    erlang:apply(erlang, Change, [After, Before]);
+check_change(Before, After, Change) when is_integer(Change) ->
+    After == Before + Change.
