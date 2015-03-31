@@ -203,6 +203,7 @@ read_metrics_initial_value(_, _) ->
 
 read_metric_initial_value({Metric, _} = MetricSpec, Acc) ->
     Type = metric_type(Metric),
+    maybe_reset_metric(Metric, Type),
     Value = get_value(Metric, Type),
     [{MetricSpec, Type, Value} | Acc];
 read_metric_initial_value({Precond, Metric, Change}, Acc) ->
@@ -218,12 +219,18 @@ post_story_check_counters(CountersToCheck) ->
     [] = lists:foldl(fun check_metric_change/2, [], After),
     ok.
 
+maybe_reset_metric(Metric, histogram) ->
+    escalus_ejabberd:rpc(exometer, reset, [Metric]);
+maybe_reset_metric(_, _) ->
+    ok.
+
 get_value(Metric, spiral) ->
     Values = get_values(Metric),
     lists:foldl(fun({_, [{count, X}, _]}, Sum) ->
         Sum + X
     end, 0, Values);
-
+get_value(Metric, histogram) ->
+    get_value(Metric);
 get_value(Metric, _) ->
     get_value(Metric).
 
