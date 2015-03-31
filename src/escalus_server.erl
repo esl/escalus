@@ -19,8 +19,11 @@
 -export([pre_story/1]).
 -export([post_story/1]).
 
+-export([name/1]).
+
 -callback pre_story(escalus:config()) -> escalus:config().
 -callback post_story(escalus:config()) -> escalus:config().
+-callback name() -> atom().
 
 -spec pre_story(escalus:config()) -> escalus:config().
 pre_story(Config) ->
@@ -30,6 +33,8 @@ pre_story(Config) ->
 post_story(Config) ->
     call_server(get_server(Config), post_story, [Config]).
 
+name(Config) ->
+    call_server(get_server(Config), name, []).
 
 get_server(Config) ->
     escalus_config:get_config(escalus_xmpp_server, Config, undefined).
@@ -44,4 +49,7 @@ call_server(ServerModule, Method, Args) ->
 call_undef_server(pre_story, [Config]) ->
     Config;
 call_undef_server(post_story, [Config]) ->
-    Config.
+    Config;
+call_undef_server(name, _) ->
+    unknown.
+

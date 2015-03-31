@@ -29,7 +29,6 @@
          delete_users/2]).
 
 -export([rpc/3,
-         is_mongoose/0,
          remote_display/1,
          remote_format/1,
          remote_format/2,
@@ -91,10 +90,6 @@ rpc(M, F, A) ->
     Node = escalus_ct:get_config(ejabberd_node),
     Cookie = escalus_ct:get_config(ejabberd_cookie),
     escalus_ct:rpc_call(Node, M, F, A, 3000, Cookie).
-
-is_mongoose() ->
-    Apps = escalus_ejabberd:rpc(application, loaded_applications, []),
-    lists:keymember(mongooseim, 1, Apps).
 
 remote_display(String) ->
     Line = [$\n, [$- || _ <- String], $\n],

@@ -18,7 +18,9 @@
 -behaviour(escalus_server).
 
 %% API
--export([pre_story/1, post_story/1]).
+-export([pre_story/1,
+         post_story/1,
+         name/0]).
 
 -spec pre_story(escalus:config()) -> escalus:config().
 pre_story(Config) ->
@@ -46,6 +48,10 @@ maybe_check_metrics_post_story(Config) ->
             post_story_check_metrics(InitialMetrics)
     end,
     Config.
+
+-spec name() -> mongooseim.
+name() ->
+    mongooseim.
 
 read_metric_initial_value({Metric, _} = MetricSpec, Acc) ->
     Type = metric_type(Metric),
