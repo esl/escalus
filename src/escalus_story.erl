@@ -30,21 +30,23 @@
 %% Public API
 %%--------------------------------------------------------------------
 
-story(Config, ResourceCounts, Story) ->
-    ClientDescs = clients_from_resource_counts(Config, ResourceCounts),
+story(ConfigIn, ResourceCounts, Story) ->
+    ClientDescs = clients_from_resource_counts(ConfigIn, ResourceCounts),
     try
+        Config = escalus_server:pre_story(ConfigIn),
         Clients = start_clients(Config, ClientDescs),
         ensure_all_clean(Clients),
         escalus_event:story_start(Config),
         apply_w_arity_check(Story, Clients),
         escalus_event:story_end(Config),
-        post_story_checks(Config, Clients)
+        post_story_checks(Config, Clients),
+        escalus_server:post_story(Config)
     catch Class:Reason ->
         Stacktrace = erlang:get_stacktrace(),
-        escalus_event:print_history(Config),
+        escalus_event:print_history(ConfigIn),
         erlang:raise(Class, Reason, Stacktrace)
     after
-        escalus_cleaner:clean(Config)
+        escalus_cleaner:clean(ConfigIn)
     end.
 
 make_everyone_friends(Config) ->
@@ -183,5 +185,3 @@ apply_w_arity_check(Fun, Args) when is_function(Fun, 1) ->
     end;
 apply_w_arity_check(Fun, Args) when is_function(Fun) ->
     apply(Fun, Args).
-             
-    
