@@ -29,6 +29,7 @@
          delete_users/2]).
 
 -export([rpc/3,
+         rpc/4,
          remote_display/1,
          remote_format/1,
          remote_format/2,
@@ -85,11 +86,13 @@ delete_users(Config, Users) ->
 %%%
 %%% Business API
 %%%
-
 rpc(M, F, A) ->
+    rpc(M, F, A, 3000).
+
+rpc(M, F, A, Timeout) ->
     Node = escalus_ct:get_config(ejabberd_node),
     Cookie = escalus_ct:get_config(ejabberd_cookie),
-    escalus_ct:rpc_call(Node, M, F, A, 3000, Cookie).
+    escalus_ct:rpc_call(Node, M, F, A, Timeout, Cookie).
 
 remote_display(String) ->
     Line = [$\n, [$- || _ <- String], $\n],
@@ -263,4 +266,3 @@ unify_str_arg(Arg, str) when is_binary(Arg) ->
     binary_to_list(Arg);
 unify_str_arg(Arg, _) ->
     Arg.
-
