@@ -62,11 +62,13 @@
          auth_response/0,
          auth_response/1,
          query_el/2,
-         x_data_form/2]).
+         x_data_form/2,
+         field_el/3]).
 
 -export([disco_info/1,
          disco_info/2,
-         disco_items/1
+         disco_items/1,
+         disco_items/2
         ]).
 
 -export([vcard_update/1,
@@ -505,6 +507,9 @@ disco_info(JID, Node) ->
 disco_items(JID) ->
     ItemsQuery = query_el(?NS_DISCO_ITEMS, []),
     iq(JID, <<"get">>, [ItemsQuery]).
+disco_items(JID, Node) ->
+    ItemsQuery = query_el(?NS_DISCO_ITEMS, [{<<"node">>, Node}], []),
+    iq(JID, <<"get">>, [ItemsQuery]).
 
 search_fields([]) ->
     [];
@@ -627,29 +632,57 @@ resume(SMID, PrevH) ->
 %%
 %% @TODO: move the stanza constructors from
 %% tests/mam_SUITE.erl into here.
+field_el(_Name, _Type, undefined) ->
+    undefined;
+field_el(Name, Type, Values) when is_list(Values) ->
+    Fields = lists:map(fun (E) ->
+                               #xmlel{name = <<"value">>,
+                                      children = [#xmlcdata{content = E}]}
+                       end, Values),
+    #xmlel{name = <<"field">>,
+           attrs = [{<<"type">>, Type},
+                    {<<"var">>, Name}],
+           children = Fields };
+field_el(Name, Type, Value) ->
+    field_el(Name, Type, [Value]).
 
 mam_archive_query(QueryId) ->
     mam_archive_query(QueryId, []).
 
 mam_archive_query(QueryId, Children) ->
+    DefChilds = defined(Children),
+
+    %%  > 1 -> has not only FORM_TYPE
+    ChildEl = case length(DefChilds) > 1 of
+                  true ->
+                      [#xmlel{name = <<"x">>,
+                              attrs = [{<<"xmlns">>, <<"jabberd:x:data">>}],
+                              children = DefChilds}];
+                  false ->
+                      %% no need to create form element
+                      []
+              end,
     escalus_stanza:iq(
-      <<"get">>,
+      <<"set">>,
       [#xmlel{
           name = <<"query">>,
           attrs = [mam_ns_attr(), {<<"queryid">>, QueryId}],
-          children = defined(Children)}]).
+          children = ChildEl}]).
+
 
 mam_lookup_messages_iq(QueryId, Start, End, WithJID) ->
-    mam_archive_query(QueryId, [fmapM(fun start_elem/1, Start),
-                                fmapM(fun end_elem/1, End),
-                                fmapM(fun with_elem/1, WithJID)]).
+    mam_archive_query(QueryId, [field_el(<<"FORM_TYPE">>, <<"hidden">>, ?NS_MAM),
+                                field_el(<<"start">>, <<"text-single">>, Start),
+                                field_el(<<"end">>, <<"text-single">>, End),
+                                field_el(<<"with">>, <<"jid-single">>, WithJID)
+                                ]).
 
 %% Include an rsm id for a particular message.
 mam_lookup_messages_iq(QueryId, Start, End, WithJID, DirectionWMessageId) ->
     IQ = #xmlel{children=[Q]} = mam_lookup_messages_iq(QueryId, Start, End, WithJID),
-    Q2 = Q#xmlel{children = defined([
-                                     fmapM(fun rsm_after_or_before/1, DirectionWMessageId)
-                                    ])},
+    RSM  = defined([fmapM(fun rsm_after_or_before/1, DirectionWMessageId)]),
+    Other = Q#xmlel.children,
+    Q2 = Q#xmlel{children = Other ++ RSM},
     IQ#xmlel{children=[Q2]}.
 
 fmapM(_F, undefined) -> undefined;
@@ -666,18 +699,22 @@ end_elem(EndTime) ->
 with_elem(BWithJID) ->
     #xmlel{name = <<"with">>, children = #xmlcdata{content = BWithJID}}.
 
-rsm_after_or_before({Direction, AbstractID}) when is_binary(AbstractID) ->
+rsm_after_or_before({Direction, AbstractID, MaxCount}) ->
     #xmlel{name = <<"set">>,
            attrs = [{<<"xmlns">>, ?NS_RSM}],
-           children = [ direction_el(Direction, AbstractID) ]}.
+           children = defined([max(MaxCount), direction_el(Direction, AbstractID) ])}.
 
 direction_el('after', AbstractID) when is_binary(AbstractID) ->
     #xmlel{name = <<"after">>, children = #xmlcdata{content = AbstractID}};
 direction_el('before', AbstractID) when is_binary(AbstractID) ->
-    #xmlel{name = <<"before">>, children = #xmlcdata{content = AbstractID}}.
+    #xmlel{name = <<"before">>, children = #xmlcdata{content = AbstractID}};
+direction_el(_, undefined) ->
+    undefined.
 
 max(N) when is_integer(N) ->
-    #xmlel{name = <<"max">>, children = #xmlcdata{content = integer_to_binary(N)}}.
+    #xmlel{name = <<"max">>, children = #xmlcdata{content = integer_to_binary(N)}};
+max(_) ->
+    undefined.
 
 mam_ns_attr() -> {<<"xmlns">>,?NS_MAM}.
 

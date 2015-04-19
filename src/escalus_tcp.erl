@@ -6,6 +6,7 @@
 
 -module(escalus_tcp).
 -behaviour(gen_server).
+-behaviour(escalus_connection).
 
 -include_lib("exml/include/exml_stream.hrl").
 -include("escalus.hrl").
@@ -20,6 +21,7 @@
          reset_parser/1,
          get_sm_h/1,
          set_sm_h/2,
+         set_filter_predicate/2,
          stop/1,
          kill/1]).
 
@@ -46,6 +48,7 @@
 -record(state, {owner,
                 socket,
                 parser,
+                filter_pred,
                 ssl = false,
                 compress = false,
                 event_client,
@@ -54,7 +57,6 @@
                 active = true,
                 sm_state = {true, 0, inactive} :: sm_state(),
                 replies = []}).
-
 
 %%%===================================================================
 %%% API
@@ -80,6 +82,11 @@ get_sm_h(#client{rcv_pid = Pid}) ->
 
 set_sm_h(#client{rcv_pid = Pid}, H) ->
     gen_server:call(Pid, {set_sm_h, H}).
+
+-spec set_filter_predicate(escalus_connection:client(),
+                           escalus_connection:filter_pred()) -> ok.
+set_filter_predicate(#client{rcv_pid = Pid}, Pred) ->
+    gen_server:call(Pid, {set_filter_pred, Pred}).
 
 stop(#client{rcv_pid = Pid}) ->
     try
@@ -140,7 +147,11 @@ recv(#client{rcv_pid = Pid}) ->
 init([Args, Owner]) ->
     Host = proplists:get_value(host, Args, <<"localhost">>),
     Port = proplists:get_value(port, Args, 5222),
+
+    Address = host_to_inet(Host),
     EventClient = proplists:get_value(event_client, Args),
+    InterfaceIp = proplists:get_value(ip, Args),
+    IsSSLConnection = proplists:get_value(ssl, Args, false),
 
     OnReplyFun = proplists:get_value(on_reply, Args, fun(_) -> ok end),
     OnRequestFun = proplists:get_value(on_request, Args, fun(_) -> ok end),
@@ -154,9 +165,14 @@ init([Args, Owner]) ->
              {true,false}       -> {true, 0, inactive}
          end,
 
-    Address = host_to_inet(Host),
-    IsSSLConnection = proplists:get_value(ssl, Args, false),
-    {ok, Socket} = do_connect(IsSSLConnection, Address, Port, Args, OnConnectFun),
+
+    BasicOpts = [binary, {active, once}],
+    SocketOpts = case InterfaceIp of
+               undefined -> BasicOpts;
+               _         -> BasicOpts ++ {ip, InterfaceIp} end,
+
+    {ok, Socket} = do_connect(IsSSLConnection, Address, Port, Args,
+                              SocketOpts, OnConnectFun),
     {ok, Parser} = exml_stream:new_parser(),
     {ok, #state{owner = Owner,
                 socket = Socket,
@@ -198,6 +214,8 @@ handle_call(get_active, _From, #state{active = Active} = State) ->
     {reply, Active, State};
 handle_call({set_active, Active}, _From, State) ->
     {reply, ok, State#state{active = Active}};
+handle_call({set_filter_pred, Pred}, _From, State) ->
+    {reply, ok, State#state{filter_pred = Pred}};
 handle_call(recv, _From, State) ->
     {Reply, NS} = handle_recv(State),
     {reply, Reply, NS};
@@ -272,10 +290,13 @@ handle_data(Socket, Data, #state{parser = Parser,
     NewState = State#state{parser = NewParser},
     case State#state.active of
         true ->
-            forward_to_owner(Stanzas, NewState);
+            escalus_connection:maybe_forward_to_owner(NewState#state.filter_pred,
+                                                      NewState, Stanzas,
+                                                      fun forward_to_owner/2);
         false ->
             store_reply(Stanzas, NewState)
     end.
+
 
 forward_to_owner(Stanzas0, #state{owner = Owner,
                                   sm_state = SM0,
@@ -309,7 +330,6 @@ handle_recv(#state{replies = [Reply | Replies]} = S) ->
         _ -> ok
     end,
     {Reply, S#state{replies = Replies}}.
-
 
 separate_ack_requests({false, H0, A}, Stanzas) ->
     %% Don't keep track of H
@@ -411,10 +431,9 @@ send_stream_end(#state{socket = Socket, ssl = Ssl, compress = Compress}) ->
             gen_tcp:send(Socket, exml:to_iolist(StreamEnd))
     end.
 
-do_connect(IsSSLConnection, Address, Port, Args, OnConnectFun) ->
-    Opts = [binary, {active, once}],
+do_connect(IsSSLConnection, Address, Port, Args, SocketOpts, OnConnectFun) ->
     TimeB = os:timestamp(),
-    Reply = maybe_ssl_connection(IsSSLConnection, Address, Port, Opts, Args),
+    Reply = maybe_ssl_connection(IsSSLConnection, Address, Port, SocketOpts, Args),
     TimeA = os:timestamp(),
     ConnectionTime = timer:now_diff(TimeA, TimeB),
     case Reply of
