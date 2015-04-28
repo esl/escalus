@@ -169,7 +169,7 @@ init([Args, Owner]) ->
     BasicOpts = [binary, {active, once}],
     SocketOpts = case Interface of
                      undefined -> BasicOpts;
-                     _         -> BasicOpts ++ {ip, iface_to_ip_address(Interface)}
+                     _         -> [{ip, iface_to_ip_address(Interface)}] ++ BasicOpts
                  end,
 
     {ok, Socket} = do_connect(IsSSLConnection, Address, Port, Args,
