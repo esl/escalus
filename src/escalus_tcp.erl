@@ -150,7 +150,7 @@ init([Args, Owner]) ->
 
     Address = host_to_inet(Host),
     EventClient = proplists:get_value(event_client, Args),
-    InterfaceIp = proplists:get_value(ip, Args),
+    Interface = proplists:get_value(iface, Args),
     IsSSLConnection = proplists:get_value(ssl, Args, false),
 
     OnReplyFun = proplists:get_value(on_reply, Args, fun(_) -> ok end),
@@ -167,9 +167,10 @@ init([Args, Owner]) ->
 
 
     BasicOpts = [binary, {active, once}],
-    SocketOpts = case InterfaceIp of
-               undefined -> BasicOpts;
-               _         -> BasicOpts ++ {ip, InterfaceIp} end,
+    SocketOpts = case Interface of
+                     undefined -> BasicOpts;
+                     _         -> BasicOpts ++ {ip, iface_to_ip_address(Interface)}
+                 end,
 
     {ok, Socket} = do_connect(IsSSLConnection, Address, Port, Args,
                               SocketOpts, OnConnectFun),
@@ -404,6 +405,9 @@ host_to_inet({_,_,_,_} = IP4) -> IP4;
 host_to_inet({_,_,_,_,_,_,_,_} = IP6) -> IP6;
 host_to_inet(Address) when is_list(Address) orelse is_atom(Address) -> Address;
 host_to_inet(BAddress) when is_binary(BAddress) -> binary_to_list(BAddress).
+
+iface_to_ip_address({_,_,_,_} = IP4) -> IP4;
+iface_to_ip_address({_,_,_,_,_,_,_,_} = IP6) -> IP6.
 
 close_compression_streams(false) ->
     ok;
