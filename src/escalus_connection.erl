@@ -6,7 +6,7 @@
 -module(escalus_connection).
 
 -include_lib("exml/include/exml_stream.hrl").
--include("include/escalus.hrl").
+-include("escalus.hrl").
 
 %% High-level API
 -export([start/1, start/2,
@@ -16,11 +16,16 @@
 -export([connect/1,
          send/2,
          get_stanza/2,
+         get_stanza/3,
          get_sm_h/1,
          set_sm_h/2,
+         set_filter_predicate/2,
          reset_parser/1,
          is_connected/1,
          kill/1]).
+
+%% Behaviour helpers
+-export([maybe_forward_to_owner/4]).
 
 %% Public Types
 -type client() :: #client{}.
@@ -29,10 +34,26 @@
 -type step_spec() :: atom() | {module(), atom()} | escalus_session:step().
 -export_type([step_spec/0]).
 
+-type filter_pred() :: fun((#xmlel{}) -> boolean()) | none.
+-export_type([filter_pred/0]).
+
 %% Private
 -export([connection_step/2]).
 
 -define(TIMEOUT, 1000).
+
+%%%===================================================================
+%%% Behaviour callback
+%%%===================================================================
+-callback connect([proplists:property()]) -> {ok, client()}.
+-callback send(client(), #xmlel{}) -> no_return().
+-callback stop(client()) -> ok | already_stopped.
+
+-callback is_connected(client()) -> boolean().
+-callback reset_parser(client()) -> no_return().
+-callback kill(client()) -> no_return().
+-callback set_filter_predicate(client(), filter_pred()) -> ok.
+
 
 %%%===================================================================
 %%% Public API
@@ -130,10 +151,14 @@ send(#client{module = Mod, event_client = EventClient} = Client, Elem) ->
 
 -spec get_stanza(client(), any()) -> #xmlel{}.
 get_stanza(Conn, Name) ->
+    get_stanza(Conn, Name, ?TIMEOUT).
+
+-spec get_stanza(client(), any(), timeout()) -> #xmlel{}.
+get_stanza(Conn, Name, Timeout) ->
     receive
         {stanza, Conn, Stanza} ->
             Stanza
-    after ?TIMEOUT ->
+    after Timeout ->
             throw({timeout, Name})
     end.
 
@@ -149,6 +174,10 @@ set_sm_h(#client{module = escalus_tcp} = Conn, H) ->
 set_sm_h(#client{module = Mod}, _) ->
     error({set_sm_h, {undefined_for_escalus_module, Mod}}).
 
+-spec set_filter_predicate(client(), filter_pred()) -> ok.
+set_filter_predicate(#client{module = Module} = Conn, Pred) ->
+    Module:set_filter_predicate(Conn, Pred).
+
 reset_parser(#client{module = Mod} = Client) ->
     Mod:reset_parser(Client).
 
@@ -161,6 +190,25 @@ stop(#client{module = Mod} = Client) ->
 %% Brutally kill the connection without terminating the XMPP stream.
 kill(#client{module = Mod} = Client) ->
     Mod:kill(Client).
+
+
+-spec maybe_forward_to_owner(filter_pred(), term(), [#xmlel{}],
+                             fun(([#xmlel{}], term()) -> term()))
+        -> term().
+maybe_forward_to_owner(none, State, _Stanzas, _Fun) ->
+    State;
+maybe_forward_to_owner(FilterPred, State, Stanzas, Fun)
+    when is_function(FilterPred) ->
+    AllowedStanzas = lists:filter(FilterPred, Stanzas),
+    case AllowedStanzas of
+        [] ->
+            State;
+        _ ->
+            Fun(AllowedStanzas, State)
+    end;
+maybe_forward_to_owner(_, State, Stanzas, Fun) ->
+    Fun(Stanzas, State).
+
 
 %%%===================================================================
 %%% Helpers
