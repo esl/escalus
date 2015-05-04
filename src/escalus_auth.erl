@@ -187,7 +187,7 @@ get_challenge(Conn, Descr, DecodeCsvkv) ->
     end.
 
 wait_for_success(Username, Conn) ->
-    AuthReply = escalus_connection:get_stanza(Conn, auth_reply),
+    AuthReply = escalus_connection:get_stanza(Conn, auth_reply, 2000),
     case AuthReply#xmlel.name of
         <<"success">> ->
             ok;
