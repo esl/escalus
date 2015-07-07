@@ -12,6 +12,10 @@ Escalus contains functions `escalus:init_per_suite/1`,
 `escalus:end_per_suite/1`, `escalus:init_per_testcase` and
 `escalus:end_per_testcase` which should be called in
 appropriate Common Test callback functions.
+Calling `escalus:init_per_testcase` is mandatory as this function
+initializes the runtime support for `escalus:story`
+(i.e. `escalus_cleaner` -- actually, you can do it manually if you know
+what you're doing).
 
 You can specify users that will take part in your tests
 in Common Test config files,
