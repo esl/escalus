@@ -27,6 +27,7 @@
          iq_get/2,
          iq_set/2,
          iq_set_nonquery/2,
+	 iq_with_type_id_from/3,
          presence/1,
          presence/2,
          presence_direct/2,
@@ -399,6 +400,14 @@ iq_with_type(Type, NS, Payload, nonquery) ->
            attrs = [{<<"xmlns">>, NS},
                     {<<"type">>, Type}],
            children = Payload}.
+
+iq_with_type_id_from(Type, Id, From) ->
+    #xmlel{name = <<"iq">>,
+           attrs = [{<<"type">>, Type},
+		    {<<"from">>, From},
+                    {<<"id">>, Id}]
+	  }.
+
 
 roster_get() ->
     iq_get(?NS_ROSTER, []).
