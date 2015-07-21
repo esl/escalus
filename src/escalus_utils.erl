@@ -44,7 +44,7 @@
 
 -import(escalus_compat, [unimplemented/0, bin/1]).
 
--include("include/escalus.hrl").
+-include("escalus.hrl").
 -include_lib("exml/include/exml.hrl").
 
 -type jid_spec() :: #client{} | atom() | binary() | string().

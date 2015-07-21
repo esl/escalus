@@ -90,7 +90,7 @@
 -type stanza_type() :: binary().
 -type namespace() :: binary().
 
--include("include/escalus.hrl").
+-include("escalus.hrl").
 -include("escalus_xmlns.hrl").
 -include("escalus_deprecated.hrl").
 -include_lib("exml/include/exml_stream.hrl").
