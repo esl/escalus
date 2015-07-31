@@ -6,3 +6,5 @@ tags
 deps
 .eunit
 test/*.beam
+
+.edts
