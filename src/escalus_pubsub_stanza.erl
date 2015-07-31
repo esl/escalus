@@ -15,7 +15,8 @@
 -include_lib("exml/include/exml.hrl").
 -include_lib("exml/include/exml_stream.hrl").
 
--export([pubsub_stanza/2,
+-export([
+	 create_node_stanza/3,
 	 create_specific_node_stanza/1,
 	 create_subscribe_node_stanza/2,
 	 create_request_allitems_stanza/1,
@@ -32,9 +33,11 @@
 	 iq_set_get_rest/3,
 	 publish_item/2,
 	 publish_entry/1,
+	 pubsub_stanza/2,
+	 publish_node_with_content_stanza/2,
+	 publish_sample_content_stanza/5,
 	 retract_from_node_stanza/2,
 	 retrieve_subscriptions_stanza/1,
-	 publish_node_with_content_stanza/2,
 	 set_subscriptions_stanza/2
 ]).
 
@@ -43,6 +46,22 @@ pubsub_stanza(Children, NS) ->
     #xmlel{name = <<"pubsub">>,
 	   attrs = [{<<"xmlns">>, NS} ],
 	   children = Children  }.
+
+publish_sample_content_stanza(DestinationTopicName, DestinationNode, PublishItemId, User, SampleNumber) ->
+    PublishToNode = case SampleNumber of
+	sample_one -> create_publish_node_content_stanza(DestinationTopicName, PublishItemId);
+	sample_two -> create_publish_node_content_stanza_second(DestinationTopicName, PublishItemId);
+	sample_three -> create_publish_node_content_stanza_third(DestinationTopicName, PublishItemId);
+	_ -> create_publish_node_content_stanza(DestinationTopicName, PublishItemId)
+    end,
+   IqId = <<"publish1">>,
+   escalus_pubsub_stanza:iq_with_id(set, IqId, DestinationNode, User,  [PublishToNode]).
+
+create_node_stanza(User, DestinationNodeAddr, DestinationNodeName) ->
+   PubSubCreate = create_specific_node_stanza(DestinationNodeName),
+   PubSub = pubsub_stanza([PubSubCreate], ?NS_PUBSUB),
+   Id = <<"create1">>,
+   iq_with_id(set, Id, DestinationNodeAddr, User,  [PubSub]).
 
 create_specific_node_stanza(NodeName) ->
     #xmlel{name = <<"create">>,
