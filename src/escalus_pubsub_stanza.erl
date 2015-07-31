@@ -38,7 +38,9 @@
 	 publish_sample_content_stanza/5,
 	 retract_from_node_stanza/2,
 	 retrieve_subscriptions_stanza/1,
-	 set_subscriptions_stanza/2
+	 set_subscriptions_stanza/2,
+	 subscribe_by_user_stanza/3,
+	 unsubscribe_by_user_stanza/3
 ]).
 
 
@@ -172,6 +174,17 @@ retract_from_node_stanza(NodeName, ItemId) ->
     pubsub_stanza([RetractNode], ?NS_PUBSUB).
 
 %% ------------ subscribe - unscubscribe -----------
+
+subscribe_by_user_stanza(User, NodeName, NodeAddress) ->
+    SubscribeToNode = create_subscribe_node_stanza(NodeName, User),
+    UserName = escalus_utils:get_username(User),
+    Id = <<UserName/binary,<<"binsuffix">>/binary>>,
+    iq_with_id(set, Id, NodeAddress, User,  [SubscribeToNode]).
+
+unsubscribe_by_user_stanza(User, NodeName, NodeAddress) ->
+    UnubscribeFromNode = create_unsubscribe_from_node_stanza(NodeName, User),
+    Id = <<"unsub1">>,
+    escalus_pubsub_stanza:iq_with_id(set, Id, NodeAddress, User,  [UnubscribeFromNode]).
 
 create_subscribe_node_stanza(NodeName, From) ->
     SubsrNode = create_sub_unsubscribe_from_node_stanza(NodeName, From, <<"subscribe">>),
