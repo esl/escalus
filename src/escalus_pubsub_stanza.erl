@@ -39,16 +39,14 @@
 ]).
 
 
-
 pubsub_stanza(Children, NS) ->
     #xmlel{name = <<"pubsub">>,
-	     attrs = [{<<"xmlns">>, NS} ],
-	     children = Children  }.
+	   attrs = [{<<"xmlns">>, NS} ],
+	   children = Children  }.
 
 create_specific_node_stanza(NodeName) ->
-    #xmlel{
-       name = <<"create">>,
-       attrs = [{<<"node">>, NodeName}] }.
+    #xmlel{name = <<"create">>,
+	   attrs = [{<<"node">>, NodeName}] }.
 
 iq_with_id(TypeAtom, Id, To, From, Body) ->
     S1 = escalus_stanza:iq(To, atom_to_binary(TypeAtom, latin1), Body),
@@ -59,7 +57,6 @@ iq_set_get_rest(SrcIq, Id, From) ->
     escalus_stanza:from(S2, escalus_utils:get_jid(From)).
 
 %% ----------------------------- sample entry bodies ------------------------
-
 
 entry_body_sample1() ->
     [
@@ -80,38 +77,47 @@ entry_body_with_sample_device_id_2() ->
 %% ------end-------------------- sample entry bodies ------------------------
 
 %% provide EntryBody as list of anything compliant with exml entity records.
+
+publish_entry_children([]) ->
+    entry_body_sample1();
+
+publish_entry_children([#xmlel{}] = EntryBody) ->
+    EntryBody.
+
 publish_entry(EntryBody) ->
     #xmlel{
        name = <<"entry">>,
        attrs = [{<<"xmlns">>, <<"http://www.w3.org/2005/Atom">>}],
-       children = case EntryBody of 
-		      [#xmlel{}] -> EntryBody;
-		      _ -> entry_body_sample1()
-		  end
+       children = publish_entry_children(EntryBody)
       }.
 
+publish_item_children(#xmlel{} = ItemBody) ->
+    publish_entry(ItemBody);
+
+publish_item_children([]) ->
+    publish_entry([]).
+    
 publish_item(ItemId, PublishEntry) ->
     #xmlel{
        name = <<"item">>,
        attrs = [{<<"id">>, ItemId}],
-       children = case PublishEntry of
-		      #xmlel{} ->
-			  PublishEntry;
-		      _ ->
-			publish_entry([])
-		   end
+       children = [publish_item_children(PublishEntry)]
       }.
+
+publish_node_children([]) ->
+    publish_item(<<"abc123">>, []);
+
+publish_node_children(#xmlel{} = ItemBody) ->
+    ItemBody;
+
+publish_node_children(_) ->
+    publish_node_children([]).
 
 publish_node_with_content_stanza(NodeName, ItemToPublish) ->
     #xmlel{
        name = <<"publish">>,
        attrs = [{<<"node">>, NodeName}],
-       children = case ItemToPublish of
-		      #xmlel{} -> 
-			  ItemToPublish;
-		      _ -> 
-			  publish_item(<<"abc123">>, [])
-		  end
+       children = [publish_node_children(ItemToPublish)]
       }.
 
 %% Create full sample content with nested items like in example 88 of XEP-0060
@@ -121,7 +127,6 @@ create_publish_node_content_stanza(NodeName, ItemId) ->
     ItemTopublish = publish_item(ItemId, PublishEntry),
     PublNode = publish_node_with_content_stanza(NodeName, ItemTopublish),
     pubsub_stanza([PublNode], ?NS_PUBSUB).
-
 
 %% Similar to above but with different entry body - mimicking "real" physical 
 %% device with hardware "identifier" - device 1
@@ -139,17 +144,12 @@ create_publish_node_content_stanza_third(NodeName, ItemId) ->
     PublNode = publish_node_with_content_stanza(NodeName, ItemTopublish),
     pubsub_stanza([PublNode], ?NS_PUBSUB).
 
-
-
 retract_from_node_stanza(NodeName, ItemId) ->
     ItemToRetract = #xmlel{name = <<"item">>, attrs=[{<<"id">>, ItemId}], children=[]},
     RetractNode =  #xmlel{name = <<"retract">>, attrs=[{<<"node">>, NodeName}], children=[ItemToRetract]},
     pubsub_stanza([RetractNode], ?NS_PUBSUB).
 
-    
-
 %% ------------ subscribe - unscubscribe -----------
-
 
 create_subscribe_node_stanza(NodeName, From) ->
     SubsrNode = create_sub_unsubscribe_from_node_stanza(NodeName, From, <<"subscribe">>),
