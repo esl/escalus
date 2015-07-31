@@ -82,7 +82,10 @@ publish_entry_children([]) ->
     entry_body_sample1();
 
 publish_entry_children([#xmlel{}] = EntryBody) ->
-    EntryBody.
+    EntryBody;
+
+publish_entry_children(#xmlel{} = EntryBody) ->
+    [EntryBody].
 
 publish_entry(EntryBody) ->
     #xmlel{
