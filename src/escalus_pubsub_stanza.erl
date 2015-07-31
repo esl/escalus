@@ -23,6 +23,8 @@
 	 create_publish_node_content_stanza_second/2,
 	 create_publish_node_content_stanza_third/2,
 	 create_sub_unsubscribe_from_node_stanza/3,
+	 create_unsubscribe_from_node_stanza/2,
+	 delete_node_stanza/1,
 	 entry_body_sample1/0,
 	 entry_body_with_sample_device_id/0,
 	 get_subscription_change_list_stanza/1,
@@ -32,7 +34,8 @@
 	 publish_entry/1,
 	 retract_from_node_stanza/2,
 	 retrieve_subscriptions_stanza/1,
-	 publish_node_with_content_stanza/2
+	 publish_node_with_content_stanza/2,
+	 set_subscriptions_stanza/2
 ]).
 
 
@@ -198,4 +201,4 @@ set_subscriptions_stanza(NodeName, SubscriptionChangesListStanza) ->
 
 %% pass SubscrChangeData as List of tuples {jid, new_subscription_state}
 get_subscription_change_list_stanza(SubscriptionChangeData) ->
-    lists:map(fun(ChangeEntry) -> subscription_stanza({Jid, SubsState} = ChangeEntry) end, SubscriptionChangeData).
+    lists:map(fun(ChangeEntry) -> subscription_stanza({_Jid, _SubsState} = ChangeEntry) end, SubscriptionChangeData).
