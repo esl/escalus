@@ -16,7 +16,7 @@
 -include_lib("exml/include/exml_stream.hrl").
 
 -export([
-         create_node_stanza/3,
+         create_node_stanza/4,
          create_specific_node_stanza/1,
          create_subscribe_node_stanza/2,
          create_request_allitems_stanza/1,
@@ -39,8 +39,8 @@
          retract_from_node_stanza/2,
          retrieve_subscriptions_stanza/1,
          set_subscriptions_stanza/2,
-         subscribe_by_user_stanza/3,
-         unsubscribe_by_user_stanza/3
+         subscribe_by_user_stanza/4,
+         unsubscribe_by_user_stanza/4
         ]).
 
 
@@ -63,11 +63,10 @@ publish_sample_content_stanza(DestinationTopicName, DestinationNode, PublishItem
     IqId = <<"publish1">>,
     escalus_pubsub_stanza:iq_with_id(set, IqId, DestinationNode, User,  [PublishToNode]).
 
-create_node_stanza(User, DestinationNodeAddr, DestinationNodeName) ->
+create_node_stanza(User, IqId, DestinationNodeAddr, DestinationNodeName) ->
     PubSubCreate = create_specific_node_stanza(DestinationNodeName),
     PubSub = pubsub_stanza([PubSubCreate], ?NS_PUBSUB),
-    Id = <<"create1">>,
-    iq_with_id(set, Id, DestinationNodeAddr, User,  [PubSub]).
+    iq_with_id(set, IqId, DestinationNodeAddr, User,  [PubSub]).
 
 create_specific_node_stanza(NodeName) ->
     #xmlel{name = <<"create">>,  attrs = [{<<"node">>, NodeName}] }.
@@ -178,16 +177,13 @@ retract_from_node_stanza(NodeName, ItemId) ->
 
 %% ------------ subscribe - unscubscribe -----------
 
-subscribe_by_user_stanza(User, NodeName, NodeAddress) ->
+subscribe_by_user_stanza(User, IqId, NodeName, NodeAddress) ->
     SubscribeToNode = create_subscribe_node_stanza(NodeName, User),
-    UserName = escalus_utils:get_username(User),
-    Id = <<UserName/binary,<<"binsuffix">>/binary>>,
-    iq_with_id(set, Id, NodeAddress, User,  [SubscribeToNode]).
+    iq_with_id(set, IqId, NodeAddress, User,  [SubscribeToNode]).
 
-unsubscribe_by_user_stanza(User, NodeName, NodeAddress) ->
+unsubscribe_by_user_stanza(User, IqId, NodeName, NodeAddress) ->
     UnubscribeFromNode = create_unsubscribe_from_node_stanza(NodeName, User),
-    Id = <<"unsub1">>,
-    escalus_pubsub_stanza:iq_with_id(set, Id, NodeAddress, User,  [UnubscribeFromNode]).
+    escalus_pubsub_stanza:iq_with_id(set, IqId, NodeAddress, User,  [UnubscribeFromNode]).
 
 create_subscribe_node_stanza(NodeName, From) ->
     SubsrNode = create_sub_unsubscribe_from_node_stanza(NodeName, From, <<"subscribe">>),
