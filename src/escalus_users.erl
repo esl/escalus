@@ -222,10 +222,9 @@ get_users({by_name, Names}, Users) ->
 get_user_by_name(Name) ->
     get_user_by_name(Name, get_users(all)).
 
--spec get_user_by_name(atom(), [spec()]) -> [spec()].
+-spec get_user_by_name(atom(), escalus:config()) -> {atom(), escalus:config()}.
 get_user_by_name(Name, Users) ->
     {Name, _} = proplists:lookup(Name, Users).
-
 
 create_user(Config, {_Name, UserSpec}) ->
     ClientProps = get_options(Config, UserSpec),
@@ -320,10 +319,6 @@ is_mod_register_enabled(Config) ->
 %%--------------------------------------------------------------------
 %% Helpers
 %%--------------------------------------------------------------------
-
--spec get_user_by_name(atom(), escalus:config()) -> {atom(), escalus:config()}.
-get_user_by_name(Name, Users) ->
-    {Name, _} = proplists:lookup(Name, Users).
 
 -type short_option() :: 'username'    %% binary()
                       | 'server'      %% binary()
