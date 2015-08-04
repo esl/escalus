@@ -209,7 +209,7 @@ stop(_) -> ok.
 
 -spec create_users(escalus:config(), escalus_users:who()) -> escalus:config().
 create_users(Config, Who)
-  when is_atom(Who); is_tuple(Who); is_list(Who) ->
+  when is_atom(Who); is_tuple(Who) ->
     Users = escalus_users:get_users(Who),
     lists:foreach(fun({_Name, UserSpec}) ->
                           register_user(Config, UserSpec)
@@ -218,7 +218,7 @@ create_users(Config, Who)
 
 -spec delete_users(escalus:config(), escalus_users:who()) -> escalus:config().
 delete_users(Config, Who)
-  when is_atom(Who); is_tuple(Who); is_list(Who) ->
+  when is_atom(Who); is_tuple(Who) ->
     Users = escalus_users:get_users(Who),
     lists:foreach(fun({_Name, UserSpec}) ->
                           unregister_user(Config, UserSpec)

@@ -113,9 +113,10 @@ create_users_via_xmpp(Config, Who) ->
 -spec delete_users(escalus:config(), who()) -> escalus:config().
 delete_users(Config, Who) ->
     Users = case Who of
-        config -> escalus_config:get_config(escalus_users, Config, []);
-        _      -> get_users(Who)
-    end,
+                config -> escalus_config:get_config(escalus_users, Config, []);
+                all    -> all;
+                _      -> get_users(Who)
+            end,
     case auth_type(Config) of
         {escalus_user_db, xmpp} ->
             [delete_user(Config, User) || User <- Users];
