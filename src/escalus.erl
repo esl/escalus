@@ -16,30 +16,6 @@
 
 -module(escalus).
 
-% Public API
--export([suite/0,
-         init_per_suite/1,
-         end_per_suite/1,
-         init_per_testcase/2,
-         end_per_testcase/2,
-         create_users/1,
-         create_users/2,
-         delete_users/1,
-         delete_users/2,
-         override/3,
-         make_everyone_friends/1,
-         story/3,
-         assert/2,
-         assert/3,
-         assert_many/2,
-         send/2,
-         send_and_wait/2,
-         wait_for_stanza/1,
-         wait_for_stanza/2,
-         wait_for_stanzas/2,
-         wait_for_stanzas/3,
-         peek_stanzas/1]).
-
 -export_type([config/0]).
 
 %%--------------------------------------------------------------------
