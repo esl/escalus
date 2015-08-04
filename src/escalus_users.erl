@@ -222,10 +222,9 @@ get_users({by_name, Names}, Users) ->
 get_user_by_name(Name) ->
     get_user_by_name(Name, get_users(all)).
 
--spec get_user_by_name(atom(), [spec()]) -> [spec()].
+-spec get_user_by_name(atom(), escalus:config()) -> {atom(), escalus:config()}.
 get_user_by_name(Name, Users) ->
     {Name, _} = proplists:lookup(Name, Users).
-
 
 create_user(Config, {_Name, UserSpec}) ->
     ClientProps = get_options(Config, UserSpec),
@@ -321,9 +320,44 @@ is_mod_register_enabled(Config) ->
 %% Helpers
 %%--------------------------------------------------------------------
 
+-type short_option() :: 'username'    %% binary()
+                      | 'server'      %% binary()
+                      | 'password'    %% binary()
+                      | 'compression' %% <<"zlib">> | false
+                      | 'ssl'         %% 'false' | 'optional',
+                                      %% shouldn't there also be 'required'?
+                      | 'transport'   %% 'tcp' | 'bosh' | 'ws', anything else?
+                      | 'path'        %% BOSH path
+                      | 'port'        %% TCP port
+                      | 'wspath'      %% WebSocket path - unify with `path`?
+                      | 'host'        %% IP address? DNS name?
+                      | 'auth_method' %% <<"PLAIN">> | <<"DIGETS-MD5">>
+                                      %% | <<"SASL-ANON">> | <<"SCRAM-SHA-1">>
+                                      %% | Other
+                      .
+
+-type ejabberd_option() :: 'ejabberd_node'
+                         | 'ejabberd_cookie'
+                         | 'ejabberd_domain'.
+
+-type escalus_option() :: 'escalus_server'
+                        | 'escalus_username'
+                        | 'escalus_password'
+                        | 'escalus_host'
+                        | 'escalus_port'
+                        | 'escalus_auth_method'
+                        | 'escalus_wspath'
+                        .
+
+-type long_option() :: ejabberd_option() | escalus_option().
+
+-type option_value() :: any().
+
 %% get_user_option is a wrapper on escalus_config:get_config/5,
 %% which can take either UserSpec (a proplist) or user name (atom)
 %% as the second argument
+-spec get_user_option(short_option(), atom() | escalus:config(), long_option(),
+                      escalus:config(), option_value()) -> option_value().
 get_user_option(Short, Name, Long, Config, Default) when is_atom(Name) ->
     {Name, Spec} = case lists:keysearch(escalus_users, 1, Config) of
         false ->
@@ -335,6 +369,8 @@ get_user_option(Short, Name, Long, Config, Default) when is_atom(Name) ->
 get_user_option(Short, Spec, Long, Config, Default) ->
     escalus_config:get_config(Short, Spec, Long, Config, Default).
 
+-spec get_defined_option(escalus:config(), atom() | escalus:config(),
+                         short_option(), long_option()) -> option_value().
 get_defined_option(Config, Name, Short, Long) ->
     case get_user_option(Short, Name, Long, Config, undefined) of
         undefined ->
