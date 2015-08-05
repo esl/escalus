@@ -169,6 +169,9 @@ clients_from_resource_counts(Config, ResourceCounts = [{_, _} | _]) ->
         {_User, UserSpec} <- [lists:keyfind(User, 1, NamedSpecs)]];
 %% Old-style ResourceCounts: [2, 1]
 clients_from_resource_counts(Config, ResourceCounts) ->
+    Deprecated = io_lib:format("DEPRECATED resource counts ~p (use [{alice, 1}, ...] or similar)",
+                              [ResourceCounts]),
+    escalus_compat:complain(Deprecated),
     NamedSpecs = escalus_config:get_config(escalus_users, Config),
     [resources_per_spec(UserSpec, ResCount)
      || {{_, UserSpec}, ResCount} <- zip_shortest(NamedSpecs,
