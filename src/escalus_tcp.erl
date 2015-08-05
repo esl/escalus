@@ -291,8 +291,8 @@ forward_to_owner(Stanzas0, #state{owner = Owner,
                                   sm_state = SM0,
                                   event_client = EventClient} = State) ->
     {SM1, AckRequests,StanzasNoRs} = separate_ack_requests(SM0, Stanzas0),
-    SM2 = reply_to_ack_requests(SM1, AckRequests, State),
-    NewState = State#state{sm_state=SM2},
+    reply_to_ack_requests(SM1, AckRequests, State),
+    NewState = State#state{sm_state=SM1},
 
     lists:foreach(fun(Stanza) ->
         escalus_event:incoming_stanza(EventClient, Stanza),
