@@ -23,7 +23,10 @@
 -include_lib("exml/include/exml.hrl").
 -include("no_binary_to_integer.hrl").
 
+-type config() :: escalus_config:config().
+-type event_client() :: list({atom(), any()}).
 -type manager() :: pid().
+-type resource() :: binary().
 
 %% =======================================================================
 
@@ -148,6 +151,11 @@ manager(Config) ->
     proplists:get_value(escalus_event_mgr, Config).
 
 %% @doc Create a new event emitter.
+-spec new_client(Config, User, MaybeResource) -> undefined | EventClient when
+      Config :: config(),
+      User :: escalus_users:user_name() | escalus_users:user_spec(),
+      MaybeResource :: undefined | resource(),
+      EventClient :: event_client().
 new_client(Config, User, MaybeResource) when is_list(Config) ->
     UserSpec = escalus_users:get_userspec(Config, User),
     Resource = maybe_resource_to_binary(MaybeResource),
@@ -156,6 +164,11 @@ new_client(Config, User, MaybeResource) when is_list(Config) ->
 maybe_resource_to_binary(undefined) -> <<>>;
 maybe_resource_to_binary(Resource) when is_binary(Resource) -> Resource.
 
+-spec new_client_1(Mgr, UserSpec, Resource) -> undefined | EventClient when
+      Mgr :: undefined | manager(),
+      UserSpec :: escalus_users:user_spec(),
+      Resource :: binary(),
+      EventClient :: event_client().
 new_client_1(undefined, _UserSpec, _Resource) ->
     undefined;
 new_client_1(Mgr, UserSpec, Resource) ->

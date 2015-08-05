@@ -47,7 +47,8 @@
         ]).
 
 %% Public types
--export_type([user_spec/0,
+-export_type([user_name/0,
+              user_spec/0,
               who/0]).
 
 %% Public types
