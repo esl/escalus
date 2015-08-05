@@ -38,25 +38,13 @@
          set_active/2,
          recv/1]).
 
+-ifdef(EUNIT_TEST).
+-compile(export_all).
+-endif.
+
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
 -define(SERVER, ?MODULE).
-
-%% Stream management automation
-%%               :: {Auto-ack?,                H,         counting Hs?}.
--type sm_state() :: {boolean(), non_neg_integer(), 'active'|'inactive'}.
-
--record(state, {owner,
-                socket,
-                parser,
-                filter_pred,
-                ssl = false,
-                compress = false,
-                event_client,
-                on_reply,
-                on_request,
-                active = true,
-                sm_state = {true, 0, inactive} :: sm_state(),
-                replies = []}).
+-include("escalus_tcp.hrl").
 
 %%%===================================================================
 %%% API
