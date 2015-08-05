@@ -8,6 +8,8 @@ Escalus is aimed at checking correctness of XMPP server behaviour,
 in contrast to tools such as Tsung which are about stress testing
 and don't verify correctness.
 
+This tool, escalus, is used the [ESL's mercutio](https://github.com/esl/mercutio) XMPP test suite, and [ESL's amoc](https://github.com/esl/amoc) for load tests against [ESL's MongooseIM](https://github.com/esl/MongooseIM).
+
 
 # Quick start
 
@@ -225,3 +227,10 @@ Run example:
     escalus:story(Config, [{mike, 1}, {alice,1}], StoryFun).
     escalus_cleaner:stop(escalus_event:stop(Config)).
     escalus:delete_users(Config, {by_name, [alice, mike]}).
+
+
+# Naming
+
+According to [Wikipedia](https://en.wikipedia.org/wiki/Characters_in_Romeo_and_Juliet#House_of_Escalus), Prince Escalus, of the House Escalus, is the voice of authority in Verona, and appears only three times within the text and only to administer justice.
+
+It follows the great tradition to use characters of William Shakespeare's Romeo and Juliet in the XMPP specifications.
