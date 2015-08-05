@@ -20,6 +20,7 @@
          create_specific_node_stanza/1,
          create_subscribe_node_stanza/2,
          create_request_allitems_stanza/1,
+         create_request_allitems_stanza_with_iq/4,
          create_publish_node_content_stanza/2,
          create_publish_node_content_stanza_second/2,
          create_publish_node_content_stanza_third/2,
@@ -192,6 +193,11 @@ create_subscribe_node_stanza(NodeName, From) ->
 create_request_allitems_stanza(NodeName) ->
     AllItems = #xmlel{name = <<"items">>, attrs=[{<<"node">>, NodeName}]},
     pubsub_stanza([AllItems], ?NS_PUBSUB).
+
+%%todo: make one function with option or like with create return always with iq.
+create_request_allitems_stanza_with_iq(User, IqId, PubSubAddr, NodeName) ->
+    AllItems = #xmlel{name = <<"items">>, attrs=[{<<"node">>, NodeName}]},
+    iq_with_id(set, IqId, PubSubAddr, User, [pubsub_stanza([AllItems], ?NS_PUBSUB)]).
 
 create_unsubscribe_from_node_stanza(NodeName, From) ->
     UnsubsrNode = create_sub_unsubscribe_from_node_stanza(NodeName, From, <<"unsubscribe">>),
