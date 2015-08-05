@@ -4,8 +4,8 @@
 -export([start/1,
          stop/1,
          new_client/3,
-	     add_handler/3,
-	     delete_handler/3]).
+         add_handler/3,
+         delete_handler/3]).
 
 %% Notifications
 -export([incoming_stanza/2,
@@ -94,8 +94,8 @@ write_events(Events, OutFileName) ->
     BaseTime = base_time(Events),
     file:write(FD, <<"<history xmlns:stream=\""
                      "http://etherx.jabber.org/streams\">">>),
-    [file:write(FD, exml:to_iolist(build_elem_event(BaseTime, E)))
-     ||  E <- collapse_incoming_events(filter_elements(Events))],
+    [ file:write(FD, exml:to_iolist(build_elem_event(BaseTime, E)))
+      ||  E <- collapse_incoming_events(filter_elements(Events)) ],
     file:write(FD, <<"</history>">>),
     file:close(FD).
 
@@ -123,9 +123,9 @@ collapse_incoming_events([{stanza, incoming_stanza, JID, Time1, Elem},
                           {stanza, pop_incoming_stanza, JID, Time2, Elem}|T]) ->
     [{stanza, incoming_stanza, JID, Time1, Elem},
      {stanza, pop_incoming_stanza, JID, Time2, undefined}
-    | collapse_incoming_events(T)];
+     | collapse_incoming_events(T)];
 collapse_incoming_events([H|T]) ->
-    [H|collapse_incoming_events(T)];
+    [H | collapse_incoming_events(T)];
 collapse_incoming_events([]) ->
     [].
 
@@ -135,17 +135,14 @@ build_elem_event(BaseTime, {story, Type, Time}) ->
     build_story_event_elem(Type, BaseTime, Time).
 
 build_story_event_elem(Type, BaseTime, Time) ->
-    #xmlel{
-        name = list_to_binary(atom_to_list(Type)),
-        attrs = [{<<"offset">>, time_offset_binary(BaseTime, Time)}]}.
-
+    #xmlel{name = list_to_binary(atom_to_list(Type)),
+           attrs = [{<<"offset">>, time_offset_binary(BaseTime, Time)}]}.
 
 build_stanza_event_elem(Type, JID, BaseTime, Time, Elem) ->
-    #xmlel{
-        name = list_to_binary(atom_to_list(Type)),
-        attrs = [{<<"jid">>, jid_to_binary(JID)},
-                 {<<"offset">>, time_offset_binary(BaseTime, Time)}],
-        children = [Elem || Elem =/= undefined]}.
+    #xmlel{name = list_to_binary(atom_to_list(Type)),
+           attrs = [{<<"jid">>, jid_to_binary(JID)},
+                    {<<"offset">>, time_offset_binary(BaseTime, Time)}],
+           children = [Elem || Elem =/= undefined]}.
 
 manager(Config) ->
     proplists:get_value(escalus_event_mgr, Config).
