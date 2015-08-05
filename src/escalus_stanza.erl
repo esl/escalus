@@ -683,7 +683,8 @@ direction_el(_, undefined) ->
     undefined.
 
 max(N) when is_integer(N) ->
-    #xmlel{name = <<"max">>, children = #xmlcdata{content = integer_to_binary(N)}};
+    #xmlel{name = <<"max">>,
+           children = [#xmlcdata{content = integer_to_binary(N)}]};
 max(_) ->
     undefined.
 
