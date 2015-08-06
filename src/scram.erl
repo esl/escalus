@@ -31,8 +31,8 @@
 %% External exports
 %% ejabberd doesn't implement SASLPREP, so we use the similar RESOURCEPREP instead
 -export([salted_password/3, stored_key/1, server_key/1,
-	 server_signature/2, client_signature/2, client_key/1,
-	 client_key/2]).
+         server_signature/2, client_signature/2, client_key/1,
+         client_key/2]).
 
 -spec salted_password(binary(), binary(), non_neg_integer()) -> binary().
 
@@ -61,8 +61,8 @@ client_signature(StoredKey, AuthMessage) ->
 
 client_key(ClientProof, ClientSignature) ->
     list_to_binary(lists:zipwith(fun (X, Y) -> X bxor Y end,
-				 binary_to_list(ClientProof),
-				 binary_to_list(ClientSignature))).
+                                 binary_to_list(ClientProof),
+                                 binary_to_list(ClientSignature))).
 
 -spec server_signature(binary(), binary()) -> binary().
 
@@ -72,18 +72,18 @@ server_signature(ServerKey, AuthMessage) ->
 hi(Password, Salt, IterationCount) ->
     U1 = crypto_hmac(sha, Password, <<Salt/binary, 0, 0, 0, 1>>),
     list_to_binary(lists:zipwith(fun (X, Y) -> X bxor Y end,
-				 binary_to_list(U1),
-				 binary_to_list(hi_round(Password, U1,
-							 IterationCount - 1)))).
+                                 binary_to_list(U1),
+                                 binary_to_list(hi_round(Password, U1,
+                                                         IterationCount - 1)))).
 
 hi_round(Password, UPrev, 1) ->
     crypto_hmac(sha, Password, UPrev);
 hi_round(Password, UPrev, IterationCount) ->
     U = crypto_hmac(sha, Password, UPrev),
     list_to_binary(lists:zipwith(fun (X, Y) -> X bxor Y end,
-				 binary_to_list(U),
-				 binary_to_list(hi_round(Password, U,
-							 IterationCount - 1)))).
+                                 binary_to_list(U),
+                                 binary_to_list(hi_round(Password, U,
+                                                         IterationCount - 1)))).
 
 -ifdef(no_crypto_hmac).
 crypto_hmac(sha, Key, Data) ->
