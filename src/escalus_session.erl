@@ -38,13 +38,13 @@
 -export_type([features/0]).
 
 -define(CONNECTION_STEP, (escalus_connection:client(),
-                          escalus_users:spec(),
+                          escalus_users:user_spec(),
                           features()) -> step_state()).
 -type step() :: fun(?CONNECTION_STEP).
 -export_type([step/0]).
 
 -type step_state() :: {escalus_connection:client(),
-                       escalus_users:spec(),
+                       escalus_users:user_spec(),
                        features()}.
 -export_type([step_state/0]).
 
@@ -132,7 +132,7 @@ use_ssl(Props, Features) ->
         _ -> false
     end.
 
--spec can_use_compression(escalus_users:spec(), features()) -> boolean().
+-spec can_use_compression(escalus_users:user_spec(), features()) -> boolean().
 can_use_compression(Props, Features) ->
     can_use(compression, Props, Features).
 

@@ -58,11 +58,11 @@ get_config(Option, Config, Default) ->
             end
     end.
 
--spec get_config(key(), escalus_users:spec(), key(), config()) -> any().
+-spec get_config(key(), escalus_users:user_spec(), key(), config()) -> any().
 get_config(USName, UserSpec, CName, Config) ->
     get_config(USName, UserSpec, CName, Config, undefined).
 
--spec get_config(key(), escalus_users:spec(), key(), config(), any())
+-spec get_config(key(), escalus_users:user_spec(), key(), config(), any())
     -> any().
 get_config(USName, UserSpec, CName, Config, Default) ->
     case lists:keyfind(USName, 1, UserSpec) of
