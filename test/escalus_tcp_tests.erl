@@ -5,7 +5,7 @@
 -module(escalus_tcp_tests).
 -include_lib("eunit/include/eunit.hrl").
 -compile(export_all).
--include("escalus_tcp.hrl").
+-include("src/escalus_tcp.hrl").
 
 interleave_msgs_and_rs_test() ->
     meck:new(gen_tcp, [unstick]),

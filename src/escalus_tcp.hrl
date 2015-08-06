@@ -14,10 +14,6 @@
 %% limitations under the License.
 %%==============================================================================
 
-%% Stream management automation
-%%               :: {Auto-ack?,                H,         counting Hs?}.
--type sm_state() :: {boolean(), non_neg_integer(), 'active'|'inactive'}.
-
 -record(state, {owner,
                 socket,
                 parser,
@@ -28,5 +24,5 @@
                 on_reply,
                 on_request,
                 active = true,
-                sm_state = {true, 0, inactive} :: sm_state(),
+                sm_state = {true, 0, inactive} :: escalus_tcp:sm_state(),
                 replies = []}).

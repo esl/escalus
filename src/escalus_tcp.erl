@@ -42,6 +42,12 @@
 -compile(export_all).
 -endif.
 
+%% Stream management automation
+%%               :: {Auto-ack?,                H,         counting Hs?}.
+-type sm_state() :: {boolean(), non_neg_integer(), 'active'|'inactive'}.
+
+-export_type([sm_state/0]).
+
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
 -define(SERVER, ?MODULE).
 -include("escalus_tcp.hrl").
