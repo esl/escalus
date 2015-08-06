@@ -24,6 +24,7 @@
          create_publish_node_content_stanza/2,
          create_publish_node_content_stanza_second/2,
          create_publish_node_content_stanza_third/2,
+         create_publish_node_content_stanza_with_timestamp/2,
          create_sub_unsubscribe_from_node_stanza/3,
          create_unsubscribe_from_node_stanza/2,
          delete_node_stanza/1,
@@ -50,6 +51,14 @@ pubsub_stanza(Children, NS) ->
            attrs = [{<<"xmlns">>, NS} ],
            children = Children  }.
 
+%% timestamp is microseconds
+create_publish_node_content_stanza_with_timestamp(NodeName, ItemId) ->
+    PublishEntry = publish_entry(entry_body_with_timestamp()),
+    ItemTopublish = publish_item(ItemId, PublishEntry),
+    PublNode = publish_node_with_content_stanza(NodeName, ItemTopublish),
+    pubsub_stanza([PublNode], ?NS_PUBSUB).
+
+
 publish_sample_content_stanza(DestinationTopicName, DestinationNode, PublishItemId, User, SampleNumber) ->
     PublishToNode = case SampleNumber of
                         sample_one ->
@@ -58,6 +67,8 @@ publish_sample_content_stanza(DestinationTopicName, DestinationNode, PublishItem
                             create_publish_node_content_stanza_second(DestinationTopicName, PublishItemId);
                         sample_three ->
                             create_publish_node_content_stanza_third(DestinationTopicName, PublishItemId);
+                        sample_time ->
+                            create_publish_node_content_stanza_with_timestamp(DestinationTopicName, PublishItemId);
                         _ ->
                             create_publish_node_content_stanza(DestinationTopicName, PublishItemId)
                     end,
@@ -87,6 +98,13 @@ entry_body_sample1() ->
      #xmlel{name = <<"title">>, children  = [ #xmlcdata{content=[<<"The title of content.">>]}]},
      #xmlel{name = <<"summary">>, children= [ #xmlcdata{content=[<<"To be or not to be...">>]}]}
     ].
+
+entry_body_with_timestamp() ->
+     {_MegaSec, _Sec, MicroSec} =  os:timestamp(),
+    [
+     #xmlel{name = <<"MSG_SENT_AT">>, children  = [ #xmlcdata{content=[MicroSec]}]}
+    ].
+
 
 entry_body_with_sample_device_id() ->
     [
