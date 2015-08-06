@@ -100,9 +100,9 @@ entry_body_sample1() ->
     ].
 
 entry_body_with_timestamp() ->
-     {_MegaSec, _Sec, MicroSec} =  os:timestamp(),
+     {_MegaSec, _Sec, MicroSec} = os:timestamp(),
     [
-     #xmlel{name = <<"MSG_SENT_AT">>, children  = [ #xmlcdata{content=[MicroSec]}]}
+     #xmlel{name = <<"MSG_SENT_AT">>, children  = [ #xmlcdata{content=[integer_to_binary(MicroSec)]}]}
     ].
 
 
