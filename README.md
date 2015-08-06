@@ -8,7 +8,7 @@ Escalus is aimed at checking correctness of XMPP server behaviour,
 in contrast to tools such as Tsung which are about stress testing
 and don't verify correctness.
 
-This tool, escalus, is used the [ESL's mercutio](https://github.com/esl/mercutio) XMPP test suite, and [ESL's amoc](https://github.com/esl/amoc) for load tests against [ESL's MongooseIM](https://github.com/esl/MongooseIM).
+This tool, escalus, is used by [ESL's amoc](https://github.com/esl/amoc) for load tests against [ESL's MongooseIM](https://github.com/esl/MongooseIM).
 
 
 # Quick start
