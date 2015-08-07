@@ -51,12 +51,6 @@ pubsub_stanza(Children, NS) ->
            attrs = [{<<"xmlns">>, NS} ],
            children = Children  }.
 
-%% timestamp is microseconds
-create_publish_node_content_stanza_with_timestamp(NodeName, ItemId) ->
-    PublishEntry = publish_entry(entry_body_with_timestamp()),
-    ItemTopublish = publish_item(ItemId, PublishEntry),
-    PublNode = publish_node_with_content_stanza(NodeName, ItemTopublish),
-    pubsub_stanza([PublNode], ?NS_PUBSUB).
 
 
 publish_sample_content_stanza(DestinationTopicName, DestinationNode, PublishItemId, User, SampleNumber) ->
@@ -96,7 +90,7 @@ iq_set_get_rest(SrcIq, Id, From) ->
 entry_body_sample1() ->
     [
      #xmlel{name = <<"title">>, children  = [ #xmlcdata{content=[<<"The title of content.">>]}]},
-     #xmlel{name = <<"summary">>, children= [ #xmlcdata{content=[<<"To be or not to be...">>]}]}
+     #xmlel{name = <<"summary">>, children = [ #xmlcdata{content=[<<"To be or not to be...">>]}]}
     ].
 
 entry_body_with_timestamp() ->
@@ -136,10 +130,7 @@ publish_entry(EntryBody) ->
       }.
 
 publish_item_children(#xmlel{} = ItemBody) ->
-    publish_entry(ItemBody);
-
-publish_item_children([]) ->
-    publish_entry([]).
+   ItemBody.
 
 publish_item(ItemId, PublishEntry) ->
     #xmlel{
@@ -147,9 +138,6 @@ publish_item(ItemId, PublishEntry) ->
        attrs = [{<<"id">>, ItemId}],
        children = [publish_item_children(PublishEntry)]
       }.
-
-publish_node_children([]) ->
-    publish_item(<<"abc123">>, []);
 
 publish_node_children(#xmlel{} = ItemBody) ->
     ItemBody;
@@ -187,6 +175,14 @@ create_publish_node_content_stanza_third(NodeName, ItemId) ->
     ItemTopublish = publish_item(ItemId, PublishEntry),
     PublNode = publish_node_with_content_stanza(NodeName, ItemTopublish),
     pubsub_stanza([PublNode], ?NS_PUBSUB).
+
+%% timestamp is microseconds
+create_publish_node_content_stanza_with_timestamp(NodeName, ItemId) ->
+    PublishEntry = publish_entry(entry_body_with_timestamp()),
+    ItemTopublish = publish_item(ItemId, PublishEntry),
+    PublNode = publish_node_with_content_stanza(NodeName, ItemTopublish),
+    pubsub_stanza([PublNode], ?NS_PUBSUB).
+
 
 retract_from_node_stanza(NodeName, ItemId) ->
     ItemToRetract = #xmlel{name = <<"item">>, attrs=[{<<"id">>, ItemId}], children=[]},
