@@ -38,25 +38,19 @@
          set_active/2,
          recv/1]).
 
--define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
--define(SERVER, ?MODULE).
+-ifdef(EUNIT_TEST).
+-compile(export_all).
+-endif.
 
 %% Stream management automation
 %%               :: {Auto-ack?,                H,         counting Hs?}.
 -type sm_state() :: {boolean(), non_neg_integer(), 'active'|'inactive'}.
 
--record(state, {owner,
-                socket,
-                parser,
-                filter_pred,
-                ssl = false,
-                compress = false,
-                event_client,
-                on_reply,
-                on_request,
-                active = true,
-                sm_state = {true, 0, inactive} :: sm_state(),
-                replies = []}).
+-export_type([sm_state/0]).
+
+-define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
+-define(SERVER, ?MODULE).
+-include("escalus_tcp.hrl").
 
 %%%===================================================================
 %%% API
@@ -302,9 +296,9 @@ handle_data(Socket, Data, #state{parser = Parser,
 forward_to_owner(Stanzas0, #state{owner = Owner,
                                   sm_state = SM0,
                                   event_client = EventClient} = State) ->
-    {SM1, AckRequests,StanzasNoRs} = separate_ack_requests(SM0, Stanzas0),
-    SM2 = reply_to_ack_requests(SM1, AckRequests, State),
-    NewState = State#state{sm_state=SM2},
+    {SM1, AckRequests, StanzasNoRs} = separate_ack_requests(SM0, Stanzas0),
+    reply_to_ack_requests(SM1, AckRequests, State),
+    NewState = State#state{sm_state=SM1},
 
     lists:foreach(fun(Stanza) ->
         escalus_event:incoming_stanza(EventClient, Stanza),
