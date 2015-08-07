@@ -51,12 +51,6 @@ pubsub_stanza(Children, NS) ->
            attrs = [{<<"xmlns">>, NS} ],
            children = Children  }.
 
-%% timestamp is microseconds
-create_publish_node_content_stanza_with_timestamp(NodeName, ItemId) ->
-    PublishEntry = publish_entry(entry_body_with_timestamp()),
-    ItemTopublish = publish_item(ItemId, PublishEntry),
-    PublNode = publish_node_with_content_stanza(NodeName, ItemTopublish),
-    pubsub_stanza([PublNode], ?NS_PUBSUB).
 
 
 publish_sample_content_stanza(DestinationTopicName, DestinationNode, PublishItemId, User, SampleNumber) ->
@@ -96,7 +90,7 @@ iq_set_get_rest(SrcIq, Id, From) ->
 entry_body_sample1() ->
     [
      #xmlel{name = <<"title">>, children  = [ #xmlcdata{content=[<<"The title of content.">>]}]},
-     #xmlel{name = <<"summary">>, children= [ #xmlcdata{content=[<<"To be or not to be...">>]}]}
+     #xmlel{name = <<"summary">>, children = [ #xmlcdata{content=[<<"To be or not to be...">>]}]}
     ].
 
 entry_body_with_timestamp() ->
