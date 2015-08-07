@@ -108,7 +108,7 @@ md5_digest_response(ChallengeData, Props) ->
     DigestUri = <<"xmpp/", Server/binary>>,
     FullJid = <<Username/binary, "@", Server/binary, "/", Resource/binary>>,
 
-    Y = crypto:md5([Username, $:, Realm, $:, Password]),
+    Y = crypto:hash(md5, [Username, $:, Realm, $:, Password]),
     HA1 = hex_md5([Y, $:, Nonce, $:, CNonce, $:, FullJid]),
     HA2 = hex_md5([<<"AUTHENTICATE:">>, DigestUri]),
 
@@ -160,9 +160,8 @@ scram_sha1_validate_server(SaltedPassword, AuthMessage, ServerSignature) ->
             false
     end.
 
-
 hex_md5(Data) ->
-    base16:encode(crypto:md5(Data)).
+    base16:encode(crypto:hash(md5, Data)).
 
 %%--------------------------------------------------------------------
 %% Helpers - actions
