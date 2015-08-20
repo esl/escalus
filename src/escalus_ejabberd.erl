@@ -46,7 +46,8 @@
          reset_option/2]).
 
 
--include("include/escalus.hrl").-include_lib("escalus.hrl").
+-include("include/escalus.hrl").
+-include_lib("escalus.hrl").
 
 %%%
 %%% Escalus_users API
