@@ -23,7 +23,7 @@
          start_ready_clients/2,
          send_initial_presence/1]).
 
--include("include/escalus.hrl").
+-include_lib("escalus.hrl").
 -include_lib("test_server/include/test_server.hrl").
 
 %%--------------------------------------------------------------------
