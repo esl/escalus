@@ -65,7 +65,7 @@
 
 -import(escalus_compat, [bin/1]).
 
--include("include/escalus.hrl").
+-include_lib("escalus.hrl").
 -include_lib("exml/include/exml.hrl").
 
 %%--------------------------------------------------------------------
