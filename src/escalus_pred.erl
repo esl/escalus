@@ -73,6 +73,7 @@
          has_no_such_item/2,
          has_identity/3,
          stanza_timeout/1,
+         is_stream_start/1,
          is_stream_end/1,
          is_bosh_report/2,
          is_sm_enabled/1, is_sm_enabled/2,
@@ -501,6 +502,14 @@ stanza_timeout(Arg) ->
         _ ->
             false
     end.
+
+-spec is_stream_start(xmlterm() | xmlstreamelement()) -> boolean().
+is_stream_start(#xmlstreamstart{}) ->
+    true;
+is_stream_start(#xmlel{name = <<"open">>}) ->
+    true;
+is_stream_start(_) ->
+    false.
 
 -spec is_stream_end(xmlterm() | xmlstreamelement()) -> boolean().
 is_stream_end(#xmlstreamend{}) ->
