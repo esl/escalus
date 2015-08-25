@@ -259,21 +259,3 @@ get_subscription_change_list_stanza(SubscriptionChangeData) ->
               subscription_stanza({_Jid, _SubsState} = ChangeEntry)
       end,
       SubscriptionChangeData).
-
-
-publish_content_test(Config) ->
-  Title = <<"Title">>,
-  Data = <<"Some data">>,
-  PublishItemId = <<"publishid">>,
-  DestinationNode = <<"localhost.node">>,
-  User = <<"alice@localhost">>,
-  Entry = escalus_pubsub_stanza:publish_entry(prepare_body_for_publish(Title, Data)),
-  Content = escalus_pubsub_stanza:publish_item(PublishItemId, Entry),
-  PublishToNodeIq = escalus_pubsub_stanza:publish_node_with_content_stanza(DestinationNode, Content),
-  Stanza = escalus_pubsub_stanza:iq_with_id(set, PublishItemId, DestinationNode, User, [PublishToNodeIq]).
-
-prepare_body_for_publish(Title, Data) ->
-  [
-    #xmlel{name = <<"title">>, children  = [ #xmlcdata{content=[Title]}]},
-    #xmlel{name = <<"data">>, children = [ #xmlcdata{content=[Data]}]}
-  ].
