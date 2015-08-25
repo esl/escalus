@@ -46,7 +46,7 @@
          reset_option/2]).
 
 
--include("include/escalus.hrl").
+-include("escalus.hrl").
 
 
 %%%

@@ -14,36 +14,34 @@
 -include_lib("escalus/include/escalus_xmlns.hrl").
 -include_lib("exml/include/exml.hrl").
 -include_lib("exml/include/exml_stream.hrl").
-
+-define(SAMPLE_ID, <<"publish1">>).
 -export([
-         create_node_stanza/4,
-         create_specific_node_stanza/1,
-         create_subscribe_node_stanza/2,
-         create_request_allitems_stanza/1,
-         create_request_allitems_stanza_with_iq/4,
-         create_publish_node_content_stanza/2,
-         create_publish_node_content_stanza_second/2,
-         create_publish_node_content_stanza_third/2,
-         create_publish_node_content_stanza_with_timestamp/2,
-         create_sub_unsubscribe_from_node_stanza/3,
-         create_unsubscribe_from_node_stanza/2,
-         delete_node_stanza/1,
-         entry_body_sample1/0,
-         entry_body_with_sample_device_id/0,
-         get_subscription_change_list_stanza/1,
-         iq_with_id/5,
-         iq_set_get_rest/3,
-         publish_item/2,
-         publish_entry/1,
-         pubsub_stanza/2,
-         publish_node_with_content_stanza/2,
-         publish_sample_content_stanza/5,
-         retract_from_node_stanza/2,
-         retrieve_subscriptions_stanza/1,
-         set_subscriptions_stanza/2,
-         subscribe_by_user_stanza/4,
-         unsubscribe_by_user_stanza/4
-        ]).
+  create_node_stanza/4,
+  create_specific_node_stanza/1,
+  create_subscribe_node_stanza/2,
+  create_request_allitems_stanza/1,
+  create_request_allitems_stanza_with_iq/4,
+  create_publish_node_content_stanza/2,
+  create_publish_node_content_stanza_second/2,
+  create_publish_node_content_stanza_third/2,
+  create_publish_node_content_stanza_with_timestamp/2,
+  create_sub_unsubscribe_from_node_stanza/3,
+  create_unsubscribe_from_node_stanza/2,
+  delete_node_stanza/1,
+  get_subscription_change_list_stanza/1,
+  iq_with_id/5,
+  iq_set_get_rest/3,
+  publish_item/2,
+  publish_entry/1,
+  pubsub_stanza/2,
+  publish_node_with_content_stanza/2,
+  publish_sample_content_stanza/5,
+  retract_from_node_stanza/2,
+  retrieve_subscriptions_stanza/1,
+  set_subscriptions_stanza/2,
+  subscribe_by_user_stanza/4,
+  unsubscribe_by_user_stanza/4
+  , publish_content_test/1]).
 
 
 pubsub_stanza(Children, NS) ->
@@ -66,7 +64,7 @@ publish_sample_content_stanza(DestinationTopicName, DestinationNode, PublishItem
                         _ ->
                             create_publish_node_content_stanza(DestinationTopicName, PublishItemId)
                     end,
-    IqId = <<"publish1">>,
+    IqId = ?SAMPLE_ID,
     escalus_pubsub_stanza:iq_with_id(set, IqId, DestinationNode, User,  [PublishToNode]).
 
 create_node_stanza(User, IqId, DestinationNodeAddr, DestinationNodeName) ->
@@ -87,7 +85,7 @@ iq_set_get_rest(SrcIq, Id, From) ->
 
 %% ----------------------------- sample entry bodies ------------------------
 
-entry_body_sample1() ->
+entry_body_sample() ->
     [
      #xmlel{name = <<"title">>, children  = [ #xmlcdata{content=[<<"The title of content.">>]}]},
      #xmlel{name = <<"summary">>, children = [ #xmlcdata{content=[<<"To be or not to be...">>]}]}
@@ -114,10 +112,13 @@ entry_body_with_sample_device_id_2() ->
 %% provide EntryBody as list of anything compliant with exml entity records.
 
 publish_entry_children([]) ->
-    entry_body_sample1();
+    entry_body_sample();
 
-publish_entry_children([#xmlel{}] = EntryBody) ->
+publish_entry_children([#xmlel{} | []] = EntryBody) ->
     EntryBody;
+
+publish_entry_children([#xmlel{} = Head | Tail]) ->
+  [Head] ++ publish_entry_children(Tail);
 
 publish_entry_children(#xmlel{} = EntryBody) ->
     [EntryBody].
