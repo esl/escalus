@@ -62,3 +62,5 @@ numbers_as_arguments(_) ->
     ?eq(Example,
         M:from_template("<el int='{{int}}' pi='{{pi}}'/>",
                         [{int, 666}, {pi, math:pi()}])).
+
+
