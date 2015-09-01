@@ -120,7 +120,7 @@ publish_entry_children([#xmlel{}] = EntryBody) ->
     EntryBody;
 
 publish_entry_children([#xmlel{} = Head | Tail]) ->
-    [Head |  publish_entry_children(Tail)];
+    [Head |  publish_entry_children(Tail)].
 
 publish_entry(EntryBody) ->
     #xmlel{
