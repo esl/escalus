@@ -12,7 +12,7 @@
 
 -record(state, {
         events :: list(),
-        counters :: dict()
+        counters :: dict:dict()
 }).
 
 get_history(Mgr) ->
