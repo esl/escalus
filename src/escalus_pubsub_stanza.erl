@@ -114,16 +114,16 @@ entry_body_with_sample_device_id_2() ->
 %% provide EntryBody as list of anything compliant with exml entity records.
 
 publish_entry_children([]) ->
-  entry_body_sample1();
+    entry_body_sample1();
 
 publish_entry_children([#xmlel{}] = EntryBody) ->
-  EntryBody;
+    EntryBody;
 
 publish_entry_children([#xmlel{} = Head | Tail]) ->
-  [Head] ++ publish_entry_children(Tail);
+    [Head] ++ publish_entry_children(Tail);
 
 publish_entry_children(#xmlel{} = EntryBody) ->
-  [EntryBody].
+    [EntryBody].
 
 publish_entry(EntryBody) ->
     #xmlel{
