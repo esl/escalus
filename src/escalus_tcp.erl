@@ -130,7 +130,7 @@ get_active(#client{rcv_pid = Pid}) ->
 set_active(#client{rcv_pid = Pid}, Active) ->
     gen_server:call(Pid, {set_active, Active}).
 
--spec recv(#client{}) -> xmlstreamelement() | empty.
+-spec recv(#client{}) -> exml_stream:element() | empty.
 recv(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, recv).
 

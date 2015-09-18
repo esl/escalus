@@ -233,7 +233,7 @@ get_active(#client{rcv_pid = Pid}) ->
 set_active(#client{rcv_pid = Pid}, Active) ->
     gen_server:call(Pid, {set_active, Active}).
 
--spec recv(#client{}) -> xmlstreamelement() | empty.
+-spec recv(#client{}) -> exml_stream:element() | empty.
 recv(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, recv).
 
@@ -341,7 +341,7 @@ handle_info({http_reply, Ref, Body, Transport}, S) ->
           of
               {streamend, _, _} -> close_requests(NS#state{terminated=true});
               {_, false, _}     -> NS;
-              {_, true, true}   -> send(Transport, 
+              {_, true, true}   -> send(Transport,
                                         empty_body(NS#state.rid, NS#state.sid),
                                         NS);
               {_, true, false}  -> NS

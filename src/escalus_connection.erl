@@ -149,11 +149,11 @@ send(#client{module = Mod, event_client = EventClient} = Client, Elem) ->
     escalus_event:outgoing_stanza(EventClient, Elem),
     Mod:send(Client, Elem).
 
--spec get_stanza(client(), any()) -> xmlstreamelement().
+-spec get_stanza(client(), any()) -> exml_stream:element().
 get_stanza(Conn, Name) ->
     get_stanza(Conn, Name, ?TIMEOUT).
 
--spec get_stanza(client(), any(), timeout()) -> xmlstreamelement().
+-spec get_stanza(client(), any(), timeout()) -> exml_stream:element().
 get_stanza(Conn, Name, Timeout) ->
     receive
         {stanza, Conn, Stanza} ->

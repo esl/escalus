@@ -208,7 +208,7 @@ handle_data(Data, State = #state{parser = Parser,
         _ -> {stop, normal, NewState}
     end.
 
--spec is_stream_end(xmlstreamelement()) -> boolean().
+-spec is_stream_end(exml_stream:element()) -> boolean().
 is_stream_end(#xmlstreamend{}) -> true;
 is_stream_end(_) -> false.
 

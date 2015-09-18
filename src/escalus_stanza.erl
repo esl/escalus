@@ -167,7 +167,7 @@ compress(Method) ->
            children = [#xmlel{name = <<"method">>,
                               children = [exml:escape_cdata(Method)]}]}.
 
--spec iq(binary(), [xmlterm()]) -> #xmlel{}.
+-spec iq(binary(), [exml:element()]) -> exml:element().
 iq(Type, Body) ->
     #xmlel{name = <<"iq">>,
            attrs = [{<<"type">>, Type},
@@ -233,7 +233,7 @@ tags(KVs) ->
 presence(Type) ->
     presence(Type, []).
 
--spec presence(binary(), [xmlterm()]) -> #xmlel{}.
+-spec presence(binary(), [exml:element()|exml:cdata()]) -> exml:element().
 presence(<<"available">>, Children) ->
     #xmlel{name = <<"presence">>, children = Children};
 presence(Type, Children) ->
@@ -753,16 +753,16 @@ enable_carbons_el() ->
 
 -spec from_xml(Snippet) -> Term when
       Snippet :: xml_snippet(),
-      Term :: xmlterm().
+      Term :: exml:element().
 from_xml(Snippet) ->
     from_template(Snippet, []).
 
--type context() :: [{atom(), binary() | list() | xmlterm()}].
+-type context() :: [{atom(), binary() | list() | exml:element()}].
 
 -spec from_template(Snippet, Ctx) -> Term when
       Snippet :: xml_snippet(),
       Ctx :: context(),
-      Term :: xmlterm().
+      Term :: exml:element().
 from_template(Snippet, Ctx) ->
     xml_to_xmlterm(iolist_to_binary(render(Snippet, Ctx))).
 
@@ -776,7 +776,7 @@ from_template(Snippet, Ctx) ->
 
 -spec xml_to_xmlterm(XML) -> Term when
       XML :: xml(),
-      Term :: xmlterm().
+      Term :: exml:element().
 xml_to_xmlterm(XML) when is_binary(XML) ->
     {ok, Term} = exml:parse(XML),
     Term.

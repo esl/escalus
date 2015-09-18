@@ -290,7 +290,7 @@ assert_stream_features(StreamFeatures, Transport, IsLegacy) ->
                  [StreamFeatures])))
     end.
 
--spec get_stream_features(xmlterm()) -> features().
+-spec get_stream_features(exml:element()) -> features().
 get_stream_features(Features) ->
     [{compression, get_compression(Features)},
      {starttls, get_starttls(Features)},
@@ -298,7 +298,7 @@ get_stream_features(Features) ->
      {advanced_message_processing, get_advanced_message_processing(Features)}
     ].
 
--spec get_compression(xmlterm()) -> boolean().
+-spec get_compression(exml:element()) -> boolean().
 get_compression(Features) ->
     case exml_query:subelement(Features, <<"compression">>) of
         #xmlel{children = MethodEls} ->
@@ -306,12 +306,14 @@ get_compression(Features) ->
         _ -> false
     end.
 
--spec get_starttls(xmlterm()) -> boolean().
+-spec get_starttls(exml:element()) -> boolean().
 get_starttls(Features) ->
     undefined =/= exml_query:subelement(Features, <<"starttls">>).
 
+-spec get_stream_management(exml:element()) -> boolean().
 get_stream_management(Features) ->
     undefined =/= exml_query:subelement(Features, <<"sm">>).
 
+-spec get_advanced_message_processing(exml:element()) -> boolean().
 get_advanced_message_processing(Features) ->
     undefined =/= exml_query:subelement(Features, <<"amp">>).

@@ -369,9 +369,9 @@ get_defined_option(Config, Name, Short, Long) ->
             Value
     end.
 
--spec wait_for_result(escalus:client()) -> {ok, result, xmlterm()}
-                                         | {ok, conflict, xmlterm()}
-                                         | {error, Error, xmlterm()}
+-spec wait_for_result(escalus:client()) -> {ok, result, exml:element()}
+                                         | {ok, conflict, exml:element()}
+                                         | {error, Error, exml:cdata()}
       when Error :: 'failed_to_register' | 'bad_response' | 'timeout'.
 wait_for_result(Conn) ->
     receive
