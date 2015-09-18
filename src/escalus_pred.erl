@@ -616,7 +616,8 @@ is_compressed(_) ->
 %% Functors
 %%--------------------------------------------------------------------
 
--spec 'not'( fun((...) -> boolean()) ) ->  fun((...) -> boolean()).
+%% Not supported by erlang 15 :(
+%%-spec 'not'( fun((...) -> boolean()) ) ->  fun((...) -> boolean()).
 'not'(Pred) when is_function(Pred, 1) ->
     fun (Arg) -> not Pred(Arg) end;
 'not'(Pred) when is_function(Pred, 2) ->
