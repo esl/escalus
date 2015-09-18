@@ -165,7 +165,7 @@ compress(Method) ->
     #xmlel{name = <<"compress">>,
            attrs = [{<<"xmlns">>, <<"http://jabber.org/protocol/compress">>}],
            children = [#xmlel{name = <<"method">>,
-                              children = [exml:escape_cdata(Method)]}]}.
+                              children = [#xmlcdata{content = Method}]}]}.
 
 -spec iq(binary(), [exml:element()]) -> exml:element().
 iq(Type, Body) ->
@@ -201,7 +201,7 @@ bind(Resource) ->
        [#xmlel{name = <<"bind">>,
                attrs = [{<<"xmlns">>, <<"urn:ietf:params:xml:ns:xmpp-bind">>}],
                children = [#xmlel{name = <<"resource">>,
-                                  children = [exml:escape_cdata(Resource)]}]}]).
+                                  children = [#xmlcdata{content = Resource}]}]}]).
 
 -spec session() -> #xmlel{}.
 session() ->
@@ -228,7 +228,7 @@ setattr(Stanza, Key, Val) ->
 
 tags(KVs) ->
     [#xmlel{name = K,
-            children = [exml:escape_cdata(V)]} || {K, V} <- KVs].
+            children = [#xmlcdata{content = V}]} || {K, V} <- KVs].
 
 presence(Type) ->
     presence(Type, []).
@@ -282,7 +282,7 @@ message(From, Recipient, Type, Msg) ->
            attrs = FromAttr ++ [{<<"type">>, Type},
                                 {<<"to">>, escalus_utils:get_jid(Recipient)}],
            children = [#xmlel{name = <<"body">>,
-                              children = [exml:escape_cdata(Msg)]}]}.
+                              children = [#xmlcdata{content = Msg}]}]}.
 
 chat_to(Recipient, Msg) ->
     message(undefined, Recipient, <<"chat">>, Msg).
@@ -421,7 +421,7 @@ contact_item({User, Groups, Nick}) ->
                     {<<"jid">>, escalus_utils:get_short_jid(User)},
                     {<<"name">>, bin(Nick)}],
            children = [#xmlel{name = <<"group">>,
-                              children = [exml:escape_cdata(bin(Group))]}
+                              children = [#xmlcdata{content = bin(Group)}]}
                        || Group <- Groups]}.
 
 roster_add_contact(User, Groups, Nick) ->

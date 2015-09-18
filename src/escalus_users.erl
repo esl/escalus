@@ -413,5 +413,6 @@ get_answers(UserSpec, InstrStanza) ->
     Query = exml_query:subelement(InstrStanza, <<"query">>),
     ChildrenNames = [N || #xmlel{name = N} <- Query#xmlel.children],
     NoInstr = ChildrenNames -- [<<"instructions">>],
-    [#xmlel{name=K, children=[exml:escape_cdata(proplists:get_value(K, BinSpec))]}
+    [#xmlel{name=K,
+            children=[#xmlcdata{content = proplists:get_value(K, BinSpec)}]}
      || K <- NoInstr].
