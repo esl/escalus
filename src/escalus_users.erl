@@ -270,7 +270,7 @@ delete_user(Config, {_Name, UserSpec}) ->
     escalus_connection:stop(Conn),
     Result.
 
--spec auth_type(ct:config()) -> {escalus_user_db, {module, atom(), list()} | xmpp}.
+-spec auth_type([proplists:property()]) -> {escalus_user_db, {module, atom(), list()} | xmpp}.
 auth_type(Config) ->
     Type = case {escalus_config:get_config(escalus_user_db, Config, undefined),
                  try_check_mod_register(Config)} of

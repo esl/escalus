@@ -56,7 +56,7 @@
 %%% API
 %%%===================================================================
 
--spec connect({binary(), integer()}) -> {ok, #client{}}.
+-spec connect([proplists:property()]) -> {ok, #client{}}.
 connect(Args) ->
     {ok, Pid} = gen_server:start_link(?MODULE, [Args, self()], []),
     Transport = gen_server:call(Pid, get_transport),

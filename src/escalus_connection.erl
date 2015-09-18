@@ -153,7 +153,7 @@ send(#client{module = Mod, event_client = EventClient} = Client, Elem) ->
 get_stanza(Conn, Name) ->
     get_stanza(Conn, Name, ?TIMEOUT).
 
--spec get_stanza(client(), any(), timeout()) -> #xmlel{}.
+-spec get_stanza(client(), any(), timeout()) -> xmlstreamelement().
 get_stanza(Conn, Name, Timeout) ->
     receive
         {stanza, Conn, Stanza} ->
