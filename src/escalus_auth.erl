@@ -10,7 +10,8 @@
          auth_digest_md5/2,
          auth_sasl_anon/2,
          auth_sasl_external/2,
-         auth_sasl_scram_sha1/2]).
+         auth_sasl_scram_sha1/2,
+         auth_sasl_oauth/2]).
 
 %% Useful helpers for writing own mechanisms
 -export([get_challenge/2,
@@ -86,6 +87,14 @@ auth_sasl_external(Conn, Props) ->
     Stanza = escalus_stanza:auth(<<"EXTERNAL">>, [base64_cdata(ThisServer)]),
     ok = escalus_connection:send(Conn, Stanza),
     wait_for_success(ThisServer, Conn).
+
+auth_sasl_oauth(Conn, Props) ->
+    {access_token, Token} = lists:keyfind(access_token, 1, Props),
+    Children = [#xmlcdata{content = base64:encode(Token)}],
+    Stanza = escalus_stanza:auth(<<"X-OAUTH">>, Children),
+    ok = escalus_connection:send(Conn, Stanza),
+    wait_for_success(get_property(username, Props), Conn).
+
 
 
 %%--------------------------------------------------------------------
