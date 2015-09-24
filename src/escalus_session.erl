@@ -292,11 +292,18 @@ assert_stream_features(StreamFeatures, Transport, IsLegacy) ->
 
 -spec get_stream_features(exml:element()) -> features().
 get_stream_features(Features) ->
-    [{compression, get_compression(Features)},
-     {starttls, get_starttls(Features)},
-     {stream_management, get_stream_management(Features)},
-     {advanced_message_processing, get_advanced_message_processing(Features)}
-    ].
+    ResultFeatures = 
+        [{compression, get_compression(Features)},
+         {starttls, get_starttls(Features)},
+         {stream_management, get_stream_management(Features)},
+         {advanced_message_processing, get_advanced_message_processing(Features)}
+        ],
+    SaslsMechanisms = get_sasl_mechanisms_info(Features),
+    case SaslsMechanisms of
+        [_H|_T] -> lists:append(ResultFeatures, SaslsMechanisms);
+        _ -> ResultFeatures
+    end.
+
 
 -spec get_compression(exml:element()) -> boolean().
 get_compression(Features) ->
@@ -317,3 +324,12 @@ get_stream_management(Features) ->
 -spec get_advanced_message_processing(exml:element()) -> boolean().
 get_advanced_message_processing(Features) ->
     undefined =/= exml_query:subelement(Features, <<"amp">>).
+
+get_sasl_mechanisms_info(Features) ->
+    OAUTH = exml_query:subelement(Features, <<"mechanisms">>),
+    case OAUTH of
+        #xmlel{} ->
+            #xmlel{children = SaslMechs} = OAUTH,
+            lists:map(fun(X) -> {binary_to_atom(exml_query:cdata(X), latin1), true} end, SaslMechs);
+        _Other -> []
+    end.
