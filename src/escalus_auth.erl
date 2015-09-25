@@ -89,7 +89,7 @@ auth_sasl_external(Conn, Props) ->
     wait_for_success(ThisServer, Conn).
 
 auth_sasl_oauth(Conn, Props) ->
-    {access_token, Token} = lists:keyfind(access_token, 1, Props),
+    {oauth_token, Token} = lists:keyfind(oauth_token, 1, Props),
     Children = [#xmlcdata{content = base64:encode(Token)}],
     Stanza = escalus_stanza:auth(<<"X-OAUTH">>, Children),
     ok = escalus_connection:send(Conn, Stanza),
