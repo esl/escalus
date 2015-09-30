@@ -57,6 +57,7 @@
          privacy_no_default/0,
          adhoc_request/1,
          adhoc_request/2,
+         ping_request/1,
          service_discovery/1,
          auth/1,
          auth/2,
@@ -585,6 +586,13 @@ adhoc_request(Node, Payload) ->
                                    {<<"node">>, Node},
                                    {<<"action">>, <<"execute">>}],
                           children = Payload}]).
+
+ping_request(To) ->
+    IQ = iq(<<"get">>, [#xmlel{name = <<"ping">>,
+                               attrs = [{<<"xmlns">>, ?NS_PING}]
+                              }]),
+    to(IQ, To).
+
 
 -spec service_discovery(binary()) -> #xmlel{}.
 service_discovery(Server) ->
