@@ -93,9 +93,14 @@ auth_sasl_oauth(Conn, Props) ->
     Children = [#xmlcdata{content = base64:encode(Token)}],
     Stanza = escalus_stanza:auth(<<"X-OAUTH">>, Children),
     ok = escalus_connection:send(Conn, Stanza),
-    wait_for_success(get_property(username, Props), Conn).
-
-
+    AuthReply = escalus_connection:get_stanza(Conn, auth_reply),
+    case AuthReply of
+        #xmlel{name = <<"success">>, children = Children} ->
+            {ok, [ base64:decode(exml:unescape_cdata(CData))
+                   || CData <- Children ]};
+        #xmlel{name = <<"failure">>} ->
+            throw({auth_failed, AuthReply})
+    end.
 
 %%--------------------------------------------------------------------
 %% Helpers - implementation
