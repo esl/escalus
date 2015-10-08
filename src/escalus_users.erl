@@ -171,6 +171,8 @@ get_auth_method(<<"SASL-ANON">>) ->
     {escalus_auth, auth_sasl_anon};
 get_auth_method(<<"SCRAM-SHA-1">>) ->
     {escalus_auth, auth_sasl_scram_sha1};
+get_auth_method(<<"X-OAUTH">>) ->
+    {escalus_auth, auth_sasl_oauth};
 get_auth_method({Mod, Fun}) when is_atom(Mod), is_atom(Fun) ->
     {Mod, Fun}.
 
