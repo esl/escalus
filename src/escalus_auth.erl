@@ -89,18 +89,20 @@ auth_sasl_external(Conn, Props) ->
     wait_for_success(ThisServer, Conn).
 
 auth_sasl_oauth(Conn, Props) ->
-    {oauth_token, Token} = lists:keyfind(oauth_token, 1, Props),
+    Token = get_property(oauth_token, Props),
     Children = [#xmlcdata{content = base64:encode(Token)}],
     Stanza = escalus_stanza:auth(<<"X-OAUTH">>, Children),
     ok = escalus_connection:send(Conn, Stanza),
     AuthReply = escalus_connection:get_stanza(Conn, auth_reply),
-    case AuthReply of
-        #xmlel{name = <<"success">>, children = ChildrenRecvd} ->
-            {ok, [ base64:decode(exml:unescape_cdata(CData))
-                   || CData <- ChildrenRecvd ]};
-        #xmlel{name = <<"failure">>} ->
-            throw({auth_failed, AuthReply})
-    end.
+    NewProps = case AuthReply of
+                   #xmlel{name = <<"success">>, children = ChildrenRecvd} ->
+                       ([ {oauth_returned_token, base64:decode(exml:unescape_cdata(CData))}
+                         || CData <- ChildrenRecvd ]
+                        ++ Props);
+                   #xmlel{name = <<"failure">>} ->
+                       throw({auth_failed, AuthReply})
+               end,
+    {ok, NewProps}.
 
 %%--------------------------------------------------------------------
 %% Helpers - implementation
