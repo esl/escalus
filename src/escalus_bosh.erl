@@ -76,7 +76,7 @@
 %%% API
 %%%===================================================================
 
--spec connect([{atom(), any()}]) -> {ok, #client{}}.
+-spec connect([{atom(), any()}]) -> {ok, escalus:client()}.
 connect(Args) ->
     {ok, Pid} = gen_server:start_link(?MODULE, [Args, self()], []),
     Transport = gen_server:call(Pid, get_transport),
@@ -233,7 +233,7 @@ get_active(#client{rcv_pid = Pid}) ->
 set_active(#client{rcv_pid = Pid}, Active) ->
     gen_server:call(Pid, {set_active, Active}).
 
--spec recv(#client{}) -> exml_stream:element() | empty.
+-spec recv(escalus:client()) -> exml_stream:element() | empty.
 recv(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, recv).
 

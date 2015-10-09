@@ -195,7 +195,7 @@ x_data_form(Type, Children) ->
                     {<<"type">>, Type}],
            children = Children}.
 
--spec bind(binary()) -> #xmlel{}.
+-spec bind(binary()) -> exml:element().
 bind(Resource) ->
     iq(<<"set">>,
        [#xmlel{name = <<"bind">>,
@@ -203,7 +203,7 @@ bind(Resource) ->
                children = [#xmlel{name = <<"resource">>,
                                   children = [#xmlcdata{content = Resource}]}]}]).
 
--spec session() -> #xmlel{}.
+-spec session() -> exml:element().
 session() ->
     NS = <<"urn:ietf:params:xml:ns:xmpp-session">>,
     iq(<<"set">>, [#xmlel{name = <<"session">>,
