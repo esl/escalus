@@ -555,4 +555,5 @@
 % Defined by XHTML 1.0.
 -define(NS_XHTML, <<"http://www.w3.org/1999/xhtml">>).
 
-
+% Erlang Solutions custom extension - token based authentication
+-define(NS_ESL_TOKEN_AUTH, <<"erlang-solutions.com:xmpp:token-auth:0">>).
