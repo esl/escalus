@@ -165,9 +165,9 @@ compress(Method) ->
     #xmlel{name = <<"compress">>,
            attrs = [{<<"xmlns">>, <<"http://jabber.org/protocol/compress">>}],
            children = [#xmlel{name = <<"method">>,
-                              children = [exml:escape_cdata(Method)]}]}.
+                              children = [#xmlcdata{content = Method}]}]}.
 
--spec iq(binary(), [xmlterm()]) -> #xmlel{}.
+-spec iq(binary(), [exml:element()]) -> exml:element().
 iq(Type, Body) ->
     #xmlel{name = <<"iq">>,
            attrs = [{<<"type">>, Type},
@@ -195,15 +195,15 @@ x_data_form(Type, Children) ->
                     {<<"type">>, Type}],
            children = Children}.
 
--spec bind(binary()) -> #xmlel{}.
+-spec bind(binary()) -> exml:element().
 bind(Resource) ->
     iq(<<"set">>,
        [#xmlel{name = <<"bind">>,
                attrs = [{<<"xmlns">>, <<"urn:ietf:params:xml:ns:xmpp-bind">>}],
                children = [#xmlel{name = <<"resource">>,
-                                  children = [exml:escape_cdata(Resource)]}]}]).
+                                  children = [#xmlcdata{content = Resource}]}]}]).
 
--spec session() -> #xmlel{}.
+-spec session() -> exml:element().
 session() ->
     NS = <<"urn:ietf:params:xml:ns:xmpp-session">>,
     iq(<<"set">>, [#xmlel{name = <<"session">>,
@@ -228,12 +228,12 @@ setattr(Stanza, Key, Val) ->
 
 tags(KVs) ->
     [#xmlel{name = K,
-            children = [exml:escape_cdata(V)]} || {K, V} <- KVs].
+            children = [#xmlcdata{content = V}]} || {K, V} <- KVs].
 
 presence(Type) ->
     presence(Type, []).
 
--spec presence(binary(), [xmlterm()]) -> #xmlel{}.
+-spec presence(binary(), [exml:element()|exml:cdata()]) -> exml:element().
 presence(<<"available">>, Children) ->
     #xmlel{name = <<"presence">>, children = Children};
 presence(Type, Children) ->
@@ -282,7 +282,7 @@ message(From, Recipient, Type, Msg) ->
            attrs = FromAttr ++ [{<<"type">>, Type},
                                 {<<"to">>, escalus_utils:get_jid(Recipient)}],
            children = [#xmlel{name = <<"body">>,
-                              children = [exml:escape_cdata(Msg)]}]}.
+                              children = [#xmlcdata{content = Msg}]}]}.
 
 chat_to(Recipient, Msg) ->
     message(undefined, Recipient, <<"chat">>, Msg).
@@ -421,7 +421,7 @@ contact_item({User, Groups, Nick}) ->
                     {<<"jid">>, escalus_utils:get_short_jid(User)},
                     {<<"name">>, bin(Nick)}],
            children = [#xmlel{name = <<"group">>,
-                              children = [exml:escape_cdata(bin(Group))]}
+                              children = [#xmlcdata{content = bin(Group)}]}
                        || Group <- Groups]}.
 
 roster_add_contact(User, Groups, Nick) ->
@@ -753,16 +753,16 @@ enable_carbons_el() ->
 
 -spec from_xml(Snippet) -> Term when
       Snippet :: xml_snippet(),
-      Term :: xmlterm().
+      Term :: exml:element().
 from_xml(Snippet) ->
     from_template(Snippet, []).
 
--type context() :: [{atom(), binary() | list() | xmlterm()}].
+-type context() :: [{atom(), binary() | list() | exml:element()}].
 
 -spec from_template(Snippet, Ctx) -> Term when
       Snippet :: xml_snippet(),
       Ctx :: context(),
-      Term :: xmlterm().
+      Term :: exml:element().
 from_template(Snippet, Ctx) ->
     xml_to_xmlterm(iolist_to_binary(render(Snippet, Ctx))).
 
@@ -776,7 +776,7 @@ from_template(Snippet, Ctx) ->
 
 -spec xml_to_xmlterm(XML) -> Term when
       XML :: xml(),
-      Term :: xmlterm().
+      Term :: exml:element().
 xml_to_xmlterm(XML) when is_binary(XML) ->
     {ok, Term} = exml:parse(XML),
     Term.

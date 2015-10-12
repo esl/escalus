@@ -42,7 +42,7 @@
 %%% API
 %%%===================================================================
 
--spec connect({binary(), integer()}) -> {ok, #client{}}.
+-spec connect([proplists:property()]) -> {ok, escalus:client()}.
 connect(Args) ->
     {ok, Pid} = gen_server:start_link(?MODULE, [Args, self()], []),
     Transport = gen_server:call(Pid, get_transport),
@@ -202,11 +202,18 @@ handle_data(Data, State = #state{parser = Parser,
                 exml_stream:parse(Parser, Decompressed)
         end,
     NewState = State#state{parser = NewParser},
-    escalus_connection:maybe_forward_to_owner(NewState#state.filter_pred, NewState, Stanzas, fun forward_to_owner/2),
-    case [StrEnd || #xmlstreamend{} = StrEnd <- Stanzas] of
+    escalus_connection:maybe_forward_to_owner(NewState#state.filter_pred,
+                                              NewState,
+                                              Stanzas,
+                                              fun forward_to_owner/2),
+    case lists:filter(fun is_stream_end/1, Stanzas) of
         [] -> {noreply, NewState};
-        __ -> {stop, normal, NewState}
+        _ -> {stop, normal, NewState}
     end.
+
+-spec is_stream_end(exml_stream:element()) -> boolean().
+is_stream_end(#xmlstreamend{}) -> true;
+is_stream_end(_) -> false.
 
 forward_to_owner(Stanzas, #state{owner = Owner,
                                  event_client = EventClient} = NewState) ->

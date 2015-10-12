@@ -46,7 +46,7 @@
 %%===================================================================
 
 % note argument order change (backwards compatibility hack)
--spec is_error(xmlterm(), binary(), binary()) -> ok | no_return().
+-spec is_error(exml:element(), binary(), binary()) -> ok | no_return().
 is_error(Stanza, Type, Condition) ->
     escalus:assert(is_error, [Type, Condition], Stanza).
 

@@ -1,6 +1,6 @@
 ExtraDeps = [
              {mongooseim, ".*",
-              {git, "git://github.com/esl/mongooseim", "1.5.0"}}
+              {git, "git://github.com/esl/mongooseim", {branch, "exml-v2"}}}
             ].
 
 AddExtraDeps = fun (Deps) ->
