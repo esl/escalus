@@ -129,7 +129,19 @@ Stanza is separate from parameters to improve error reporting.
 It's possible to use Escalus as a standalone application,
 i.e. outside a Common Test test suite (and without any reliance
 on the `common_test` application and its modules).
-To do so some prerequisites must be met.
+If you use **rebar3** tool there are only few steps to generate
+full escalus release. Just type in your bash shell:
+
+    rebar3 release
+
+and wait until it finishes. It is now possible to start
+erlang shell with command:
+
+    $(ESCALUS_ROOT)/_build/default/rel/escalus/bin/escalus
+
+You can now enjoy usage of escalus application in your erlang release!
+In order to use escalus as standalone application **without rebar3**
+some prerequisites must be met.
 
 Firstly, Escalus must be started just like any other application:
 
