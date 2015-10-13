@@ -76,10 +76,10 @@ Story wraps all the test and does the cleanup and initialisation:
         escalus:story(Config, [1, 1], fun(Alice, Bob) ->
 
             %% Alice sends a message to Bob
-            escalus:send(Alice, escalus_stanza:chat_to(Bob, "OH, HAI!")),
+            escalus:send(Alice, escalus_stanza:chat_to(Bob, <<"OH, HAI!">>)),
 
             %% Bob gets the message
-            escalus:assert(is_chat_message, ["OH, HAI!"],
+            escalus:assert(is_chat_message, [<<"OH, HAI!">>],
                            escalus:wait_for_stanza(Bob))
 
         end).
