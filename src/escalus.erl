@@ -31,6 +31,7 @@
          story/3,
          assert/2,
          assert/3,
+         assert/4,
          assert_many/2,
          send/2,
          send_and_wait/2,
@@ -83,6 +84,7 @@ end_per_testcase(_CaseName, Config) ->
 -define(FORWARD1(M, F), F(X) -> M:F(X)).
 -define(FORWARD2(M, F), F(X, Y) -> M:F(X, Y)).
 -define(FORWARD3(M, F), F(X, Y, Z) -> M:F(X, Y, Z)).
+-define(FORWARD4(M, F), F(A, B, C, D) -> M:F(A, B, C, D)).
 
 ?FORWARD1(escalus_users, create_users).
 ?FORWARD2(escalus_users, create_users).
@@ -94,6 +96,7 @@ end_per_testcase(_CaseName, Config) ->
 
 ?FORWARD2(escalus_new_assert, assert).
 ?FORWARD3(escalus_new_assert, assert).
+?FORWARD4(escalus_new_assert, assert).
 ?FORWARD2(escalus_new_assert, assert_many).
 
 ?FORWARD2(escalus_client, send).

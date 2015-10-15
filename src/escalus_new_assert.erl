@@ -19,7 +19,7 @@
 %% This module is meant to replace legacy escalus_assert in future versions
 %% of Escalus
 
--export([assert/2, assert/3, assert_many/2, mix_match/2]).
+-export([assert/2, assert/3, assert/4, assert_many/2, mix_match/2]).
 
 %%==============================================================================
 %% API functions
@@ -49,6 +49,12 @@ assert_many(Predicates, Stanzas) ->
     assert_true(Ok and AllStanzas,
         {assertion_failed, assert_many, AllStanzas, Predicates, Stanzas, StanzasStr}).
 
+assert(M, PredSpec, Params, Arg) ->
+    Fun = predspec_to_fun(M, PredSpec, length(Params) + 1),
+    StanzaStr = arg_to_list(Arg),
+    assert_true(apply(Fun, Params ++ [Arg]),
+        {assertion_failed, assert, PredSpec, Params, Arg, StanzaStr}).
+
 mix_match(Predicates, Stanzas) ->
     assert_many(Predicates, Stanzas).
 
@@ -67,17 +73,20 @@ predspec_to_fun(F) ->
     predspec_to_fun(F, 1).
 
 predspec_to_fun(F, N) when is_atom(F), is_integer(N) ->
+    predspec_to_fun(escalus_pred, F, N);
+predspec_to_fun(Other, _) ->
+    Other.
+
+predspec_to_fun(M, F, N) when is_atom(M), is_atom(F), is_integer(N) ->
     %% Fugly, avert your eyes :-/
     %% R15B complains about {escalus_pred, F} syntax, where
     %% R14B04 doesn't allow fun escalus_pred:F/A yet.
     case N of
-        1 -> fun (A) -> escalus_pred:F(A) end;
-        2 -> fun (A, B) -> escalus_pred:F(A, B) end;
-        3 -> fun (A, B, C) -> escalus_pred:F(A, B, C) end;
-        4 -> fun (A, B, C, D) -> escalus_pred:F(A, B, C, D) end
-    end;
-predspec_to_fun(Other, _) ->
-    Other.
+        1 -> fun (A) -> M:F(A) end;
+        2 -> fun (A, B) -> M:F(A, B) end;
+        3 -> fun (A, B, C) -> M:F(A, B, C) end;
+        4 -> fun (A, B, C, D) -> M:F(A, B, C, D) end
+    end.
 
 assert_true(true, _) -> ok;
 assert_true(false, Fail) ->
