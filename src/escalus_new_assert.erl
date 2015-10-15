@@ -47,7 +47,8 @@ assert_many(Predicates, Stanzas) ->
             escalus_utils:log_stanzas("multi-assertion failed on", Stanzas)
     end,
     assert_true(Ok and AllStanzas,
-        {assertion_failed, assert_many, AllStanzas, Predicates, Stanzas, StanzasStr}).
+        {assertion_failed, assert_many, AllStanzas, Predicates, Stanzas,
+         StanzasStr}).
 
 assert(M, PredSpec, Params, Arg) ->
     Fun = predspec_to_fun(M, PredSpec, length(Params) + 1),
