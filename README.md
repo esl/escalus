@@ -137,7 +137,7 @@ full escalus release. Just type in your bash shell:
 and wait until it finishes. It is now possible to start
 erlang shell with command:
 
-    $(ESCALUS_ROOT)/_build/default/rel/escalus/bin/escalus
+    $ESCALUS_ROOT/_build/default/rel/escalus/bin/escalus
 
 You can now enjoy usage of escalus application in your erlang release!
 In order to use escalus as standalone application **without rebar3**
