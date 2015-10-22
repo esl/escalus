@@ -270,7 +270,7 @@ delete_user(Config, {_Name, UserSpec}) ->
     escalus_connection:stop(Conn),
     Result.
 
--spec auth_type(ct:config()) -> {escalus_user_db, {module, atom(), list()} | xmpp}.
+-spec auth_type([proplists:property()]) -> {escalus_user_db, {module, atom(), list()} | xmpp}.
 auth_type(Config) ->
     Type = case {escalus_config:get_config(escalus_user_db, Config, undefined),
                  try_check_mod_register(Config)} of
@@ -369,9 +369,9 @@ get_defined_option(Config, Name, Short, Long) ->
             Value
     end.
 
--spec wait_for_result(escalus:client()) -> {ok, result, xmlterm()}
-                                         | {ok, conflict, xmlterm()}
-                                         | {error, Error, xmlterm()}
+-spec wait_for_result(escalus:client()) -> {ok, result, exml:element()}
+                                         | {ok, conflict, exml:element()}
+                                         | {error, Error, exml:cdata()}
       when Error :: 'failed_to_register' | 'bad_response' | 'timeout'.
 wait_for_result(Conn) ->
     receive
@@ -413,5 +413,6 @@ get_answers(UserSpec, InstrStanza) ->
     Query = exml_query:subelement(InstrStanza, <<"query">>),
     ChildrenNames = [N || #xmlel{name = N} <- Query#xmlel.children],
     NoInstr = ChildrenNames -- [<<"instructions">>],
-    [#xmlel{name=K, children=[exml:escape_cdata(proplists:get_value(K, BinSpec))]}
+    [#xmlel{name=K,
+            children=[#xmlcdata{content = proplists:get_value(K, BinSpec)}]}
      || K <- NoInstr].
