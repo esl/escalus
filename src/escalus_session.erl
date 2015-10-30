@@ -117,7 +117,7 @@ compress(Conn, Props) ->
 session(Conn, Props) ->
     escalus_connection:send(Conn, escalus_stanza:session()),
     SessionReply = escalus_connection:get_stanza(Conn, session_reply),
-    %% FIXME: verify SessionReply, add props
+    escalus:assert(is_iq_result, SessionReply),
     Props.
 
 use_ssl(Props, Features) ->
