@@ -213,7 +213,7 @@ is_mam_archived_message(Msg, #xmlel{} = Stanza) ->
     M = exml_query:path(Stanza, [{element, <<"result">>},
                                  {element, <<"forwarded">>},
                                  {element, <<"message">>}]),
-    is_chat_message(Msg,M).
+    is_chat_message(Msg, M).
 
 is_mam_fin_message(Stanza) ->
     case exml_query:path(Stanza, [{element, <<"fin">>}]) of
@@ -283,7 +283,7 @@ is_0184_receipt(Request, ProperResFrom,
             is_0184_receipt(Request, ProperResFrom,
                             Receipt#xmlel{ children = [Received] })
     end;
-is_0184_receipt(_,_,_) ->
+is_0184_receipt(_, _, _) ->
     false.
 
 -spec is_iq_set(exml:element()) -> boolean().

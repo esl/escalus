@@ -679,11 +679,12 @@ mam_archive_query(QueryId, Children) ->
 
 
 mam_lookup_messages_iq(QueryId, Start, End, WithJID) ->
-    mam_archive_query(QueryId, [field_el(<<"FORM_TYPE">>, <<"hidden">>, ?NS_MAM),
-                                field_el(<<"start">>, <<"text-single">>, Start),
-                                field_el(<<"end">>, <<"text-single">>, End),
-                                field_el(<<"with">>, <<"jid-single">>, WithJID)
-                                ]).
+    Fields = [field_el(<<"FORM_TYPE">>, <<"hidden">>, ?NS_MAM),
+              field_el(<<"start">>, <<"text-single">>, Start),
+              field_el(<<"end">>, <<"text-single">>, End),
+              field_el(<<"with">>, <<"jid-single">>, WithJID)
+             ],
+    mam_archive_query(QueryId, [Fields]).
 
 %% Include an rsm id for a particular message.
 mam_lookup_messages_iq(QueryId, Start, End, WithJID, DirectionWMessageId) ->
