@@ -18,6 +18,7 @@
 
 %% old ones
 -export([id/0,
+         message/4,
          chat_to/2,
          chat/3,
          chat_to_short_jid/2,
