@@ -640,6 +640,8 @@ resume(SMID, PrevH) ->
 %%
 %% @TODO: move the stanza constructors from
 %% tests/mam_SUITE.erl into here.
+-spec field_el(binary(), binary(), undefined | [binary()]) ->
+    exml:element().
 field_el(_Name, _Type, undefined) ->
     undefined;
 field_el(Name, Type, Values) when is_list(Values) ->
@@ -654,6 +656,7 @@ field_el(Name, Type, Values) when is_list(Values) ->
 field_el(Name, Type, Value) ->
     field_el(Name, Type, [Value]).
 
+-spec mam_archive_query(binary()) -> exml:element().
 mam_archive_query(QueryId) ->
     mam_archive_query(QueryId, []).
 
@@ -678,6 +681,8 @@ mam_archive_query(QueryId, Children) ->
           children = ChildEl}]).
 
 
+-spec mam_lookup_messages_iq(binary(), binary(), binary(), binary()) ->
+    exml:element().
 mam_lookup_messages_iq(QueryId, Start, End, WithJID) ->
     Fields = [field_el(<<"FORM_TYPE">>, <<"hidden">>, ?NS_MAM),
               field_el(<<"start">>, <<"text-single">>, Start),
@@ -687,8 +692,11 @@ mam_lookup_messages_iq(QueryId, Start, End, WithJID) ->
     mam_archive_query(QueryId, [Fields]).
 
 %% Include an rsm id for a particular message.
+-spec mam_lookup_messages_iq(binary(), binary(), binary(), binary(), term()) ->
+    exml:element().
 mam_lookup_messages_iq(QueryId, Start, End, WithJID, DirectionWMessageId) ->
-    IQ = #xmlel{children=[Q]} = mam_lookup_messages_iq(QueryId, Start, End, WithJID),
+    IQ = #xmlel{children=[Q]} = mam_lookup_messages_iq(QueryId, Start, End,
+                                                       WithJID),
     RSM  = defined([fmapM(fun rsm_after_or_before/1, DirectionWMessageId)]),
     Other = Q#xmlel.children,
     Q2 = Q#xmlel{children = Other ++ RSM},

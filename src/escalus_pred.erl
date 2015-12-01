@@ -70,7 +70,7 @@
          has_service/2,
          has_feature/2,
          has_field_with_type/3,
-         has_field_value/3,
+         has_field_value/2,
          has_item/2,
          has_no_such_item/2,
          has_identity/3,
@@ -209,12 +209,15 @@ is_groupchat_message(Stanza) ->
     has_type(<<"groupchat">>, Stanza).
 
 %% Xep-0313 archived messages
+-spec is_mam_archived_message(binary(), exml:element()) ->
+    boolean().
 is_mam_archived_message(Msg, #xmlel{} = Stanza) ->
     M = exml_query:path(Stanza, [{element, <<"result">>},
                                  {element, <<"forwarded">>},
                                  {element, <<"message">>}]),
     is_chat_message(Msg, M).
 
+-spec is_mam_fin_message(exml:element()) -> boolean().
 is_mam_fin_message(Stanza) ->
     case exml_query:path(Stanza, [{element, <<"fin">>}]) of
         undefined  ->
@@ -478,6 +481,7 @@ has_feature(Feature, Stanza) ->
               end,
               Features).
 
+-spec has_field_with_type(binary(), binary(), exml:element()) -> boolean().
 has_field_with_type(Name, Type, Form) ->
     Fields = exml_query:paths(Form, [{element, <<"field">>}]),
     lists:any(fun(Item) ->
@@ -486,7 +490,8 @@ has_field_with_type(Name, Type, Form) ->
                       exml_query:attr(Item, <<"type">>) == Type
               end, Fields).
 
-has_field_value(Name, Value, Form) ->
+-spec has_field_value(binary(), exml:element()) -> boolean().
+has_field_value(Value, Form) ->
     Fields = exml_query:paths(Form, [{element, <<"field">>}]),
     lists:any(fun(Item) ->
                       V = exml_query:paths(Item, [{element, <<"value">>}]),
