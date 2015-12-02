@@ -69,6 +69,8 @@
          is_adhoc_response/3,
          has_service/2,
          has_feature/2,
+         has_field_with_type/3,
+         has_field_value/2,
          has_item/2,
          has_no_such_item/2,
          has_identity/3,
@@ -83,7 +85,8 @@
          is_sm_resumed/1, is_sm_resumed/2,
          has_ns/2,
          is_compressed/1,
-         is_mam_archived_message/2
+         is_mam_archived_message/2,
+         is_mam_fin_message/1
         ]).
 
 -export(['not'/1]).
@@ -206,12 +209,22 @@ is_groupchat_message(Stanza) ->
     has_type(<<"groupchat">>, Stanza).
 
 %% Xep-0313 archived messages
+-spec is_mam_archived_message(binary(), exml:element()) ->
+    boolean().
 is_mam_archived_message(Msg, #xmlel{} = Stanza) ->
     M = exml_query:path(Stanza, [{element, <<"result">>},
                                  {element, <<"forwarded">>},
                                  {element, <<"message">>}]),
-    is_chat_message(Msg,M).
+    is_chat_message(Msg, M).
 
+-spec is_mam_fin_message(exml:element()) -> boolean().
+is_mam_fin_message(Stanza) ->
+    case exml_query:path(Stanza, [{element, <<"fin">>}]) of
+        undefined  ->
+            false;
+        FinEl ->
+            exml_query:attr(FinEl, <<"xmlns">>) == ?NS_MAM
+    end.
 
 %% TODO: escalus_compat:bin/1 should be deprecated;
 %%       let's just use binaries instead of "maybe strings, maybe binaries"
@@ -467,6 +480,23 @@ has_feature(Feature, Stanza) ->
                       exml_query:attr(Item, <<"var">>) == Feature
               end,
               Features).
+
+-spec has_field_with_type(binary(), binary(), exml:element()) -> boolean().
+has_field_with_type(Name, Type, Form) ->
+    Fields = exml_query:paths(Form, [{element, <<"field">>}]),
+    lists:any(fun(Item) ->
+                      exml_query:attr(Item, <<"var">>) == Name
+                      andalso
+                      exml_query:attr(Item, <<"type">>) == Type
+              end, Fields).
+
+-spec has_field_value(binary(), exml:element()) -> boolean().
+has_field_value(Value, Form) ->
+    Fields = exml_query:paths(Form, [{element, <<"field">>}]),
+    lists:any(fun(Item) ->
+                      V = exml_query:paths(Item, [{element, <<"value">>}]),
+                      lists:any(fun(I2) -> exml_query:cdata(I2) == Value end, V)
+              end, Fields).
 
 -spec has_item(binary(), exml:element()) -> boolean().
 has_item(JID, Stanza) ->
