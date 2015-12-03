@@ -103,8 +103,8 @@ upgrade_to_tls(#client{socket = Socket, rcv_pid = Pid} = Client, Props) ->
         {error, Error} ->
             error(Error);
         _ ->
-            Client2 = get_transport(Client),
-            {Props2, _} = escalus_session:start_stream(Client2, Props),
+    Client2 = get_transport(Client),
+    {Props2, _} = escalus_session:start_stream(Client2, Props),
             {Client2, Props2}
     end.
 
@@ -146,6 +146,7 @@ init([Args, Owner]) ->
     EventClient = proplists:get_value(event_client, Args),
     Interface = proplists:get_value(iface, Args),
     IsSSLConnection = proplists:get_value(ssl, Args, false),
+    Timeout = proplists:get_value(timeout, Args, infinity),
 
     OnReplyFun = proplists:get_value(on_reply, Args, fun(_) -> ok end),
     OnRequestFun = proplists:get_value(on_request, Args, fun(_) -> ok end),
@@ -160,23 +161,27 @@ init([Args, Owner]) ->
          end,
 
 
-    BasicOpts = [binary, {active, once}],
+    BasicOpts = [binary, {active, once}, {send_timeout, Timeout}],
     SocketOpts = case Interface of
                      undefined -> BasicOpts;
                      _         -> [{ip, iface_to_ip_address(Interface)}] ++ BasicOpts
                  end,
 
-    {ok, Socket} = do_connect(IsSSLConnection, Address, Port, Args,
-                              SocketOpts, OnConnectFun),
-    {ok, Parser} = exml_stream:new_parser(),
-    {ok, #state{owner = Owner,
-                socket = Socket,
-                parser = Parser,
-                ssl = IsSSLConnection,
-                sm_state = SM,
-                event_client = EventClient,
-                on_reply = OnReplyFun,
-                on_request = OnRequestFun}}.
+    case do_connect(IsSSLConnection, Address, Port, Args,
+                    SocketOpts, OnConnectFun, Timeout) of
+        {ok, Socket} ->
+            {ok, Parser} = exml_stream:new_parser(),
+            {ok, #state{owner = Owner,
+                        socket = Socket,
+                        parser = Parser,
+                        ssl = IsSSLConnection,
+                        sm_state = SM,
+                        event_client = EventClient,
+                        on_reply = OnReplyFun,
+                        on_request = OnRequestFun}};
+        {error, Reason} ->
+            {stop, {shutdown, Reason}}
+    end.
 
 handle_call(get_sm_h, _From, #state{sm_state = {_, H, _}} = State) ->
     {reply, H, State};
@@ -191,7 +196,7 @@ handle_call({upgrade_to_tls, SSLOpts}, _From, #state{socket = Socket} = State) -
                               lists:keysort(1, SSLOpts1)),
     case ssl:connect(Socket, SSLOpts2) of
         {ok, Socket2} ->
-            {ok, Parser} = exml_stream:new_parser(),
+    {ok, Parser} = exml_stream:new_parser(),
             {reply, Socket2,
              State#state{socket = Socket2, parser = Parser, ssl=true}};
         {error, closed} = E ->
@@ -272,31 +277,37 @@ code_change(_OldVsn, State, _Extra) ->
 handle_data(Socket, Data, #state{parser = Parser,
                                  socket = Socket,
                                  compress = Compress,
-                                 on_reply = OnReplyFun} = State) ->
+                                 on_reply = OnReplyFun,
+                                 owner = Owner} = State) ->
     OnReplyFun({erlang:byte_size(Data)}),
-    {ok, NewParser, Stanzas} =
-        case Compress of
+    Parsed = case Compress of
             false ->
                 exml_stream:parse(Parser, Data);
             {zlib, {Zin,_}} ->
                 Decompressed = iolist_to_binary(zlib:inflate(Zin, Data)),
                 exml_stream:parse(Parser, Decompressed)
         end,
-    NewState = State#state{parser = NewParser},
-    case State#state.active of
-        true ->
+    case Parsed of
+        {ok, NewParser, Stanzas} ->
+            NewState = State#state{parser = NewParser},
+            case State#state.active of
+                true ->
             escalus_connection:maybe_forward_to_owner(NewState#state.filter_pred,
                                                       NewState, Stanzas,
                                                       fun forward_to_owner/2);
-        false ->
-            store_reply(Stanzas, NewState)
+                false ->
+                    store_reply(Stanzas, NewState)
+            end;
+        {error, _} ->
+            Owner ! {error, parse_error},
+            State
     end.
 
 
 forward_to_owner(Stanzas0, #state{owner = Owner,
                                   sm_state = SM0,
                                   event_client = EventClient} = State) ->
-    {SM1, AckRequests, StanzasNoRs} = separate_ack_requests(SM0, Stanzas0),
+    {SM1, AckRequests,StanzasNoRs} = separate_ack_requests(SM0, Stanzas0),
     reply_to_ack_requests(SM1, AckRequests, State),
     NewState = State#state{sm_state=SM1},
 
@@ -429,9 +440,9 @@ send_stream_end(#state{socket = Socket, ssl = Ssl, compress = Compress}) ->
             gen_tcp:send(Socket, exml:to_iolist(StreamEnd))
     end.
 
-do_connect(IsSSLConnection, Address, Port, Args, SocketOpts, OnConnectFun) ->
+do_connect(IsSSLConnection, Address, Port, Args, SocketOpts, OnConnectFun, Timeout) ->
     TimeB = os:timestamp(),
-    Reply = maybe_ssl_connection(IsSSLConnection, Address, Port, SocketOpts, Args),
+    Reply = maybe_ssl_connection(IsSSLConnection, Address, Port, SocketOpts, Args, Timeout),
     TimeA = os:timestamp(),
     ConnectionTime = timer:now_diff(TimeA, TimeB),
     case Reply of
@@ -442,8 +453,8 @@ do_connect(IsSSLConnection, Address, Port, Args, SocketOpts, OnConnectFun) ->
     end,
     Reply.
 
-maybe_ssl_connection(true, Address, Port, Opts, Args) ->
+maybe_ssl_connection(true, Address, Port, Opts, Args, Timeout) ->
     SSLOpts = proplists:get_value(ssl_opts, Args, []),
-    ssl:connect(Address, Port, Opts ++ SSLOpts);
-maybe_ssl_connection(_, Address, Port, Opts, _) ->
-    gen_tcp:connect(Address, Port, Opts).
+    ssl:connect(Address, Port, Opts ++ SSLOpts, Timeout);
+maybe_ssl_connection(_, Address, Port, Opts, _, Timeout) ->
+    gen_tcp:connect(Address, Port, Opts, Timeout).
