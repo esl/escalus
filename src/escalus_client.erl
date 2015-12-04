@@ -33,6 +33,9 @@
          server/1,
          resource/1]).
 
+%% Override
+-export([start_connection_default/4]).
+
 -import(escalus_compat, [bin/1, unimplemented/0]).
 
 -define(WAIT_FOR_STANZA_TIMEOUT, 1000).
@@ -47,7 +50,7 @@
 start(Config, UserSpec, Resource) ->
     EventClient = escalus_event:new_client(Config, UserSpec, Resource),
     Options = escalus_users:get_options(Config, UserSpec, Resource, EventClient),
-    case escalus_connection:start(Options) of
+    case start_connection(Config, UserSpec, Resource, Options) of
         {ok, Conn, Props, _} ->
             Jid = make_jid(Props),
             Client = #client{jid = Jid, conn = Conn, event_client = EventClient},
@@ -149,3 +152,11 @@ make_jid(Proplist) ->
     {server, S} = lists:keyfind(server, 1, Proplist),
     {resource, R} = lists:keyfind(resource, 1, Proplist),
     <<U/binary,"@",S/binary,"/",R/binary>>.
+
+start_connection(Config, UserSpec, Resource, Options) ->
+    escalus_overridables:do(Config, start_connection,
+                            [Config, UserSpec, Resource, Options],
+                            {?MODULE, start_connection_default}).
+
+start_connection_default(_Config, _UserSpec, _Resource, Options) ->
+    escalus_connection:start(Options).
