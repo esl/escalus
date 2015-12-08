@@ -45,7 +45,6 @@
 %% Stream management automation
 %%               :: {Auto-ack?,                H,         counting Hs?}.
 -type sm_state() :: {boolean(), non_neg_integer(), 'active'|'inactive'}.
-
 -export_type([sm_state/0]).
 
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
@@ -224,12 +223,16 @@ handle_call(stop, _From, #state{} = S) ->
     wait_until_closed(S#state.socket),
     {stop, normal, ok, S}.
 
+-spec handle_cast({send, any(), any()}, any()) -> {noreply, any()}.
 handle_cast({send, #client{socket = Socket, ssl = Ssl, compress = Compress},
              Elem}, #state{on_request = OnRequestFun} = State) ->
     Reply = case {Ssl, Compress} of
+                {true, {zlib, {_, Zout}}} ->
+                    Deflated = zlib:deflate(Zout, exml:to_iolist(Elem), sync),
+                    ssl:send(Socket, Deflated);
                 {true, _} ->
                     ssl:send(Socket, exml:to_iolist(Elem));
-                {false, {zlib, {_,Zout}}} ->
+                {false, {zlib, {_, Zout}}} ->
                     Deflated = zlib:deflate(Zout, exml:to_iolist(Elem), sync),
                     gen_tcp:send(State#state.socket, Deflated);
                 {false, false} ->
