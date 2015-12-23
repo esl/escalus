@@ -89,24 +89,24 @@ iq_set_get_rest(SrcIq, Id, From) ->
 
 entry_body_sample1() ->
     [
-     #xmlel{name = <<"title">>, children  = [ #xmlcdata{content=[<<"The title of content.">>]}]},
-     #xmlel{name = <<"summary">>, children = [ #xmlcdata{content=[<<"To be or not to be...">>]}]}
+     #xmlel{name = <<"title">>, children = [#xmlcdata{content = <<"The title of content.">>}]},
+     #xmlel{name = <<"summary">>, children = [#xmlcdata{content = <<"To be or not to be...">>}]}
     ].
 
 entry_body_with_timestamp() ->
     MicroSec = usec:from_now(os:timestamp()),
     [
-     #xmlel{name = <<"MSG_SENT_AT">>, children  = [ #xmlcdata{content=[integer_to_binary(MicroSec)]}]}
+     #xmlel{name = <<"MSG_SENT_AT">>, children = [#xmlcdata{content = integer_to_binary(MicroSec) }]}
     ].
 
 entry_body_with_sample_device_id() ->
     [
-     #xmlel{name = <<"DEVICE_ID_SMPL0">>, children  = [ #xmlcdata{content=[<<"2F:AB:28:FF">>]}]}
+     #xmlel{name = <<"DEVICE_ID_SMPL0">>, children = [#xmlcdata{content = <<"2F:AB:28:FF">>}]}
     ].
 
 entry_body_with_sample_device_id_2() ->
     [
-     #xmlel{name = <<"DEVICE_ID_SMPL2">>, children  = [ #xmlcdata{content=[<<"AA:92:1C:92">>]}]}
+     #xmlel{name = <<"DEVICE_ID_SMPL2">>, children = [#xmlcdata{content = <<"AA:92:1C:92">>}]}
     ].
 
 %% ------end-------------------- sample entry bodies ------------------------
