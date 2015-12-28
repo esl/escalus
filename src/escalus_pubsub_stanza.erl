@@ -17,6 +17,7 @@
 
 -export([
          create_node_stanza/4,
+         create_node_stanza/5,
          create_specific_node_stanza/1,
          create_subscribe_node_stanza/2,
          create_request_allitems_stanza/1,
@@ -71,12 +72,42 @@ publish_sample_content_stanza(DestinationTopicName, DestinationNode, PublishItem
     escalus_pubsub_stanza:iq_with_id(set, IqId, DestinationNode, User,  [PublishToNode]).
 
 create_node_stanza(User, IqId, DestinationNodeAddr, DestinationNodeName) ->
+    create_node_stanza(User, IqId, DestinationNodeAddr, DestinationNodeName, []).
+
+create_node_stanza(User, IqId, DestinationNodeAddr, DestinationNodeName, Config) ->
     PubSubCreate = create_specific_node_stanza(DestinationNodeName),
-    PubSub = pubsub_stanza([PubSubCreate], ?NS_PUBSUB),
+    Elements = [PubSubCreate | case Config of
+                                   [] -> [];
+                                   _ -> [configure_node_stanza(Config)]
+                               end],
+    PubSub = pubsub_stanza(Elements, ?NS_PUBSUB),
     iq_with_id(set, IqId, DestinationNodeAddr, User,  [PubSub]).
 
 create_specific_node_stanza(NodeName) ->
-    #xmlel{name = <<"create">>,  attrs = [{<<"node">>, NodeName}] }.
+    #xmlel{name = <<"create">>, attrs = [{<<"node">>, NodeName}] }.
+
+configure_node_stanza(Config) ->
+    #xmlel{name = <<"configure">>,
+           children = [#xmlel{name = <<"x">>,
+                              attrs = [{<<"xmlns">>, <<"jabber:x:data">>},
+                                       {<<"type">>, <<"submit">>}],
+                              children = [configure_hidden_field() | configure_form_fields(Config)]}
+                      ]}.
+
+configure_hidden_field() ->
+    Content = <<"http://jabber.org/protocol/pubsub#node_config">>,
+    #xmlel{name = <<"field">>,
+           attrs = [{<<"var">>, <<"FORM_TYPE">>},
+                    {<<"type">>, <<"hidden">>}],
+           children = [#xmlel{name = <<"value">>,
+                              children = [#xmlcdata{content = Content}]}]}.
+
+configure_form_fields(Config) ->
+    [#xmlel{name = <<"field">>,
+           attrs = [{<<"var">>, Var}],
+           children = [#xmlel{name = <<"value">>,
+                              children = [#xmlcdata{content = Content}]}]}
+     || {Var, Content} <- Config].
 
 iq_with_id(TypeAtom, Id, To, From, Body) ->
     S1 = escalus_stanza:iq(To, atom_to_binary(TypeAtom, latin1), Body),
