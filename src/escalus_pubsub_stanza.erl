@@ -40,6 +40,7 @@
          publish_sample_content_stanza/5,
          retract_from_node_stanza/2,
          retrieve_subscriptions_stanza/1,
+         retrieve_user_subscriptions_stanza/0,
          set_subscriptions_stanza/2,
          subscribe_by_user_stanza/4,
          unsubscribe_by_user_stanza/4
@@ -236,6 +237,10 @@ retrieve_subscriptions_stanza(NodeName) ->
                           attrs = [{<<"node">>, NodeName}]
                          },
     pubsub_stanza([RetrieveNode], ?NS_PUBSUB_OWNER).
+
+retrieve_user_subscriptions_stanza() ->
+    RetrieveNode = #xmlel{name = <<"subscriptions">>},
+    pubsub_stanza([RetrieveNode], ?NS_PUBSUB).
 
 subscription_stanza({Jid, SubscriptionState}) ->
     #xmlel{name = <<"subscription">>,
