@@ -64,6 +64,7 @@
          auth_response/0,
          auth_response/1,
          query_el/2,
+         query_el/3,
          x_data_form/2]).
 
 -export([disco_info/1,

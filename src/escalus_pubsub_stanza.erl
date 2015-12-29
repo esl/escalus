@@ -44,7 +44,9 @@
          retrieve_user_subscriptions_stanza/0,
          set_subscriptions_stanza/2,
          subscribe_by_user_stanza/4,
-         unsubscribe_by_user_stanza/4
+         unsubscribe_by_user_stanza/4,
+         discover_nodes_stanza/3,
+         discover_nodes_stanza/4
         ]).
 
 
@@ -294,3 +296,11 @@ get_subscription_change_list_stanza(SubscriptionChangeData) ->
               subscription_stanza({_Jid, _SubsState} = ChangeEntry)
       end,
       SubscriptionChangeData).
+
+discover_nodes_stanza(User, IqId, NodeAddr) ->
+    Query = escalus_stanza:query_el(?NS_DISCO_ITEMS, [], []),
+    iq_with_id(get, IqId, NodeAddr, User,  [Query]).
+
+discover_nodes_stanza(User, IqId, NodeAddr, NodeName) ->
+    Query = escalus_stanza:query_el(?NS_DISCO_ITEMS, [{<<"node">>, NodeName}], []),
+    iq_with_id(get, IqId, NodeAddr, User,  [Query]).
