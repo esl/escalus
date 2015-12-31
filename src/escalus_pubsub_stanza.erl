@@ -46,6 +46,7 @@
          retrieve_user_subscriptions_stanza/0,
          set_subscriptions_stanza/2,
          subscribe_by_user_stanza/4,
+         subscribe_by_user_stanza/5,
          unsubscribe_by_user_stanza/4,
          discover_nodes_stanza/3,
          discover_nodes_stanza/4
@@ -82,7 +83,7 @@ create_node_stanza(User, IqId, DestinationNodeAddr, DestinationNodeName, Config)
     PubSubCreate = create_specific_node_stanza(DestinationNodeName),
     Elements = [PubSubCreate | case Config of
                                    [] -> [];
-                                   _ -> [configure_node_elem(Config)]
+                                   _ -> [configure_node_form(Config)]
                                end],
     PubSub = pubsub_stanza(Elements, ?NS_PUBSUB),
     iq_with_id(set, IqId, DestinationNodeAddr, User,  [PubSub]).
@@ -91,32 +92,13 @@ create_specific_node_stanza(NodeName) ->
     #xmlel{name = <<"create">>, attrs = [{<<"node">>, NodeName}] }.
 
 configure_node_stanza(User, IqId, NodeAddr, NodeName, Config) ->
-    ConfigureElem = (configure_node_elem(Config))#xmlel{attrs = [{<<"node">>, NodeName}]},
+    Form = configure_node_form(Config),
+    ConfigureElem = Form#xmlel{attrs = [{<<"node">>, NodeName}]},
     PubSubElem = pubsub_stanza([ConfigureElem], ?NS_PUBSUB),
     iq_with_id(set, IqId, NodeAddr, User, [PubSubElem]).
 
-configure_node_elem(Config) ->
-    #xmlel{name = <<"configure">>,
-           children = [#xmlel{name = <<"x">>,
-                              attrs = [{<<"xmlns">>, <<"jabber:x:data">>},
-                                       {<<"type">>, <<"submit">>}],
-                              children = [configure_hidden_field() | configure_form_fields(Config)]}
-                      ]}.
-
-configure_hidden_field() ->
-    Content = <<"http://jabber.org/protocol/pubsub#node_config">>,
-    #xmlel{name = <<"field">>,
-           attrs = [{<<"var">>, <<"FORM_TYPE">>},
-                    {<<"type">>, <<"hidden">>}],
-           children = [#xmlel{name = <<"value">>,
-                              children = [#xmlcdata{content = Content}]}]}.
-
-configure_form_fields(Config) ->
-    [#xmlel{name = <<"field">>,
-           attrs = [{<<"var">>, Var}],
-           children = [#xmlel{name = <<"value">>,
-                              children = [#xmlcdata{content = Content}]}]}
-     || {Var, Content} <- Config].
+configure_node_form(Fields) ->
+    form(<<"configure">>, <<"node_config">>, Fields).
 
 iq_with_id(TypeAtom, Id, To, From, Body) ->
     S1 = escalus_stanza:iq(To, atom_to_binary(TypeAtom, latin1), Body),
@@ -238,7 +220,10 @@ retract_from_node_stanza(NodeName, ItemId) ->
 %% ------------ subscribe - unscubscribe -----------
 
 subscribe_by_user_stanza(User, IqId, NodeName, NodeAddress) ->
-    SubscribeToNode = create_subscribe_node_stanza(NodeName, User),
+    subscribe_by_user_stanza(User, IqId, NodeName, NodeAddress, []).
+
+subscribe_by_user_stanza(User, IqId, NodeName, NodeAddress, Config) ->
+    SubscribeToNode = create_subscribe_node_stanza(NodeName, User, Config),
     iq_with_id(set, IqId, NodeAddress, User,  [SubscribeToNode]).
 
 unsubscribe_by_user_stanza(User, IqId, NodeName, NodeAddress) ->
@@ -246,17 +231,18 @@ unsubscribe_by_user_stanza(User, IqId, NodeName, NodeAddress) ->
     escalus_pubsub_stanza:iq_with_id(set, IqId, NodeAddress, User,  [UnubscribeFromNode]).
 
 create_subscribe_node_stanza(NodeName, From) ->
-    SubsrNode = create_sub_unsubscribe_from_node_stanza(NodeName, From, <<"subscribe">>),
-    pubsub_stanza([SubsrNode], ?NS_PUBSUB).
+    create_subscribe_node_stanza(NodeName, From, []).
 
-create_request_allitems_stanza(NodeName) ->
-    AllItems = #xmlel{name = <<"items">>, attrs=[{<<"node">>, NodeName}]},
-    pubsub_stanza([AllItems], ?NS_PUBSUB).
+create_subscribe_node_stanza(NodeName, From, Config) ->
+    SubscrNode = create_sub_unsubscribe_from_node_stanza(NodeName, From, <<"subscribe">>),
+    Elements = [SubscrNode | case Config of
+                                 [] -> [];
+                                 _ -> [subscribe_options_form(Config)]
+                             end],
+    pubsub_stanza(Elements, ?NS_PUBSUB).
 
-%%todo: make one function with option or like with create return always with iq.
-create_request_allitems_stanza_with_iq(User, IqId, PubSubAddr, NodeName) ->
-    AllItems = #xmlel{name = <<"items">>, attrs=[{<<"node">>, NodeName}]},
-    iq_with_id(get, IqId, PubSubAddr, User, [pubsub_stanza([AllItems], ?NS_PUBSUB)]).
+subscribe_options_form(Fields) ->
+    form(<<"options">>, <<"subscribe_options">>, Fields).
 
 create_unsubscribe_from_node_stanza(NodeName, From) ->
     UnsubsrNode = create_sub_unsubscribe_from_node_stanza(NodeName, From, <<"unsubscribe">>),
@@ -270,6 +256,16 @@ create_sub_unsubscribe_from_node_stanza(NodeName, From, SubUnsubType) ->
           }.
 
 %% ----end----- subscribe - unscubscribe -----------
+
+create_request_allitems_stanza(NodeName) ->
+    AllItems = #xmlel{name = <<"items">>, attrs=[{<<"node">>, NodeName}]},
+    pubsub_stanza([AllItems], ?NS_PUBSUB).
+
+%%todo: make one function with option or like with create return always with iq.
+create_request_allitems_stanza_with_iq(User, IqId, PubSubAddr, NodeName) ->
+    AllItems = #xmlel{name = <<"items">>, attrs=[{<<"node">>, NodeName}]},
+    iq_with_id(get, IqId, PubSubAddr, User, [pubsub_stanza([AllItems], ?NS_PUBSUB)]).
+
 
 delete_node_stanza(NodeName) ->
     DelNode = #xmlel{name = <<"delete">>,
@@ -316,3 +312,30 @@ discover_nodes_stanza(User, IqId, NodeAddr) ->
 discover_nodes_stanza(User, IqId, NodeAddr, NodeName) ->
     Query = escalus_stanza:query_el(?NS_DISCO_ITEMS, [{<<"node">>, NodeName}], []),
     iq_with_id(get, IqId, NodeAddr, User,  [Query]).
+
+%%-----------------------------------------------------------------------------
+%% Form utils
+%%-----------------------------------------------------------------------------
+
+form(ElemName, FormType, Fields) ->
+    #xmlel{name = ElemName,
+           children = [#xmlel{name = <<"x">>,
+                              attrs = [{<<"xmlns">>, <<"jabber:x:data">>},
+                                       {<<"type">>, <<"submit">>}],
+                              children = [hidden_field(FormType) | form_fields(Fields)]}
+                      ]}.
+
+hidden_field(FormType) ->
+    Content = << <<"http://jabber.org/protocol/pubsub#">>/binary, FormType/binary >>,
+    #xmlel{name = <<"field">>,
+           attrs = [{<<"var">>, <<"FORM_TYPE">>},
+                    {<<"type">>, <<"hidden">>}],
+           children = [#xmlel{name = <<"value">>,
+                              children = [#xmlcdata{content = Content}]}]}.
+
+form_fields(Config) ->
+    [#xmlel{name = <<"field">>,
+           attrs = [{<<"var">>, Var}],
+           children = [#xmlel{name = <<"value">>,
+                              children = [#xmlcdata{content = Content}]}]}
+     || {Var, Content} <- Config].
