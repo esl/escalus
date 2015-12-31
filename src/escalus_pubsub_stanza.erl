@@ -18,6 +18,7 @@
 -export([
          create_node_stanza/4,
          create_node_stanza/5,
+         configure_node_stanza/5,
          create_specific_node_stanza/1,
          create_subscribe_node_stanza/2,
          create_request_allitems_stanza/1,
@@ -35,6 +36,7 @@
          iq_with_id/5,
          iq_set_get_rest/3,
          publish_item/2,
+         publish_item_stanza/2,
          publish_entry/1,
          pubsub_stanza/2,
          publish_node_with_content_stanza/2,
@@ -80,7 +82,7 @@ create_node_stanza(User, IqId, DestinationNodeAddr, DestinationNodeName, Config)
     PubSubCreate = create_specific_node_stanza(DestinationNodeName),
     Elements = [PubSubCreate | case Config of
                                    [] -> [];
-                                   _ -> [configure_node_stanza(Config)]
+                                   _ -> [configure_node_elem(Config)]
                                end],
     PubSub = pubsub_stanza(Elements, ?NS_PUBSUB),
     iq_with_id(set, IqId, DestinationNodeAddr, User,  [PubSub]).
@@ -88,7 +90,12 @@ create_node_stanza(User, IqId, DestinationNodeAddr, DestinationNodeName, Config)
 create_specific_node_stanza(NodeName) ->
     #xmlel{name = <<"create">>, attrs = [{<<"node">>, NodeName}] }.
 
-configure_node_stanza(Config) ->
+configure_node_stanza(User, IqId, NodeAddr, NodeName, Config) ->
+    ConfigureElem = (configure_node_elem(Config))#xmlel{attrs = [{<<"node">>, NodeName}]},
+    PubSubElem = pubsub_stanza([ConfigureElem], ?NS_PUBSUB),
+    iq_with_id(set, IqId, NodeAddr, User, [PubSubElem]).
+
+configure_node_elem(Config) ->
     #xmlel{name = <<"configure">>,
            children = [#xmlel{name = <<"x">>,
                               attrs = [{<<"xmlns">>, <<"jabber:x:data">>},
@@ -164,26 +171,31 @@ publish_entry(EntryBody) ->
       }.
 
 publish_item_children(#xmlel{} = ItemBody) ->
-   ItemBody.
+    [ItemBody];
+publish_item_children([]) ->
+    [].
+
+publish_item_stanza(NodeName, ItemToPublish) ->
+    PublNode = publish_node_with_content_stanza(NodeName, ItemToPublish),
+    pubsub_stanza([PublNode], ?NS_PUBSUB).
 
 publish_item(ItemId, PublishEntry) ->
     #xmlel{
        name = <<"item">>,
        attrs = [{<<"id">>, ItemId}],
-       children = [publish_item_children(PublishEntry)]
+       children = publish_item_children(PublishEntry)
       }.
 
 publish_node_children(#xmlel{} = ItemBody) ->
-    ItemBody;
-
-publish_node_children(_) ->
-    publish_node_children([]).
+    [ItemBody];
+publish_node_children([]) ->
+    [].
 
 publish_node_with_content_stanza(NodeName, ItemToPublish) ->
     #xmlel{
        name = <<"publish">>,
        attrs = [{<<"node">>, NodeName}],
-       children = [publish_node_children(ItemToPublish)]
+       children = publish_node_children(ItemToPublish)
       }.
 
 %% Create full sample content with nested items like in example 88 of XEP-0060
