@@ -9,6 +9,10 @@
                   ssl,
                   exml
                  ]},
+  {maintainers, ["ESL"]},
+  {licenses, ["Apache 2.0"]},
+  {links, [{"Github", "https://github.com/esl/escalus"}]},
+  {build_tools, ["make", "rebar"]},
   {mod, { escalus_app, []}},
   {env, [%% Set config_file in case of using Escalus without Common Test
          %% (i.e. common_test is false).
