@@ -1,6 +1,6 @@
 {application, escalus,
  [
-  {description, ""},
+  {description, "Escalus is an Erlang XMPP client library"},
   {vsn, git},
   {registered, []},
   {applications, [
