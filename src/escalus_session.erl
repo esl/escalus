@@ -31,22 +31,20 @@
          session/3]).
 
 %% Public Types
+-export_type([feature/0,
+              features/0,
+              step/0,
+              step_state/0]).
+
 -type feature() :: {atom(), boolean()}.
--export_type([feature/0]).
-
 -type features() :: [feature()].
--export_type([features/0]).
-
 -define(CONNECTION_STEP, (escalus_connection:client(),
                           escalus_users:user_spec(),
                           features()) -> step_state()).
 -type step() :: fun(?CONNECTION_STEP).
--export_type([step/0]).
-
 -type step_state() :: {escalus_connection:client(),
                        escalus_users:user_spec(),
                        features()}.
--export_type([step_state/0]).
 
 %% Some shorthands
 -type client() :: escalus_connection:client().
