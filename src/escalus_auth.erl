@@ -97,7 +97,7 @@ auth_sasl_oauth(Conn, Props) ->
     NewProps = case AuthReply of
                    #xmlel{name = <<"success">>, children = ChildrenRecvd} ->
                        ([ {oauth_returned_token, base64:decode(exml:unescape_cdata(CData))}
-                         || CData <- ChildrenRecvd ]
+                          || CData <- ChildrenRecvd ]
                         ++ Props);
                    #xmlel{name = <<"failure">>} ->
                        throw({auth_failed, AuthReply})
