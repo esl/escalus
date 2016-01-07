@@ -324,7 +324,7 @@ get_advanced_message_processing(Features) ->
 -spec get_sasl_mechanisms(exml:element()) -> features().
 get_sasl_mechanisms(Features) ->
     MechCDataPath = [{element, <<"mechanisms">>}, {element, <<"mechanism">>}, cdata],
-    %% TODO: convert these to atoms or escalus_auth function names
+    %% TODO: convert these to escalus_auth function names
     _ExpectedAtomsHack = ['EXTERNAL', 'SCRAM-SHA-1-PLUS', 'SCRAM-SHA-1',
                           'DIGEST-MD5', 'PLAIN'],
     [ {binary_to_existing_atom(Mech, utf8), true}
