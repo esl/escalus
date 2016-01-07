@@ -55,6 +55,13 @@
 -include("escalus_xmlns.hrl").
 -define(DEFAULT_RESOURCE, <<"escalus-default-resource">>).
 
+%% TODO: see get_sasl_mechanisms/1
+-expected_atoms_hack(['EXTERNAL',
+                      'SCRAM-SHA-1-PLUS',
+                      'SCRAM-SHA-1',
+                      'DIGEST-MD5',
+                      'PLAIN']).
+
 %%%===================================================================
 %%% Public API
 %%%===================================================================
@@ -333,8 +340,11 @@ get_advanced_message_processing(Features) ->
 -spec get_sasl_mechanisms(exml:element()) -> features().
 get_sasl_mechanisms(Features) ->
     MechCDataPath = [{element, <<"mechanisms">>}, {element, <<"mechanism">>}, cdata],
+    %% TODO: The expected modules are stored as a custom attribute,
+    %%       so they don't get optimized out by the compiler.
+    %%       By calling `?MODULE:module_info()` we force them to be read into
+    %%       the ERTS atom table from the attributes chunk.
+    ?MODULE:module_info(),
     %% TODO: convert these to escalus_auth function names
-    _ExpectedAtomsHack = ['EXTERNAL', 'SCRAM-SHA-1-PLUS', 'SCRAM-SHA-1',
-                          'DIGEST-MD5', 'PLAIN'],
     [ {binary_to_existing_atom(Mech, utf8), true}
       || Mech <- exml_query:paths(Features, MechCDataPath) ].
