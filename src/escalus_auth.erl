@@ -17,6 +17,10 @@
 -export([get_challenge/2,
          wait_for_success/2]).
 
+%% Some shorthands
+-type client() :: escalus_connection:client().
+-type user_spec() :: escalus_users:user_spec().
+
 -include_lib("exml/include/exml.hrl").
 -include("no_binary_to_integer.hrl").
 
@@ -24,6 +28,7 @@
 %% Public API
 %%--------------------------------------------------------------------
 
+-spec auth_plain(client(), user_spec()) -> ok.
 auth_plain(Conn, Props) ->
     Username = get_property(username, Props),
     Password = get_property(password, Props),
@@ -32,6 +37,7 @@ auth_plain(Conn, Props) ->
     ok = escalus_connection:send(Conn, Stanza),
     wait_for_success(Username, Conn).
 
+-spec auth_digest_md5(client(), user_spec()) -> ok.
 auth_digest_md5(Conn, Props) ->
     ok = escalus_connection:send(Conn, escalus_stanza:auth(<<"DIGEST-MD5">>)),
     ChallengeData = get_challenge(Conn, challenge1),
@@ -43,6 +49,7 @@ auth_digest_md5(Conn, Props) ->
     ok = escalus_connection:send(Conn, ResponseStanza2),
     wait_for_success(get_property(username, Props), Conn).
 
+-spec auth_sasl_scram_sha1(client(), user_spec()) -> ok.
 auth_sasl_scram_sha1(Conn, Props) ->
     Username = get_property(username, Props),
     Nonce = base64:encode(crypto:rand_bytes(16)),
@@ -76,18 +83,20 @@ auth_sasl_scram_sha1(Conn, Props) ->
             throw({auth_failed, Username, AuthReply})
     end.
 
-
+-spec auth_sasl_anon(client(), user_spec()) -> ok.
 auth_sasl_anon(Conn, Props) ->
     Stanza = escalus_stanza:auth(<<"ANONYMOUS">>),
     ok = escalus_connection:send(Conn, Stanza),
     wait_for_success(get_property(username, Props), Conn).
 
+-spec auth_sasl_external(client(), user_spec()) -> ok.
 auth_sasl_external(Conn, Props) ->
     {server, ThisServer} = get_property(endpoint, Props),
     Stanza = escalus_stanza:auth(<<"EXTERNAL">>, [base64_cdata(ThisServer)]),
     ok = escalus_connection:send(Conn, Stanza),
     wait_for_success(ThisServer, Conn).
 
+-spec auth_sasl_oauth(client(), user_spec()) -> {ok, user_spec()}.
 auth_sasl_oauth(Conn, Props) ->
     Token = get_property(oauth_token, Props),
     Children = [#xmlcdata{content = base64:encode(Token)}],
@@ -183,6 +192,8 @@ hex_md5(Data) ->
 %% Helpers - actions
 %%--------------------------------------------------------------------
 
+%% Descr is any human-readable name used only for debugging.
+-spec get_challenge(client(), atom()) -> [{binary(), binary()}].
 get_challenge(Conn, Descr) ->
     get_challenge(Conn, Descr, true).
 
@@ -201,6 +212,8 @@ get_challenge(Conn, Descr, DecodeCsvkv) ->
             throw({expected_challenge, got, Challenge})
     end.
 
+%% Throws!
+-spec wait_for_success(any(), client()) -> ok.
 wait_for_success(Username, Conn) ->
     AuthReply = escalus_connection:get_stanza(Conn, auth_reply),
     case AuthReply#xmlel.name of
