@@ -21,7 +21,7 @@ ct:	compile logs
 		|| (cat $@.log; exit 3)
 
 logs:
-	mkdir -p logs
+	@mkdir -p logs
 
 rebar:
 	wget https://github.com/rebar/rebar/releases/download/2.2.0/rebar
@@ -32,32 +32,35 @@ deps := $(wildcard deps/*/ebin)
 dialyzer/erlang.plt:
 	@mkdir -p dialyzer
 	@dialyzer --build_plt --output_plt dialyzer/erlang.plt \
-	-o dialyzer/erlang.log --apps kernel stdlib crypto common_test ssl erts; \
-	status=$$? ; if [ $$status -ne 2 ]; then exit $$status; else exit 0; fi
+	-o dialyzer/erlang.log --apps kernel stdlib crypto common_test ssl erts \
+		> erlang_plt.log 2>&1; status=$$? ; \
+	if [ $$status -ne 2 ]; then (cat erlang_plt.log; exit $$status); else exit 0; fi
 
 dialyzer/deps.plt:
 	@mkdir -p dialyzer
 	@dialyzer --build_plt --output_plt dialyzer/deps.plt \
-	-o dialyzer/deps.log $(deps); \
-	status=$$? ; if [ $$status -ne 2 ]; then exit $$status; else exit 0; fi
+	-o dialyzer/deps.log $(deps) > deps_plt.log 2>&1; status=$$? ; \
+	if [ $$status -ne 2 ]; then (cat deps_plt.log; exit $$status); else exit 0; fi
 
 dialyzer/escalus.plt:
 	@mkdir -p dialyzer
 	@dialyzer --build_plt --output_plt dialyzer/escalus.plt \
-	-o dialyzer/escalus.log ebin; \
-	status=$$? ; if [ $$status -ne 2 ]; then exit $$status; else exit 0; fi
+	-o dialyzer/escalus.log ebin > escalus_plt.log; status=$$? ; \
+	if [ $$status -ne 2 ]; then (cat escalus_plt.log; exit $$status); else exit 0; fi
 
 erlang_plt: dialyzer/erlang.plt
-	@dialyzer --plt dialyzer/erlang.plt --check_plt -o dialyzer/erlang.log; \
-	status=$$? ; if [ $$status -ne 2 ]; then exit $$status; else exit 0; fi
+	@dialyzer --plt dialyzer/erlang.plt --check_plt -o dialyzer/erlang.log \
+		> $@.log 2>&1; status=$$? ; \
+	if [ $$status -ne 2 ]; then (cat $@.log; exit $$status); else exit 0; fi
 
 deps_plt: dialyzer/deps.plt
 	@dialyzer --plt dialyzer/deps.plt --check_plt -o dialyzer/deps.log; \
 	status=$$? ; if [ $$status -ne 2 ]; then exit $$status; else exit 0; fi
 
 escalus_plt: dialyzer/escalus.plt
-	@dialyzer --plt dialyzer/escalus.plt --check_plt -o dialyzer/escalus.log; \
-	status=$$? ; if [ $$status -ne 2 ]; then exit $$status; else exit 0; fi
+	@dialyzer --plt dialyzer/escalus.plt --check_plt -o dialyzer/escalus.log \
+		> $@.log 2>&1; status=$$? ; \
+	if [ $$status -ne 2 ]; then (cat $@.log; exit $$status); else exit 0; fi
 
 dialyzer: erlang_plt deps_plt escalus_plt
 	@dialyzer --plts dialyzer/*.plt --no_check_plt \
