@@ -55,14 +55,6 @@
 -include("escalus_xmlns.hrl").
 -define(DEFAULT_RESOURCE, <<"escalus-default-resource">>).
 
-%% TODO: see get_sasl_mechanisms/1
--expected_atoms_hack(['X-OAUTH',
-                      'EXTERNAL',
-                      'SCRAM-SHA-1-PLUS',
-                      'SCRAM-SHA-1',
-                      'DIGEST-MD5',
-                      'PLAIN']).
-
 %%%===================================================================
 %%% Public API
 %%%===================================================================
@@ -341,11 +333,11 @@ get_advanced_message_processing(Features) ->
 -spec get_sasl_mechanisms(exml:element()) -> features().
 get_sasl_mechanisms(Features) ->
     MechCDataPath = [{element, <<"mechanisms">>}, {element, <<"mechanism">>}, cdata],
-    %% TODO: The expected modules are stored as a custom attribute,
-    %%       so they don't get optimized out by the compiler.
-    %%       By calling `?MODULE:module_info()` we force them to be read into
-    %%       the ERTS atom table from the attributes chunk.
-    ?MODULE:module_info(),
-    %% TODO: convert these to escalus_auth function names
-    [ {binary_to_existing_atom(Mech, utf8), true}
+    [ {mechanism_to_auth_function(Mech), true}
       || Mech <- exml_query:paths(Features, MechCDataPath) ].
+
+mechanism_to_auth_function(<<"PLAIN">>)       -> auth_plain;
+mechanism_to_auth_function(<<"DIGEST-MD5">>)  -> auth_digest_md5;
+mechanism_to_auth_function(<<"EXTERNAL">>)    -> auth_sasl_external;
+mechanism_to_auth_function(<<"SCRAM-SHA-1">>) -> auth_sasl_scram_sha1;
+mechanism_to_auth_function(<<"X-OAUTH">>)     -> auth_sasl_oauth.
