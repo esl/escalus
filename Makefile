@@ -3,18 +3,22 @@
 all: compile
 
 compile: rebar
-	./rebar get-deps compile
+	@./rebar get-deps compile > $@.log 2>&1 \
+		|| (echo "$@ failed"; cat $@.log; exit 1)
 
 test: rebar compile
-	./rebar skip_deps=true eunit
+	@./rebar skip_deps=true eunit > $@.log 2>&1 \
+		&& (printf "%s: " $@; tail -1 $@.log) \
+		|| (echo "$@ failed"; cat $@.log; exit 2)
 
 clean: rebar
-	./rebar clean
+	@./rebar clean
 
 # Usage: make ct SUITE=user_db_module_SUITE
-#
 ct:	compile logs
-	./run_ct SUITE=$(SUITE)
+	@./run_ct SUITE=$(SUITE) > $@.log 2>&1 \
+		&& grep "TEST COMPLETE" $@.log \
+		|| (cat $@.log; exit 3)
 
 logs:
 	mkdir -p logs
@@ -64,15 +68,19 @@ MIM := deps/mongooseim
 MIM_REL := ${MIM}/rel/mongooseim
 
 mongooseim-start: ${MIM_REL}
-	${MIM_REL}/bin/mongooseimctl start && ${MIM_REL}/bin/mongooseimctl started
+	@${MIM_REL}/bin/mongooseimctl start && ${MIM_REL}/bin/mongooseimctl started \
+		|| (echo "$@ failed"; exit 4)
 
 mongooseim-stop: ${MIM_REL}
-	${MIM_REL}/bin/mongooseimctl stop && ${MIM_REL}/bin/mongooseimctl stopped > /dev/null
+	@${MIM_REL}/bin/mongooseimctl stop && ${MIM_REL}/bin/mongooseimctl stopped > /dev/null 2>&1 \
+		|| (echo "$@ failed"; exit 5)
 
 extra-deps: ${MIM}
 
 ${MIM_REL}: ${MIM}
-	cd ${MIM} && make rel
+	@cd ${MIM} && make rel > rel.log 2>&1 \
+		|| (echo "generating MongooseIM release failed"; cat rel.log; exit 6)
 
 ${MIM}:
-	ESCALUS_EXTRA_DEPS=mongooseim ./rebar get-deps
+	@ESCALUS_EXTRA_DEPS=mongooseim ./rebar get-deps > mim.log 2>&1 \
+		|| (echo "building MongooseIM failed"; cat mim.log; exit 7)
