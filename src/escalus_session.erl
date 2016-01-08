@@ -56,7 +56,8 @@
 -define(DEFAULT_RESOURCE, <<"escalus-default-resource">>).
 
 %% TODO: see get_sasl_mechanisms/1
--expected_atoms_hack(['EXTERNAL',
+-expected_atoms_hack(['X-OAUTH',
+                      'EXTERNAL',
                       'SCRAM-SHA-1-PLUS',
                       'SCRAM-SHA-1',
                       'DIGEST-MD5',
