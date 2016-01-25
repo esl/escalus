@@ -48,17 +48,15 @@
 
 %% Public types
 -export_type([user_name/0,
-              user_spec/0,
-              who/0]).
+              user_spec/0]).
 
 %% Public types
--type who() :: all | {by_name, [escalus_config:key()]}.
+-type user_name() :: atom().
 -type user_spec() :: [{user_option(), any()}].
 
 %% Internal types
 -type user() :: user_name() | user_spec().
 -type named_user() :: {user_name(), user_spec()}.
--type user_name() :: atom().
 -type host() :: inet:hostname() | inet:ip4_address() | binary().
 -type xmpp_domain() :: inet:hostname() | binary().
 
@@ -87,30 +85,28 @@ stop(Config) ->
             ok
     end.
 
--spec create_users(escalus:config(), who()) -> escalus:config().
-create_users(Config, Who) ->
+-spec create_users(escalus:config(), [user_spec()]) -> escalus:config().
+create_users(Config, Users) ->
     case auth_type(Config) of
         {escalus_user_db, xmpp} ->
-            create_users_via_xmpp(Config, Who);
+            create_users_via_xmpp(Config, Users);
         {escalus_user_db, {module, M, _}} ->
-            M:create_users(Config, Who)
+            M:create_users(Config, Users)
     end.
 
--spec create_users_via_xmpp(escalus:config(), who()) -> escalus:config().
-create_users_via_xmpp(Config, Who) ->
-    Users = get_users(Who),
+-spec create_users_via_xmpp(escalus:config(), [user_spec()]) -> escalus:config().
+create_users_via_xmpp(Config, Users) ->
     CreationResults = [create_user(Config, User) || User <- Users],
     lists:foreach(fun verify_creation/1, CreationResults),
     lists:keystore(escalus_users, 1, Config, {escalus_users, Users}).
 
--spec delete_users(escalus:config(), who()) -> escalus:config().
-delete_users(Config, Who) ->
+-spec delete_users(escalus:config(), [user_spec()]) -> escalus:config().
+delete_users(Config, Users) ->
     case auth_type(Config) of
         {escalus_user_db, xmpp} ->
-            Users = get_users(Who),
             [delete_user(Config, User) || User <- Users];
         {escalus_user_db, {module, M, _}} ->
-            M:delete_users(Config, Who)
+            M:delete_users(Config, Users)
     end.
 
 %%--------------------------------------------------------------------
@@ -119,11 +115,11 @@ delete_users(Config, Who) ->
 
 -spec create_users(escalus:config()) -> escalus:config().
 create_users(Config) ->
-    create_users(Config, all).
+    create_users(Config, get_users(all)).
 
 -spec delete_users(escalus:config()) -> escalus:config().
 delete_users(Config) ->
-    delete_users(Config, all).
+    delete_users(Config, get_users(all)).
 
 -spec get_jid(escalus:config(), user()) -> binary().
 get_jid(Config, User) ->

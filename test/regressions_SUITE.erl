@@ -42,7 +42,7 @@ end_per_testcase(CaseName, Config) ->
 
 catch_timeout_when_waiting_for_stanza(Config) ->
     %% given
-    escalus:create_users(Config, {by_name, [alice]}),
+    escalus:create_users(Config, escalus:get_users([alice])),
     story(Config, [{alice,1}],
           fun (Alice) ->
                   %% when
@@ -51,7 +51,7 @@ catch_timeout_when_waiting_for_stanza(Config) ->
                   ?a(is_2_tuple(ErrorReason)),
                   ?eq(timeout_when_waiting_for_stanza, element(1, ErrorReason))
           end),
-    escalus:delete_users(Config, {by_name, [alice]}).
+    escalus:delete_users(Config, escalus:get_users([alice])).
 
 catch_escalus_compat_bin_badarg(_) ->
     %% when
@@ -86,7 +86,7 @@ catch_escalus_user_verify_creation(_) ->
     ?eq(my_error, element(1, ErrorReason)).
 
 test_peek_stanzas(Config) ->
-    escalus:create_users(Config, {by_name, [alice]}),
+    escalus:create_users(Config, escalus:get_users([alice])),
     story(Config, [{alice, 1}],
           fun (Alice) ->
                   %% given
@@ -99,7 +99,7 @@ test_peek_stanzas(Config) ->
                   ?a(Peeked /= []),
                   ?a(actually_has_stanzas(Peeked))
           end),
-    escalus:delete_users(Config, {by_name, [alice]}).
+    escalus:delete_users(Config, escalus:get_users([alice])).
 
 %%--------------------------------------------------------------------
 %% Helpers
