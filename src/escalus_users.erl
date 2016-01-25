@@ -221,16 +221,25 @@ update_userspec(Config, UserName, Option, Value) ->
     NewUsers = lists:keystore(UserName, 1, Users, {UserName, UserSpec}),
     lists:keystore(escalus_users, 1, Config, {escalus_users, NewUsers}).
 
--spec get_users(who()) -> [named_user()].
+-spec get_users(all | [user_name()] | {by_name, [user_name()]}) -> [named_user()].
 get_users(all) ->
     escalus_ct:get_config(escalus_users);
-get_users({by_name, Names}) ->
+get_users(Names) when is_list(Names) ->
     All = get_users(all),
-    [get_user_by_name(Name, All) || Name <- Names].
+    [ get_user_by_name(Name, All) || Name <- Names ];
+%% TODO: remove the `by_name` clause after a deprecation period
+get_users({by_name, Names}) ->
+    escalus_compat:complain("passing {by_name, Names} is deprecated; "
+                            "pass Names directly instead"),
+    get_users(Names).
 
 -spec get_user_by_name(user_name(), escalus:config()) -> {user_name(), escalus:config()}.
 get_user_by_name(Name, Users) ->
+    is_valid_user_name(Name) orelse error({invalid_user_name, Name}, [Name, Users]),
     {Name, _} = proplists:lookup(Name, Users).
+
+is_valid_user_name(Name) when is_atom(Name) -> true;
+is_valid_user_name(_) -> false.
 
 -spec get_user_by_name(user_name()) -> {user_name(), escalus:config()}.
 get_user_by_name(Name) ->
