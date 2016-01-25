@@ -43,7 +43,7 @@ end_per_testcase(CaseName, Config) ->
 catch_timeout_when_waiting_for_stanza(Config) ->
     %% given
     escalus:create_users(Config, escalus:get_users([alice])),
-    story(Config, [{alice,1}],
+    story(Config, [{alice, 1}],
           fun (Alice) ->
                   %% when
                   {'EXIT', ErrorReason} = (catch escalus:wait_for_stanza(Alice)),
