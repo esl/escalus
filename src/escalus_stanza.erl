@@ -65,7 +65,8 @@
          auth_response/1,
          query_el/2,
          query_el/3,
-         x_data_form/2]).
+         x_data_form/2,
+         form_fields/1]).
 
 -export([disco_info/1,
          disco_info/2,
@@ -95,6 +96,13 @@
          sm_request/0,
          sm_ack/1,
          resume/2]).
+
+%% XEP-0357 v0.2 Push Notifications
+-export([push_enable/2,
+         push_enable/3,
+         push_disable/1,
+         push_disable/2
+        ]).
 
 -export([stream_start/2,
          stream_end/0,
@@ -278,7 +286,7 @@ error_element(Type, Condition) ->
 message(From, Recipient, Type, Msg) ->
     FromAttr = case From of
                    undefined -> [];
-                   _ -> [{<<"from">>, From}]
+                   _ -> [{<<"from">>, escalus_utils:get_jid(From)}]
                end,
     #xmlel{name = <<"message">>,
            attrs = FromAttr ++ [{<<"type">>, Type},
@@ -521,6 +529,10 @@ disco_items(JID, Node) ->
     ItemsQuery = query_el(?NS_DISCO_ITEMS, [{<<"node">>, Node}], []),
     iq(JID, <<"get">>, [ItemsQuery]).
 
+
+form_fields(KVs) ->
+    search_fields(KVs).
+
 search_fields([]) ->
     [];
 search_fields([null|Rest]) ->
@@ -724,6 +736,29 @@ disable_carbons_el() ->
 enable_carbons_el() ->
     #xmlel{name = <<"enable">>,
            attrs = [{<<"xmlns">>, ?NS_CARBONS_2}]}.
+
+%% XEP-0357 v0.2 Push Notifications
+
+push_enable(Jid, Node) ->
+    push_enable(Jid, Node, []).
+
+push_enable(Jid, Node, PubOpts) ->
+    iq(<<"set">>, #xmlel{name = <<"enable">>,
+                         attrs = [{<<"xmlns">>, ?NS_PUSH},
+                                  {<<"jid">>, Jid},
+                                  {<<"node">>, Node}],
+                         children = PubOpts}).
+
+push_disable(Jid) ->
+    push_disable(Jid, []).
+
+push_disable(Jid, Node) when is_binary(Node) ->
+    push_disable(Jid, [{<<"node">>, Node}]);
+push_disable(Jid, MaybeNodeAttr) ->
+    iq(<<"set">>, #xmlel{name = <<"disable">>,
+                         attrs = [{<<"xmlns">>, ?NS_PUSH},
+                                  {<<"jid">>, Jid} |
+                                  MaybeNodeAttr]}).
 
 %%--------------------------------------------------------------------
 %% Stanzas from inline XML
