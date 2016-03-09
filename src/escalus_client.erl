@@ -31,8 +31,7 @@
          short_jid/1,
          username/1,
          server/1,
-         resource/1,
-         spec/1
+         resource/1
         ]).
 
 -import(escalus_compat, [bin/1, unimplemented/0]).
@@ -54,7 +53,7 @@ start(Config, UserSpec, Resource) ->
     case escalus_connection:start(Options) of
         {ok, Conn, Props, _} ->
             Jid = make_jid(Props),
-            Client = Conn#client{jid = Jid, event_client = EventClient, user_spec = UserSpec},
+            Client = Conn#client{jid = Jid, event_client = EventClient},
             escalus_cleaner:add_client(Config, Client),
             {ok, Client};
         {error, Error} ->
@@ -145,9 +144,6 @@ server(Client) ->
 
 resource(Client) ->
     escalus_utils:regexp_get(full_jid(Client), <<"^[^/]*[/](.*)">>).
-
-spec(#client{user_spec = US}) ->
-    US.
 
 %%--------------------------------------------------------------------
 %% helpers

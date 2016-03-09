@@ -30,6 +30,7 @@
          override/3,
          make_everyone_friends/1,
          fresh_story/3,
+         fresh_story_with_config/3,
          story/3,
          assert/2,
          assert/3,
@@ -98,6 +99,7 @@ end_per_testcase(_CaseName, Config) ->
 ?FORWARD3(escalus_story, story).
 
 ?FORWARD3_AS(escalus_fresh, story, fresh_story).
+?FORWARD3_AS(escalus_fresh, story_with_config, fresh_story_with_config).
 
 ?FORWARD2(escalus_new_assert, assert).
 ?FORWARD3(escalus_new_assert, assert).

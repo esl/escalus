@@ -1,5 +1,13 @@
 -module(escalus_fresh).
--export([story/3]).
+-export([story/3, story_with_config/3]).
+
+story_with_config(Config, UserSpecs, StoryFun) ->
+    FreshSpecs = fresh_specs(Config, UserSpecs, fresh_suffix()),
+    case length(FreshSpecs) == length(UserSpecs) of
+        false -> ct:fail("failed to get required users"); _ -> ok end,
+    FreshConfig = escalus_users:create_users(Config, FreshSpecs),
+    escalus:story(FreshConfig, UserSpecs, 
+                  fun(Args) -> apply(StoryFun, [FreshConfig|Args]) end).
 
 story(Config, UserSpecs, StoryFun) ->
     FreshSpecs = fresh_specs(Config, UserSpecs, fresh_suffix()),

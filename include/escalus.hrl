@@ -28,6 +28,5 @@
         compress :: {zlib, {Zin::zlib:zstream(), Zout::zlib:zstream()}}
                  |  false,
         rcv_pid :: pid(),
-        event_client :: any(),
-        user_spec = [] :: proplists:proplist()
+        event_client :: any()
        }).
