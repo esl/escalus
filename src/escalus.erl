@@ -65,10 +65,12 @@ suite() ->
 init_per_suite(Config) ->
     ensure_started(escalus),
     escalus_users:start(Config),
+    escalus_fresh:start(Config),
     Config.
 
 end_per_suite(Config) ->
     escalus_users:stop(Config),
+    escalus_fresh:stop(Config),
     ok.
 
 init_per_testcase(CaseName, Config) ->
