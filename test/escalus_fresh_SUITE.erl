@@ -53,7 +53,7 @@ fresh_users_can_be_created_outside_a_story(_) ->
 
     % then
     [{Suffix,
-      [{escalus_users, 
+      [{escalus_users,
         [{ada, [{username, <<"ada" , Suffix/binary>>},
                 {server, <<"0.0.0.0">>},
                 {password, <<"p">>}]}]},
