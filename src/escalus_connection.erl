@@ -145,8 +145,9 @@ connect(Props) ->
     {ok, Conn} = Mod:connect(NewProps),
     {ok, Conn, NewProps}.
 
-send(#client{module = Mod, event_client = EventClient} = Client, Elem) ->
+send(#client{module = Mod, event_client = EventClient, jid = Jid} = Client, Elem) ->
     escalus_event:outgoing_stanza(EventClient, Elem),
+    escalus_ct:log_stanza(Jid, out, Elem),
     Mod:send(Client, Elem).
 
 -spec get_stanza(client(), any()) -> exml_stream:element().
