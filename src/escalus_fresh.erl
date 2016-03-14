@@ -60,14 +60,15 @@ nasty_global_table() -> escalus_fresh_db.
 
 delete_users({_Suffix, Conf}) ->
     Plist = proplists:get_value(escalus_users, Conf),
-    {ok,_} = escalus_users:delete_users(Conf, Plist),
+    {ok, _} = escalus_users:delete_users(Conf, Plist),
     ok.
 
 ensure_table_present(T) ->
+    RunDB = fun() -> ets:new(T, [named_table, public]),
+                      receive bye -> ok end end,
     case ets:info(T) of
         undefined ->
-            P = spawn(fun() -> ets:new(T, [named_table, public]),
-                               receive bye -> ok end end),
+            P = spawn(RunDB),
             erlang:register(T, P);
         _nasty_table_is_there_well_run_with_it -> ok
     end.
@@ -94,7 +95,7 @@ fresh_suffix() ->
     list_to_binary(L).
 
 
-%% 
+%%
 pmap(F, L) when is_function(F, 1), is_list(L) ->
     TaskId = {make_ref(), self()},
     [spawn(worker(TaskId, F, El)) || El <- tag(L)],
@@ -108,4 +109,3 @@ collect({Ref, _} = TaskId, N, Acc) ->
     receive {Ref, Val} -> collect(TaskId, N-1, [Val|Acc])
     after 5000 -> error({partial_results, Acc})
     end.
-

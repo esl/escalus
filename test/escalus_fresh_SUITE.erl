@@ -15,7 +15,7 @@ it_creates_a_global_table_on_startup(_) ->
 
 it_registers_fresh_user_specs_in_table(_) ->
     C = [{escalus_users,
-          [{al, [{username, <<"a">>}, {server, <<"0.0.0.0">>}, {password, <<"p">>}]}]}]
+          [{al, [{username, <<"A">>}, {server, <<"0.0.0.0">>}, {password, <<"p">>}]}]}]
         ++ empty_config(),
     given_escalus_started(C),
 
@@ -23,7 +23,7 @@ it_registers_fresh_user_specs_in_table(_) ->
     catch(escalus_fresh:story(C, [{al, 1}], fun id/1)),
 
     % then
-    [{Suffix, [{escalus_users, [{al, [{username, <<"a", Suffix/binary>>}, _, _]}]},_]}]
+    [{Suffix, [{escalus_users, [{al, [{username, <<"A", Suffix/binary>>}, _, _]}]}, _]}]
         = ets:tab2list(internal_fresh_db()).
 
 previously_registered_users_can_be_removed_in_one_fell_swoop(_) ->
@@ -53,9 +53,10 @@ fresh_users_can_be_created_outside_a_story(_) ->
 
     % then
     [{Suffix,
-      [{escalus_users,[{ada,[{username,<<"ada" , Suffix/binary>>},
-                             {server,<<"0.0.0.0">>},
-                             {password,<<"p">>}]}]},
+      [{escalus_users, 
+        [{ada, [{username, <<"ada" , Suffix/binary>>},
+                {server, <<"0.0.0.0">>},
+                {password, <<"p">>}]}]},
        _
       ]}]
      = ets:tab2list(internal_fresh_db()).
