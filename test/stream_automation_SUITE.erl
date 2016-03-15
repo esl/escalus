@@ -105,6 +105,8 @@ simple_ack(Config) ->
 %% them in escalus stories.
 ack_after_four_messages(Config) ->
     escalus_ejabberd:rpc(mod_stream_management, set_ack_freq, [4]),
+    escalus_ejabberd:rpc(ejabberd_config, add_global_option,
+                         [{shaper, normal, global}, {maxrate, 10000}]),
     escalus:story(Config, [{alice_sm, 1}, {bob, 1}], fun(Alice, Bob) ->
 
     Msgs = [<<"Brown Eyes and I were tired">>,

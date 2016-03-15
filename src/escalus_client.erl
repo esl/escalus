@@ -31,7 +31,8 @@
          short_jid/1,
          username/1,
          server/1,
-         resource/1]).
+         resource/1
+        ]).
 
 -import(escalus_compat, [bin/1, unimplemented/0]).
 
