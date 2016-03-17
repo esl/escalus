@@ -78,4 +78,4 @@ internal_fresh_db() -> escalus_fresh_db.
 start(C) -> C.
 stop(C) -> C.
 create_users(C, Specs) -> lists:keystore(escalus_users, 1, C, {escalus_users, Specs}).
-delete_users(_C, _) -> {ok, deleted}.
+delete_users(C, _) -> C.

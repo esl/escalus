@@ -51,7 +51,9 @@ create_users(Config, UserSpecs) ->
 start(_Config) -> ensure_table_present(nasty_global_table()).
 stop(_) -> nasty_global_table() ! bye.
 clean() ->
-    [ok|_] = pmap(fun delete_users/1, ets:tab2list(nasty_global_table())),
+    true = lists:all(fun(A) -> A == ok end,
+                     pmap(fun delete_users/1,
+                          ets:tab2list(nasty_global_table()))),
     ets:delete_all_objects(nasty_global_table()),
     ok.
 
@@ -60,7 +62,7 @@ nasty_global_table() -> escalus_fresh_db.
 
 delete_users({_Suffix, Conf}) ->
     Plist = proplists:get_value(escalus_users, Conf),
-    {ok, _} = escalus_users:delete_users(Conf, Plist),
+    escalus_users:delete_users(Conf, Plist),
     ok.
 
 ensure_table_present(T) ->
@@ -103,7 +105,7 @@ pmap(F, L) when is_function(F, 1), is_list(L) ->
 tag(L) -> lists:zip(lists:seq(1, length(L)), L).
 untag(L) -> [ Val || {_Ord, Val} <- lists:sort(L) ].
 reply(Ord, {Ref, Pid}, Val) -> Pid ! {Ref, {Ord, Val}}.
-worker(TaskId, Fun, {Ord, Item}) -> fun() -> reply(Ord, TaskId, Fun(Item)) end.
+worker(TaskId, Fun, {Ord, Item}) -> fun() -> reply(Ord, TaskId, catch(Fun(Item))) end.
 collect(_TaskId, 0, Acc) -> untag(Acc);
 collect({Ref, _} = TaskId, N, Acc) ->
     receive {Ref, Val} -> collect(TaskId, N-1, [Val|Acc])
