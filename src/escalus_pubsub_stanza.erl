@@ -34,6 +34,7 @@
          entry_body_sample1/0,
          entry_body_with_sample_device_id/0,
          get_subscription_change_list_stanza/1,
+         iq_with_id/4,
          iq_with_id/5,
          iq_set_get_rest/3,
          publish_item/2,
@@ -100,6 +101,10 @@ configure_node_stanza(User, IqId, NodeAddr, NodeName, Config) ->
 
 configure_node_form(Fields) ->
     form(<<"configure">>, <<"node_config">>, Fields).
+
+iq_with_id(TypeAtom, Id, From, Body) ->
+    S1 = escalus_stanza:iq(atom_to_binary(TypeAtom, latin1), Body),
+    iq_set_get_rest(S1, Id, From).
 
 iq_with_id(TypeAtom, Id, To, From, Body) ->
     S1 = escalus_stanza:iq(To, atom_to_binary(TypeAtom, latin1), Body),
