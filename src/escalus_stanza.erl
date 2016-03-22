@@ -24,6 +24,7 @@
          chat_without_carbon_to/2,
          groupchat_to/2,
          iq_result/1,
+         iq_result/2,
          iq_get/2,
          iq_set/2,
          iq_set_nonquery/2,
@@ -371,6 +372,9 @@ remove_account() ->
                           children = [#xmlel{name = <<"remove">>}]}]).
 
 iq_result(Request) ->
+    iq_result(Request, []).
+
+iq_result(Request, Payload) ->
     ToAttr = case exml_query:attr(Request, <<"from">>) of
                  undefined ->
                      [];
@@ -380,7 +384,8 @@ iq_result(Request) ->
     Id = exml_query:attr(Request, <<"id">>),
     Attrs = ToAttr ++ [{<<"id">>, Id}, {<<"type">>, <<"result">>}],
     #xmlel{name = <<"iq">>,
-           attrs = Attrs}.
+           attrs = Attrs,
+           children = Payload}.
 
 iq_get(NS, Payload) ->
     iq_with_type(<<"get">>, NS, Payload).
