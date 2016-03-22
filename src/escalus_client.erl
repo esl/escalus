@@ -94,12 +94,13 @@ wait_for_stanzas(Client, Count, Timeout) ->
 
 do_wait_for_stanzas(_Client, 0, _TimeoutMsg, Acc) ->
     lists:reverse(Acc);
-do_wait_for_stanzas(#client{event_client=EventClient} = Client,
+do_wait_for_stanzas(#client{event_client=EventClient, jid=Jid} = Client,
                     Count, TimeoutMsg, Acc) ->
     Transport = transport_matching_hack(Client),
     receive
         {stanza, Transport, Stanza} ->
             escalus_event:pop_incoming_stanza(EventClient, Stanza),
+            escalus_ct:log_stanza(Jid, in, Stanza),
             do_wait_for_stanzas(Client, Count - 1, TimeoutMsg, [Stanza|Acc]);
         %% FIXME: stream error
         TimeoutMsg ->

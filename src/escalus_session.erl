@@ -31,22 +31,24 @@
          session/3]).
 
 %% Public Types
+-export_type([feature/0,
+              features/0,
+              step/0,
+              step_state/0]).
+
 -type feature() :: {atom(), boolean()}.
--export_type([feature/0]).
-
 -type features() :: [feature()].
--export_type([features/0]).
-
 -define(CONNECTION_STEP, (escalus_connection:client(),
                           escalus_users:user_spec(),
                           features()) -> step_state()).
 -type step() :: fun(?CONNECTION_STEP).
--export_type([step/0]).
-
 -type step_state() :: {escalus_connection:client(),
                        escalus_users:user_spec(),
                        features()}.
--export_type([step_state/0]).
+
+%% Some shorthands
+-type client() :: escalus_connection:client().
+-type user_spec() :: escalus_users:user_spec().
 
 -include_lib("exml/include/exml.hrl").
 -include_lib("exml/include/exml_stream.hrl").
@@ -57,6 +59,7 @@
 %%% Public API
 %%%===================================================================
 
+-spec start_stream(client(), user_spec()) -> {user_spec(), features()}.
 start_stream(Conn, Props) ->
     {server, Server} = lists:keyfind(server, 1, Props),
     XMLNS = case proplists:get_value(endpoint, Props) of
@@ -77,18 +80,24 @@ start_stream(Conn, Props) ->
     %% but it's guaranteed that the features will be empty.
     {Props, []}.
 
+-spec starttls(client(), user_spec()) -> {client(), user_spec()}.
 starttls(Conn, Props) ->
     escalus_tcp:upgrade_to_tls(Conn, Props).
 
+-spec authenticate(client(), user_spec()) -> user_spec().
 authenticate(Conn, Props) ->
     %% FIXME: as default, select authentication scheme based on stream features
     {M, F} = proplists:get_value(auth, Props, {escalus_auth, auth_plain}),
-    M:F(Conn, Props),
+    PropsAfterAuth = case M:F(Conn, Props) of
+                         ok -> Props;
+                         {ok, P} when is_list(P) -> P
+                     end,
     escalus_connection:reset_parser(Conn),
-    {Props1, []} = escalus_session:start_stream(Conn, Props),
+    {Props1, []} = escalus_session:start_stream(Conn, PropsAfterAuth),
     escalus_session:stream_features(Conn, Props1, []),
     Props1.
 
+-spec bind(client(), user_spec()) -> user_spec().
 bind(Conn, Props) ->
     Resource = proplists:get_value(resource, Props, ?DEFAULT_RESOURCE),
     escalus_connection:send(Conn, escalus_stanza:bind(Resource)),
@@ -105,6 +114,7 @@ bind(Conn, Props) ->
             Props
     end.
 
+-spec compress(client(), user_spec()) -> {client(), user_spec()}.
 compress(Conn, Props) ->
     case proplists:get_value(compression, Props, false) of
         false ->
@@ -114,12 +124,14 @@ compress(Conn, Props) ->
         %% TODO: someday maybe lzw too
     end.
 
+-spec session(client(), user_spec()) -> user_spec().
 session(Conn, Props) ->
     escalus_connection:send(Conn, escalus_stanza:session()),
     SessionReply = escalus_connection:get_stanza(Conn, session_reply),
     escalus:assert(is_iq_result, SessionReply),
     Props.
 
+-spec use_ssl(user_spec(), features()) -> boolean().
 use_ssl(Props, Features) ->
     UserNeedsSSL = proplists:get_value(starttls, Props, false),
     StreamAllowsSSL = proplists:get_value(starttls, Features),
@@ -132,24 +144,24 @@ use_ssl(Props, Features) ->
         _ -> false
     end.
 
--spec can_use_compression(escalus_users:user_spec(), features()) -> boolean().
+-spec can_use_compression(user_spec(), features()) -> boolean().
 can_use_compression(Props, Features) ->
     can_use(compression, Props, Features).
 
+-spec can_use_stream_management(user_spec(), features()) -> boolean().
 can_use_stream_management(Props, Features) ->
     can_use(stream_management, Props, Features).
 
 can_use_carbons(Props, _Features) ->
     false /= proplists:get_value(carbons, Props, false).
 
-can_use_amp(Props, Features) ->
+-spec can_use_amp(user_spec(), features()) -> boolean().
+can_use_amp(_Props, Features) ->
     false /= proplists:get_value(advanced_message_processing, Features).
 
 can_use(Feature, Props, Features) ->
     false /= proplists:get_value(Feature, Props, false) andalso
     false /= proplists:get_value(Feature, Features).
-
-
 
 %%%===================================================================
 %%% New style connection initiation
@@ -295,8 +307,8 @@ get_stream_features(Features) ->
     [{compression, get_compression(Features)},
      {starttls, get_starttls(Features)},
      {stream_management, get_stream_management(Features)},
-     {advanced_message_processing, get_advanced_message_processing(Features)}
-    ].
+     {advanced_message_processing, get_advanced_message_processing(Features)}]
+    ++ get_sasl_mechanisms(Features).
 
 -spec get_compression(exml:element()) -> boolean().
 get_compression(Features) ->
@@ -317,3 +329,17 @@ get_stream_management(Features) ->
 -spec get_advanced_message_processing(exml:element()) -> boolean().
 get_advanced_message_processing(Features) ->
     undefined =/= exml_query:subelement(Features, <<"amp">>).
+
+-spec get_sasl_mechanisms(exml:element()) -> features().
+get_sasl_mechanisms(Features) ->
+    MechCDataPath = [{element, <<"mechanisms">>}, {element, <<"mechanism">>}, cdata],
+    [ {mechanism_to_auth_function(Mech), true}
+      || Mech <- exml_query:paths(Features, MechCDataPath) ].
+
+mechanism_to_auth_function(<<"PLAIN">>)       -> auth_plain;
+mechanism_to_auth_function(<<"DIGEST-MD5">>)  -> auth_digest_md5;
+%% TODO: no auth_anonymous in escalus_auth!
+mechanism_to_auth_function(<<"ANONYMOUS">>)   -> auth_anonymous;
+mechanism_to_auth_function(<<"EXTERNAL">>)    -> auth_sasl_external;
+mechanism_to_auth_function(<<"SCRAM-SHA-1">>) -> auth_sasl_scram_sha1;
+mechanism_to_auth_function(<<"X-OAUTH">>)     -> auth_sasl_oauth.

@@ -26,6 +26,7 @@
          create_users/2,
          delete_users/1,
          delete_users/2,
+         get_users/1,
          override/3,
          make_everyone_friends/1,
          story/3,
@@ -88,6 +89,8 @@ end_per_testcase(_CaseName, Config) ->
 ?FORWARD2(escalus_users, create_users).
 ?FORWARD1(escalus_users, delete_users).
 ?FORWARD2(escalus_users, delete_users).
+
+?FORWARD1(escalus_users, get_users).
 
 ?FORWARD1(escalus_story, make_everyone_friends).
 ?FORWARD3(escalus_story, story).

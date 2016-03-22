@@ -18,6 +18,7 @@
 
 %% old ones
 -export([id/0,
+         message/4,
          chat_to/2,
          chat/3,
          chat_to_short_jid/2,
@@ -66,7 +67,8 @@
          auth_response/1,
          query_el/2,
          query_el/3,
-         x_data_form/2]).
+         x_data_form/2,
+         field_el/3]).
 
 -export([disco_info/1,
          disco_info/2,
@@ -654,26 +656,63 @@ resume(SMID, PrevH) ->
 %%
 %% @TODO: move the stanza constructors from
 %% tests/mam_SUITE.erl into here.
+-spec field_el(binary(), binary(), undefined | [binary()]) ->
+    exml:element().
+field_el(_Name, _Type, undefined) ->
+    undefined;
+field_el(Name, Type, Values) when is_list(Values) ->
+    Fields = lists:map(fun (E) ->
+                               #xmlel{name = <<"value">>,
+                                      children = [#xmlcdata{content = E}]}
+                       end, Values),
+    #xmlel{name = <<"field">>,
+           attrs = [{<<"type">>, Type},
+                    {<<"var">>, Name}],
+           children = Fields };
+field_el(Name, Type, Value) ->
+    field_el(Name, Type, [Value]).
 
+-spec mam_archive_query(binary()) -> exml:element().
 mam_archive_query(QueryId) ->
     mam_archive_query(QueryId, []).
 
 mam_archive_query(QueryId, Children) ->
+    DefChilds = defined(Children),
+
+    %%  > 1 -> has not only FORM_TYPE
+    ChildEl = case length(DefChilds) > 1 of
+                  true ->
+                      [#xmlel{name = <<"x">>,
+                              attrs = [{<<"xmlns">>, <<"jabberd:x:data">>}],
+                              children = DefChilds}];
+                  false ->
+                      %% no need to create form element
+                      []
+              end,
     escalus_stanza:iq(
-      <<"get">>,
+      <<"set">>,
       [#xmlel{
           name = <<"query">>,
           attrs = [mam_ns_attr(), {<<"queryid">>, QueryId}],
-          children = defined(Children)}]).
+          children = ChildEl}]).
 
+
+-spec mam_lookup_messages_iq(binary(), binary(), binary(), binary()) ->
+    exml:element().
 mam_lookup_messages_iq(QueryId, Start, End, WithJID) ->
-    mam_archive_query(QueryId, [fmapM(fun start_elem/1, Start),
-                                fmapM(fun end_elem/1, End),
-                                fmapM(fun with_elem/1, WithJID)]).
+    Fields = [field_el(<<"FORM_TYPE">>, <<"hidden">>, ?NS_MAM),
+              field_el(<<"start">>, <<"text-single">>, Start),
+              field_el(<<"end">>, <<"text-single">>, End),
+              field_el(<<"with">>, <<"jid-single">>, WithJID)
+             ],
+    mam_archive_query(QueryId, [Fields]).
 
 %% Include an rsm id for a particular message.
+-spec mam_lookup_messages_iq(binary(), binary(), binary(), binary(), term()) ->
+    exml:element().
 mam_lookup_messages_iq(QueryId, Start, End, WithJID, DirectionWMessageId) ->
-    IQ = #xmlel{children=[Q]} = mam_lookup_messages_iq(QueryId, Start, End, WithJID),
+    IQ = #xmlel{children=[Q]} = mam_lookup_messages_iq(QueryId, Start, End,
+                                                       WithJID),
     RSM  = defined([fmapM(fun rsm_after_or_before/1, DirectionWMessageId)]),
     Other = Q#xmlel.children,
     Q2 = Q#xmlel{children = Other ++ RSM},

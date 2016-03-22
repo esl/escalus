@@ -44,6 +44,8 @@
          setup_option/2,
          reset_option/2]).
 
+-type user_spec() :: escalus_users:user_spec().
+
 -include("escalus.hrl").
 
 %%%
@@ -207,19 +209,15 @@ reset_option({Option, _, Set, _}, Config) ->
 start(_) -> ok.
 stop(_) -> ok.
 
--spec create_users(escalus:config(), escalus_users:who()) -> escalus:config().
-create_users(Config, Who)
-  when is_atom(Who); is_tuple(Who) ->
-    Users = escalus_users:get_users(Who),
+-spec create_users(escalus:config(), [user_spec()]) -> escalus:config().
+create_users(Config, Users) ->
     lists:foreach(fun({_Name, UserSpec}) ->
                           register_user(Config, UserSpec)
                   end, Users),
     lists:keystore(escalus_users, 1, Config, {escalus_users, Users}).
 
--spec delete_users(escalus:config(), escalus_users:who()) -> escalus:config().
-delete_users(Config, Who)
-  when is_atom(Who); is_tuple(Who) ->
-    Users = escalus_users:get_users(Who),
+-spec delete_users(escalus:config(), [user_spec()]) -> escalus:config().
+delete_users(Config, Users) ->
     lists:foreach(fun({_Name, UserSpec}) ->
                           unregister_user(Config, UserSpec)
                   end, Users),
