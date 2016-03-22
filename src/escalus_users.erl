@@ -289,8 +289,10 @@ auth_type(Config) ->
     {escalus_user_db, Type}.
 
 try_check_mod_register(Config) ->
+    Before = process_flag(trap_exit, true),
     try is_mod_register_enabled(Config)
     catch _:_ -> false
+    after process_flag(trap_exit, Before)
     end.
 
 -spec is_mod_register_enabled(escalus:config()) -> boolean().
