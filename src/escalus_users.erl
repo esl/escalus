@@ -331,6 +331,7 @@ is_mod_register_enabled(Config) ->
                      | 'auth_method' %% <<"PLAIN">> | <<"DIGETS-MD5">>
                                      %% | <<"SASL-ANON">> | <<"SCRAM-SHA-1">>
                                      %% | Other
+                     | 'connection_steps'  %% [escalus_session:step()]
                      .
 
 -type ejabberd_option() :: 'ejabberd_node'
