@@ -214,6 +214,9 @@ maybe_forward_to_owner(_, State, Stanzas, Fun) ->
 %%% Helpers
 %%%===================================================================
 
+%% TODO: Just require module names as transport types.
+%%       This would allow to flexibly use escalus_connection callback modules
+%%       defined outside Escalus source tree.
 get_module(tcp) ->
     escalus_tcp;
 get_module(ws) ->
