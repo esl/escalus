@@ -62,16 +62,7 @@
 -spec start(escalus_users:user_spec()) -> {ok, client(), escalus_users:user_spec()}
                                         | {error, any()}.
 start(Props) ->
-    start(Props,
-          [start_stream,
-           stream_features,
-           maybe_use_ssl,
-           maybe_use_compression,
-           authenticate,
-           bind,
-           session,
-           maybe_stream_management,
-           maybe_use_carbons]).
+    start(Props, get_connection_steps(Props)).
 
 %% Usage:
 %%
@@ -220,3 +211,20 @@ get_module(ws) ->
     escalus_ws;
 get_module(bosh) ->
     escalus_bosh.
+
+get_connection_steps(UserSpec) ->
+    case lists:keyfind(connection_steps, 1, UserSpec) of
+        false -> default_connection_steps();
+        {_, Steps} -> Steps
+    end.
+
+default_connection_steps() ->
+    [start_stream,
+     stream_features,
+     maybe_use_ssl,
+     maybe_use_compression,
+     authenticate,
+     bind,
+     session,
+     maybe_stream_management,
+     maybe_use_carbons].
