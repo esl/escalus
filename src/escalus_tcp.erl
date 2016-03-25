@@ -169,7 +169,8 @@ init([Args, Owner]) ->
 
     {ok, Socket} = do_connect(IsSSLConnection, Address, Port, Args,
                               SocketOpts, OnConnectFun),
-    {ok, Parser} = exml_stream:new_parser(),
+    ParserOpts = proplists:get_value(parser_opts, Args, []),
+    {ok, Parser} = exml_stream:new_parser(ParserOpts),
     {ok, #state{owner = Owner,
                 socket = Socket,
                 parser = Parser,
