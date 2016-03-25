@@ -325,6 +325,8 @@ is_mod_register_enabled(Config) ->
                                      %% | <<"SASL-ANON">> | <<"SCRAM-SHA-1">>
                                      %% | Other
                      | 'connection_steps'  %% [escalus_session:step()]
+                     | 'parser_opts' %% a list of exml parser opts,
+                                     %% e.g. infinite_stream
                      .
 
 -type ejabberd_option() :: 'ejabberd_node'
