@@ -128,7 +128,7 @@ prepare_step(Fun) when is_function(Fun, 3) ->
     Fun.
 
 connect(Props) ->
-    Transport = proplists:get_value(transport, Props, tcp),
+    Transport = proplists:get_value(transport, Props, escalus_tcp),
     Server = proplists:get_value(server, Props, <<"localhost">>),
     Host = proplists:get_value(host, Props, Server),
     NewProps = lists:keystore(host, 1, Props, {host, Host}),
@@ -205,12 +205,30 @@ maybe_forward_to_owner(_, State, Stanzas, Fun) ->
 %%% Helpers
 %%%===================================================================
 
-get_module(tcp) ->
-    escalus_tcp;
-get_module(ws) ->
-    escalus_ws;
-get_module(bosh) ->
-    escalus_bosh.
+%% TODO: drop
+get_module_old(tcp) -> escalus_tcp;
+get_module_old(ws) -> escalus_ws;
+get_module_old(bosh) -> escalus_bosh.
+
+%% TODO: drop
+is_deprecated_connection_module(M) when M == tcp; M == ws; M == bosh -> true;
+is_deprecated_connection_module(_) -> false.
+
+get_module(M) when is_atom(M) ->
+    case is_deprecated_connection_module(M) of
+        true ->
+            %% This function is a natural extension point - we could extend Escalus freely
+            %% by providing modules that implement escalus_connection behaviour.
+            %% However, due to this mapping (predefined atom -> module name)
+            %% we limit this flexibility.
+            %% TODO: Let's remove this limitation in the future.
+            Msg = io_lib:format("~s:get_module/1 called with transport '~s' (use a module name instead)",
+                                [?MODULE, M]),
+            escalus_compat:complain(Msg),
+            get_module_old(M);
+        false ->
+            M
+    end.
 
 get_connection_steps(UserSpec) ->
     case lists:keyfind(connection_steps, 1, UserSpec) of
