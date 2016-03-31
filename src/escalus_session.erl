@@ -307,7 +307,8 @@ get_stream_features(Features) ->
     [{compression, get_compression(Features)},
      {starttls, get_starttls(Features)},
      {stream_management, get_stream_management(Features)},
-     {advanced_message_processing, get_advanced_message_processing(Features)}]
+     {advanced_message_processing, get_advanced_message_processing(Features)},
+     {client_state_indication, get_client_state_indication(Features)}]
     ++ get_sasl_mechanisms(Features).
 
 -spec get_compression(exml:element()) -> boolean().
@@ -329,6 +330,11 @@ get_stream_management(Features) ->
 -spec get_advanced_message_processing(exml:element()) -> boolean().
 get_advanced_message_processing(Features) ->
     undefined =/= exml_query:subelement(Features, <<"amp">>).
+
+
+-spec get_client_state_indication(exml:element()) -> boolean().
+get_client_state_indication(Features) ->
+    undefined =/= exml_query:subelement(Features, <<"csi">>).
 
 -spec get_sasl_mechanisms(exml:element()) -> features().
 get_sasl_mechanisms(Features) ->
