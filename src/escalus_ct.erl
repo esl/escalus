@@ -13,6 +13,7 @@
 -export([add_log_link/3,
          fail/1,
          get_config/1,
+         log_stanza/3,
          is_ct_available/0]).
 
 %% What about that?
@@ -74,6 +75,16 @@ rpc_call(Node, Module, Function, Args, TimeOut, Cookie) ->
             error({escalus_error, common_test_unavailable})
     end.
 
+-spec log_stanza(undefined | binary(), in | out, exml:element()) -> ok.
+log_stanza(undefined, _, _) -> ok;
+log_stanza(Jid, Direction, Stanza) ->
+    case is_ct_available() andalso ct:get_config(stanza_log) of
+        true ->
+            do_log_stanza(Jid, Direction, Stanza);
+        _ ->
+            ok
+    end.
+
 -spec is_ct_available() -> boolean().
 is_ct_available() ->
     case application:get_env(?APPNAME, common_test) of
@@ -86,3 +97,17 @@ is_ct_available() ->
         _ ->
             false
     end.
+
+-spec do_log_stanza(binary(), in | out, exml:element()) -> ok.
+do_log_stanza(Jid, Direction, Stanza) ->
+    ReportString = io_lib:format("~s ~p", [Jid, Direction]),
+    PrettyStanza =
+        try
+            list_to_binary(exml:to_pretty_iolist(Stanza))
+        catch error:Error ->
+                ct:pal(error, "Cannot convert stanza to iolist: ~s~n~p",
+                       [ReportString, Stanza]),
+                ct:fail(Error)
+        end,
+    ct:print(stanza_log, "~s~n~s", [ReportString, PrettyStanza]),
+    ct:log(stanza_log, "~s~n~s", [ReportString, exml:escape_attr(PrettyStanza)]).
