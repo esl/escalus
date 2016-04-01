@@ -45,7 +45,6 @@
 %% Stream management automation
 %%               :: {Auto-ack?,                H,         counting Hs?}.
 -type sm_state() :: {boolean(), non_neg_integer(), 'active'|'inactive'}.
-
 -export_type([sm_state/0]).
 
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
@@ -138,6 +137,8 @@ recv(#client{rcv_pid = Pid}) ->
 %%% gen_server callbacks
 %%%===================================================================
 
+%% TODO: refactor all opt defaults taken from Args into a default_opts function,
+%%       so that we know what options the module actually expects
 init([Args, Owner]) ->
     Host = proplists:get_value(host, Args, <<"localhost">>),
     Port = proplists:get_value(port, Args, 5222),
@@ -224,12 +225,16 @@ handle_call(stop, _From, #state{} = S) ->
     wait_until_closed(S#state.socket),
     {stop, normal, ok, S}.
 
+-spec handle_cast({send, any(), any()}, any()) -> {noreply, any()}.
 handle_cast({send, #client{socket = Socket, ssl = Ssl, compress = Compress},
              Elem}, #state{on_request = OnRequestFun} = State) ->
     Reply = case {Ssl, Compress} of
+                {true, {zlib, {_, Zout}}} ->
+                    Deflated = zlib:deflate(Zout, exml:to_iolist(Elem), sync),
+                    ssl:send(Socket, Deflated);
                 {true, _} ->
                     ssl:send(Socket, exml:to_iolist(Elem));
-                {false, {zlib, {_,Zout}}} ->
+                {false, {zlib, {_, Zout}}} ->
                     Deflated = zlib:deflate(Zout, exml:to_iolist(Elem), sync),
                     gen_tcp:send(State#state.socket, Deflated);
                 {false, false} ->

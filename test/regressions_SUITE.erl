@@ -24,17 +24,10 @@ suite() ->
 %% Init & teardown
 %%--------------------------------------------------------------------
 
-init_per_suite(Config) ->
-    escalus:init_per_suite(Config).
-
-end_per_suite(Config) ->
-    escalus:end_per_suite(Config).
-
-init_per_testcase(CaseName, Config) ->
-    escalus:init_per_testcase(CaseName, Config).
-
-end_per_testcase(CaseName, Config) ->
-    escalus:end_per_testcase(CaseName, Config).
+init_per_suite(Config) -> escalus:init_per_suite(Config).
+end_per_suite(Config) -> escalus:end_per_suite(Config).
+init_per_testcase(Name, Config) -> escalus:init_per_testcase(Name, Config).
+end_per_testcase(Name, Config) -> escalus:end_per_testcase(Name, Config).
 
 %%--------------------------------------------------------------------
 %% Tests

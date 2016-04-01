@@ -2,8 +2,10 @@ ebin
 logs
 tags
 *.beam
+*.log
 *~
 deps
+dialyzer
 .eunit
 test/*.beam
 

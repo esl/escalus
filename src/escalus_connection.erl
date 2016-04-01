@@ -66,8 +66,8 @@ start(Props) ->
           [start_stream,
            stream_features,
            maybe_use_ssl,
-           maybe_use_compression,
            authenticate,
+           maybe_use_compression,
            bind,
            session,
            maybe_stream_management,
@@ -215,6 +215,9 @@ maybe_forward_to_owner(_, State, Stanzas, Fun) ->
 %%% Helpers
 %%%===================================================================
 
+%% TODO: Just require module names as transport types.
+%%       This would allow to flexibly use escalus_connection callback modules
+%%       defined outside Escalus source tree.
 get_module(tcp) ->
     escalus_tcp;
 get_module(ws) ->
