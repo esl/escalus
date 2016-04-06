@@ -135,6 +135,12 @@ show_backtrace() ->
 get_jid(#client{jid=Jid}) ->
     Jid;
 get_jid(Username) when is_atom(Username) ->
+    %% TODO: Drop this clause since it relies on external state - the config file.
+    %%       Define users in a test suite and pass them around as needed.
+    Complaint = io_lib:format("~s:get_jid/1: an atom() passed as Username - this clause will "
+                              "be dropped in the future as it relies on an external config file",
+                              [?MODULE]),
+    escalus_compat:complain(Complaint),
     bin(escalus_users:get_jid([], Username));
 get_jid(Jid) when is_list(Jid) ->
     bin(Jid);

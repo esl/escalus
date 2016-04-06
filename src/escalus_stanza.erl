@@ -275,7 +275,19 @@ error_element(Type, Condition) ->
            children = [#xmlel{name = Condition,
                               attrs = [{<<"xmlns">>, ?NS_STANZA_ERRORS}]}]}.
 
+message(From, Recipient, Type, Msg) when is_atom(Recipient) ->
+    %% TODO: Drop support for passing just an atom as Recipient,
+    %%       therefore removing reliance on users being defined in the config file.
+    %%       See escalus_utils:get_jid/1.
+    Complaint = io_lib:format("~s:message/4: atom() passed as Recipient - pass "
+                              "binary() JID or escalus:client() instead",
+                              [?MODULE]),
+    escalus_compat:complain(Complaint),
+    message1(From, Recipient, Type, Msg);
 message(From, Recipient, Type, Msg) ->
+    message1(From, Recipient, Type, Msg).
+
+message1(From, Recipient, Type, Msg) ->
     FromAttr = case From of
                    undefined -> [];
                    _ -> [{<<"from">>, From}]
