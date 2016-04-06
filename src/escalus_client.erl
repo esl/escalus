@@ -51,9 +51,8 @@ start(Config, UserSpec, Resource) ->
     EventClient = escalus_event:new_client(Config, UserSpec, Resource),
     Options = escalus_users:get_options(Config, UserSpec, Resource, EventClient),
     case escalus_connection:start(Options) of
-        {ok, Conn, Props, _} ->
-            Jid = make_jid(Props),
-            Client = Conn#client{jid = Jid, event_client = EventClient},
+        {ok, Conn, _Props, _} ->
+            Client = Conn#client{event_client = EventClient},
             escalus_cleaner:add_client(Config, Client),
             {ok, Client};
         {error, Error} ->
@@ -143,19 +142,12 @@ username(Client) ->
 server(Client) ->
     escalus_utils:regexp_get(full_jid(Client), <<"^[^@]*[@]([^/]*)">>).
 
+-spec resource(esclus:client()) -> binary().
 resource(Client) ->
-    escalus_utils:regexp_get(full_jid(Client), <<"^[^/]*[/](.*)">>).
-
+    escalus_utils:get_resource(full_jid(Client)).
 %%--------------------------------------------------------------------
 %% helpers
 %%--------------------------------------------------------------------
-
-make_jid(Proplist) ->
-    {username, U} = lists:keyfind(username, 1, Proplist),
-    {server, S} = lists:keyfind(server, 1, Proplist),
-    {resource, R} = lists:keyfind(resource, 1, Proplist),
-    <<U/binary,"@",S/binary,"/",R/binary>>.
-
 
 %% #client{} record for transport is created before assigning client JID
 %% so when we match a Client with it, Client#client.jid needs to be undefined
