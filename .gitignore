@@ -8,5 +8,3 @@ deps
 dialyzer
 .eunit
 test/*.beam
-
-.edts

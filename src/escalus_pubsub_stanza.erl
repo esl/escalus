@@ -1,343 +1,233 @@
 %%%===================================================================
-%%% @copyright (C) 2015, Erlang Solutions Ltd.
-%%% @doc Suite for testing pubsub features as described in XEP-0060
-%%% @Helper module - only pubsub specific stanzas generation
-%%% @functions.
+%%% @copyright (C) 2016, Erlang Solutions Ltd.
+%%% @doc Stanzas for testing XEP-0060 PubSub
 %%% @end
 %%%===================================================================
 
 -module(escalus_pubsub_stanza).
 
-
--include_lib("escalus/include/escalus.hrl").
+-include("escalus.hrl").
+-include("escalus_xmlns.hrl").
 -include_lib("common_test/include/ct.hrl").
--include_lib("escalus/include/escalus_xmlns.hrl").
 -include_lib("exml/include/exml.hrl").
 -include_lib("exml/include/exml_stream.hrl").
 
--export([
-         create_node_stanza/4,
-         create_node_stanza/5,
-         configure_node_stanza/5,
-         create_specific_node_stanza/1,
-         create_subscribe_node_stanza/2,
-         create_request_allitems_stanza/1,
-         create_request_allitems_stanza_with_iq/4,
-         purge_all_items_iq/4,
-         create_publish_node_content_stanza/2,
-         create_publish_node_content_stanza_second/2,
-         create_publish_node_content_stanza_third/2,
-         create_publish_node_content_stanza_with_timestamp/2,
-         create_sub_unsubscribe_from_node_stanza/3,
-         create_unsubscribe_from_node_stanza/2,
-         delete_node_stanza/1,
-         entry_body_sample1/0,
-         entry_body_with_sample_device_id/0,
-         get_subscription_change_list_stanza/1,
-         iq_with_id/4,
-         iq_with_id/5,
-         iq_set_get_rest/3,
-         publish_item/2,
-         publish_item_stanza/2,
-         publish_entry/1,
-         pubsub_stanza/2,
-         publish_node_with_content_stanza/2,
-         publish_sample_content_stanza/5,
-         retract_from_node_stanza/2,
-         retrieve_subscriptions_stanza/1,
-         retrieve_user_subscriptions_stanza/0,
-         set_subscriptions_stanza/2,
-         subscribe_by_user_stanza/4,
-         subscribe_by_user_stanza/5,
-         unsubscribe_by_user_stanza/4,
-         discover_nodes_stanza/3,
-         discover_nodes_stanza/4
-        ]).
+%% Complete requests
+-export([create_node/3, create_node/4,
+         configure_node/4,
+         delete_node/3,
+         subscribe/3, subscribe/4,
+         unsubscribe/3,
+         publish/4,
+         request_all_items/3,
+         purge_all_items/3,
+         retrieve_user_subscriptions/3,
+         retrieve_node_subscriptions/3,
+         set_subscriptions/4,
+         discover_nodes/3]).
 
+%% Elements used to construct requests
+-export([item_element/2]).
 
-pubsub_stanza(Children, NS) ->
-    #xmlel{name = <<"pubsub">>,
-           attrs = [{<<"xmlns">>, NS} ],
-           children = Children  }.
+-type pubsub_node_id() :: {pep | binary(), binary()}.
+-export_type([pubsub_node_id/0]).
 
+%%-----------------------------------------------------------------------------
+%% Request construction
+%%-----------------------------------------------------------------------------
 
+-spec create_node(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
+create_node(User, Id, Node) ->
+    create_node(User, Id, Node, []).
 
-publish_sample_content_stanza(DestinationTopicName, DestinationNode, PublishItemId, User, SampleNumber) ->
-    PublishToNode = case SampleNumber of
-                        sample_one ->
-                            create_publish_node_content_stanza(DestinationTopicName, PublishItemId);
-                        sample_two ->
-                            create_publish_node_content_stanza_second(DestinationTopicName, PublishItemId);
-                        sample_three ->
-                            create_publish_node_content_stanza_third(DestinationTopicName, PublishItemId);
-                        sample_time ->
-                            create_publish_node_content_stanza_with_timestamp(DestinationTopicName, PublishItemId);
-                        _ ->
-                            create_publish_node_content_stanza(DestinationTopicName, PublishItemId)
-                    end,
-    IqId = <<"publish1">>,
-    escalus_pubsub_stanza:iq_with_id(set, IqId, DestinationNode, User,  [PublishToNode]).
+-spec create_node(escalus_utils:jid_spec(), binary(), pubsub_node_id(), [{binary(), binary()}]) ->
+                         exml:element().
+create_node(User, Id, {NodeAddr, NodeName}, ConfigFields) ->
+    Elements = [create_node_element(NodeName) | configure_node_form(ConfigFields, undefined)],
+    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
+    iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
 
-create_node_stanza(User, IqId, DestinationNodeAddr, DestinationNodeName) ->
-    create_node_stanza(User, IqId, DestinationNodeAddr, DestinationNodeName, []).
+-spec configure_node(escalus_utils:jid_spec(), binary(), pubsub_node_id(),
+                     [{binary(), binary()}]) ->
+                            exml:element().
+configure_node(User, Id, {NodeAddr, NodeName}, ConfigFields) ->
+    Elements = configure_node_form(ConfigFields, NodeName),
+    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
+    iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
 
-create_node_stanza(User, IqId, DestinationNodeAddr, DestinationNodeName, Config) ->
-    PubSubCreate = create_specific_node_stanza(DestinationNodeName),
-    Elements = [PubSubCreate | case Config of
-                                   [] -> [];
-                                   _ -> [configure_node_form(Config)]
-                               end],
-    PubSub = pubsub_stanza(Elements, ?NS_PUBSUB),
-    iq_with_id(set, IqId, DestinationNodeAddr, User,  [PubSub]).
+-spec delete_node(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
+delete_node(User, Id, {NodeAddr, NodeName}) ->
+    Elements = [delete_element(NodeName)],
+    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB_OWNER),
+    iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
 
-create_specific_node_stanza(NodeName) ->
-    #xmlel{name = <<"create">>, attrs = [{<<"node">>, NodeName}] }.
+-spec subscribe(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
+subscribe(User, Id, Node) ->
+    subscribe(User, Id, Node, []).
 
-configure_node_stanza(User, IqId, NodeAddr, NodeName, Config) ->
-    Form = configure_node_form(Config),
-    ConfigureElem = Form#xmlel{attrs = [{<<"node">>, NodeName}]},
-    PubSubElem = pubsub_stanza([ConfigureElem], ?NS_PUBSUB),
-    iq_with_id(set, IqId, NodeAddr, User, [PubSubElem]).
+-spec subscribe(escalus_utils:jid_spec(), binary(), pubsub_node_id(), [{binary(), binary()}]) ->
+                         exml:element().
+subscribe(User, Id, {NodeAddr, NodeName}, ConfigFields) ->
+    Elements = [subscribe_element(NodeName, User) | subscribe_options_form(ConfigFields)],
+    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
+    iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
 
-configure_node_form(Fields) ->
-    form(<<"configure">>, <<"node_config">>, Fields).
+-spec unsubscribe(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
+unsubscribe(User, Id, {NodeAddr, NodeName}) ->
+    Elements = [unsubscribe_element(NodeName, User)],
+    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
+    iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
 
-iq_with_id(TypeAtom, Id, From, Body) ->
-    S1 = escalus_stanza:iq(atom_to_binary(TypeAtom, latin1), Body),
-    iq_set_get_rest(S1, Id, From).
+-spec publish(escalus_utils:jid_spec(), exml:element(), binary(), pubsub_node_id()) ->
+                     exml:element().
+publish(User, Item, Id, {pep, NodeName}) ->
+    Elements = [publish_element(NodeName, Item)],
+    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
+    iq(<<"set">>, User, Id, [PubSubElement]);
+publish(User, Item, Id, {NodeAddr, NodeName}) ->
+    Elements = [publish_element(NodeName, Item)],
+    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
+    iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
 
-iq_with_id(TypeAtom, Id, To, From, Body) ->
-    S1 = escalus_stanza:iq(To, atom_to_binary(TypeAtom, latin1), Body),
-    iq_set_get_rest(S1, Id, From).
+-spec request_all_items(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
+request_all_items(User, Id, {NodeAddr, NodeName}) ->
+    Elements = [items_element(NodeName)],
+    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
+    iq(<<"get">>, User, Id, NodeAddr, [PubSubElement]).
 
-iq_set_get_rest(SrcIq, Id, From) ->
-    S2 = escalus_stanza:set_id(SrcIq, Id),
-    escalus_stanza:from(S2, escalus_utils:get_jid(From)).
+-spec purge_all_items(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
+purge_all_items(User, Id, {NodeAddr, NodeName}) ->
+    Elements = [purge_element(NodeName)],
+    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB_OWNER),
+    iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
 
-%% ----------------------------- sample entry bodies ------------------------
+-spec retrieve_user_subscriptions(escalus_utils:jid_spec(), binary(), binary()) -> exml:element().
+retrieve_user_subscriptions(User, Id, NodeAddr) ->
+    Elements = [subscriptions_element()],
+    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
+    iq(<<"get">>, User, Id, NodeAddr, [PubSubElement]).
 
-entry_body_sample1() ->
-    [
-     #xmlel{name = <<"title">>, children = [#xmlcdata{content = <<"The title of content.">>}]},
-     #xmlel{name = <<"summary">>, children = [#xmlcdata{content = <<"To be or not to be...">>}]}
-    ].
+-spec retrieve_node_subscriptions(escalus_utils:jid_spec(), binary(), pubsub_node_id()) ->
+                                         exml:element().
+retrieve_node_subscriptions(User, Id, {NodeAddr, NodeName}) ->
+    Elements = [subscriptions_element(NodeName, [])],
+    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB_OWNER),
+    iq(<<"get">>, User, Id, NodeAddr, [PubSubElement]).
 
-entry_body_with_timestamp() ->
-    MicroSec = usec:from_now(os:timestamp()),
-    [
-     #xmlel{name = <<"MSG_SENT_AT">>, children = [#xmlcdata{content = integer_to_binary(MicroSec) }]}
-    ].
+-spec set_subscriptions(escalus_utils:jid_spec(), binary(),
+                        [{escalus_utils:jid_spec(), binary()}], pubsub_node_id()) ->
+                               exml:element().
+set_subscriptions(User, Id, Subscriptions, {NodeAddr, NodeName}) ->
+    SubElements = [subscription_element(Jid, SubState) || {Jid, SubState} <- Subscriptions],
+    Elements = [subscriptions_element(NodeName, SubElements)],
+    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB_OWNER),
+    iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
 
-entry_body_with_sample_device_id() ->
-    [
-     #xmlel{name = <<"DEVICE_ID_SMPL0">>, children = [#xmlcdata{content = <<"2F:AB:28:FF">>}]}
-    ].
+-spec discover_nodes(escalus_utils:jid_spec(), binary(), binary() | pubsub_node_id()) ->
+                            exml:element().
+discover_nodes(User, Id, {NodeAddr, NodeName}) ->
+    QueryElement = escalus_stanza:query_el(?NS_DISCO_ITEMS, [{<<"node">>, NodeName}], []),
+    iq(<<"get">>, User, Id, NodeAddr, [QueryElement]);
+discover_nodes(User, Id, NodeAddr) ->
+    QueryElement = escalus_stanza:query_el(?NS_DISCO_ITEMS, [], []),
+    iq(<<"get">>, User, Id, NodeAddr, [QueryElement]).
 
-entry_body_with_sample_device_id_2() ->
-    [
-     #xmlel{name = <<"DEVICE_ID_SMPL2">>, children = [#xmlcdata{content = <<"AA:92:1C:92">>}]}
-    ].
+%%-----------------------------------------------------------------------------
+%% XML element construction
+%%-----------------------------------------------------------------------------
 
-%% ------end-------------------- sample entry bodies ------------------------
+%% Whole stanzas
 
-%% provide EntryBody as list of anything compliant with exml entity records.
+iq(Type, From, Id, Elements) ->
+    Stanza = escalus_stanza:iq(Type, Elements),
+    StanzaWithId = escalus_stanza:set_id(Stanza, Id),
+    escalus_stanza:from(StanzaWithId, escalus_utils:get_jid(From)).
 
-publish_entry_children([]) ->
-    entry_body_sample1();
+iq(Type, From, Id, To, Elements) ->
+    Stanza = escalus_stanza:iq(To, Type, Elements),
+    StanzaWithId = escalus_stanza:set_id(Stanza, Id),
+    escalus_stanza:from(StanzaWithId, escalus_utils:get_jid(From)).
 
-publish_entry_children([#xmlel{}] = EntryBody) ->
-    EntryBody;
+%% Form utils
 
-publish_entry_children([#xmlel{} = Head | Tail]) ->
-    [Head |  publish_entry_children(Tail)].
-
-publish_entry(EntryBody) ->
-    #xmlel{
-       name = <<"entry">>,
-       attrs = [{<<"xmlns">>, <<"http://www.w3.org/2005/Atom">>}],
-       children = publish_entry_children(EntryBody)
-      }.
-
-publish_item_children(#xmlel{} = ItemBody) ->
-    [ItemBody];
-publish_item_children([]) ->
-    [].
-
-publish_item_stanza(NodeName, ItemToPublish) ->
-    PublNode = publish_node_with_content_stanza(NodeName, ItemToPublish),
-    pubsub_stanza([PublNode], ?NS_PUBSUB).
-
-publish_item(ItemId, PublishEntry) ->
-    #xmlel{
-       name = <<"item">>,
-       attrs = [{<<"id">>, ItemId}],
-       children = publish_item_children(PublishEntry)
-      }.
-
-publish_node_children(#xmlel{} = ItemBody) ->
-    [ItemBody];
-publish_node_children([]) ->
-    [].
-
-publish_node_with_content_stanza(NodeName, ItemToPublish) ->
-    #xmlel{
-       name = <<"publish">>,
-       attrs = [{<<"node">>, NodeName}],
-       children = publish_node_children(ItemToPublish)
-      }.
-
-%% Create full sample content with nested items like in example 88 of XEP-0060
-%% The structure is as follows: pubsub/publish/item/entry/(title,summary)
-create_publish_node_content_stanza(NodeName, ItemId) ->
-    PublishEntry = publish_entry([]),
-    ItemTopublish = publish_item(ItemId, PublishEntry),
-    PublNode = publish_node_with_content_stanza(NodeName, ItemTopublish),
-    pubsub_stanza([PublNode], ?NS_PUBSUB).
-
-%% Similar to above but with different entry body - mimicking "real" physical
-%% device with hardware "identifier" - device 1
-create_publish_node_content_stanza_second(NodeName, ItemId) ->
-    PublishEntry = publish_entry(entry_body_with_sample_device_id()),
-    ItemTopublish = publish_item(ItemId, PublishEntry),
-    PublNode = publish_node_with_content_stanza(NodeName, ItemTopublish),
-    pubsub_stanza([PublNode], ?NS_PUBSUB).
-
-%% Similar to above but with different entry body - mimicking "real" physical
-%% device with hardware "identifier" - device 2
-create_publish_node_content_stanza_third(NodeName, ItemId) ->
-    PublishEntry = publish_entry(entry_body_with_sample_device_id_2()),
-    ItemTopublish = publish_item(ItemId, PublishEntry),
-    PublNode = publish_node_with_content_stanza(NodeName, ItemTopublish),
-    pubsub_stanza([PublNode], ?NS_PUBSUB).
-
-%% timestamp is microseconds
-create_publish_node_content_stanza_with_timestamp(NodeName, ItemId) ->
-    PublishEntry = publish_entry(entry_body_with_timestamp()),
-    ItemTopublish = publish_item(ItemId, PublishEntry),
-    PublNode = publish_node_with_content_stanza(NodeName, ItemTopublish),
-    pubsub_stanza([PublNode], ?NS_PUBSUB).
-
-
-retract_from_node_stanza(NodeName, ItemId) ->
-    ItemToRetract = #xmlel{name = <<"item">>, attrs=[{<<"id">>, ItemId}], children=[]},
-    RetractNode =  #xmlel{name = <<"retract">>, attrs=[{<<"node">>, NodeName}], children=[ItemToRetract]},
-    pubsub_stanza([RetractNode], ?NS_PUBSUB).
-
-%% ------------ subscribe - unscubscribe -----------
-
-subscribe_by_user_stanza(User, IqId, NodeName, NodeAddress) ->
-    subscribe_by_user_stanza(User, IqId, NodeName, NodeAddress, []).
-
-subscribe_by_user_stanza(User, IqId, NodeName, NodeAddress, Config) ->
-    SubscribeToNode = create_subscribe_node_stanza(NodeName, User, Config),
-    iq_with_id(set, IqId, NodeAddress, User,  [SubscribeToNode]).
-
-unsubscribe_by_user_stanza(User, IqId, NodeName, NodeAddress) ->
-    UnubscribeFromNode = create_unsubscribe_from_node_stanza(NodeName, User),
-    escalus_pubsub_stanza:iq_with_id(set, IqId, NodeAddress, User,  [UnubscribeFromNode]).
-
-create_subscribe_node_stanza(NodeName, From) ->
-    create_subscribe_node_stanza(NodeName, From, []).
-
-create_subscribe_node_stanza(NodeName, From, Config) ->
-    SubscrNode = create_sub_unsubscribe_from_node_stanza(NodeName, From, <<"subscribe">>),
-    Elements = [SubscrNode | case Config of
-                                 [] -> [];
-                                 _ -> [subscribe_options_form(Config)]
-                             end],
-    pubsub_stanza(Elements, ?NS_PUBSUB).
+configure_node_form(Fields, NodeName) ->
+    optional_form(<<"configure">>, NodeName, <<"node_config">>, Fields).
 
 subscribe_options_form(Fields) ->
-    form(<<"options">>, <<"subscribe_options">>, Fields).
+    optional_form(<<"options">>, undefined, <<"subscribe_options">>, Fields).
 
-create_unsubscribe_from_node_stanza(NodeName, From) ->
-    UnsubsrNode = create_sub_unsubscribe_from_node_stanza(NodeName, From, <<"unsubscribe">>),
-    pubsub_stanza([UnsubsrNode], ?NS_PUBSUB).
+optional_form(_FormName, _NodeName, _Type, []) -> [];
+optional_form(FormName, NodeName, Type, Fields) ->
+    FormTypeField = form_type_field_element(Type),
+    FormFields = [form_field_element(Var, Content) || {Var, Content} <- Fields],
+    [form_element(FormName, NodeName, [FormTypeField | FormFields])].
 
-create_sub_unsubscribe_from_node_stanza(NodeName, From, SubUnsubType) ->
-    #xmlel{name = SubUnsubType,
-           attrs = [
-                    {<<"node">>, NodeName},
-                    {<<"jid">>, escalus_utils:get_jid(From)}]
-          }.
+%% Elements
 
-%% ----end----- subscribe - unscubscribe -----------
+create_node_element(NodeName) ->
+    #xmlel{name = <<"create">>, attrs = [{<<"node">>, NodeName}]}.
 
-create_request_allitems_stanza(NodeName) ->
-    AllItems = #xmlel{name = <<"items">>, attrs=[{<<"node">>, NodeName}]},
-    pubsub_stanza([AllItems], ?NS_PUBSUB).
+pubsub_element(Children, NS) ->
+    #xmlel{name = <<"pubsub">>,
+           attrs = [{<<"xmlns">>, NS}],
+           children = Children}.
 
-%%todo: make one function with option or like with create return always with iq.
-create_request_allitems_stanza_with_iq(User, IqId, PubSubAddr, NodeName) ->
-    AllItems = #xmlel{name = <<"items">>, attrs=[{<<"node">>, NodeName}]},
-    iq_with_id(get, IqId, PubSubAddr, User, [pubsub_stanza([AllItems], ?NS_PUBSUB)]).
+delete_element(NodeName) ->
+    #xmlel{name = <<"delete">>,
+           attrs = [{<<"node">>, NodeName}]}.
 
-purge_all_items_iq(User, IqId, NodeAddr, NodeName) ->
-    iq_with_id(set, IqId, NodeAddr, User, [purge_all_items(NodeName)]).
+subscribe_element(NodeName, User) ->
+    #xmlel{name = <<"subscribe">>,
+           attrs = [{<<"node">>, NodeName},
+                    {<<"jid">>, escalus_utils:get_jid(User)}]}.
 
-purge_all_items(NodeName) ->
-    Purge = #xmlel{name = <<"purge">>, attrs=[{<<"node">>, NodeName}]},
-    pubsub_stanza([Purge], ?NS_PUBSUB_OWNER).
+unsubscribe_element(NodeName, User) ->
+    #xmlel{name = <<"unsubscribe">>,
+           attrs = [{<<"node">>, NodeName},
+                    {<<"jid">>, escalus_utils:get_jid(User)}]}.
 
-delete_node_stanza(NodeName) ->
-    DelNode = #xmlel{name = <<"delete">>,
-                     attrs = [{<<"node">>, NodeName}]
-                    },
-    pubsub_stanza([DelNode], ?NS_PUBSUB_OWNER).
+publish_element(NodeName, Item) ->
+    #xmlel{name = <<"publish">>,
+           attrs = [{<<"node">>, NodeName}],
+           children = skip_undefined([Item])}.
 
-retrieve_subscriptions_stanza(NodeName) ->
-    RetrieveNode = #xmlel{name = <<"subscriptions">>,
-                          attrs = [{<<"node">>, NodeName}]
-                         },
-    pubsub_stanza([RetrieveNode], ?NS_PUBSUB_OWNER).
+items_element(NodeName) ->
+    #xmlel{name = <<"items">>,
+           attrs = [{<<"node">>, NodeName}]}.
 
-retrieve_user_subscriptions_stanza() ->
-    RetrieveNode = #xmlel{name = <<"subscriptions">>},
-    pubsub_stanza([RetrieveNode], ?NS_PUBSUB).
+-spec item_element(binary(), undefined | exml:element()) -> exml:element().
+item_element(ItemId, ContentElement) ->
+    #xmlel{name = <<"item">>,
+           attrs = [{<<"id">>, ItemId}],
+           children = skip_undefined([ContentElement])}.
 
-subscription_stanza({Jid, SubscriptionState}) ->
+purge_element(NodeName) ->
+    #xmlel{name = <<"purge">>,
+           attrs = [{<<"node">>, NodeName}]}.
+
+subscriptions_element() ->
+    #xmlel{name = <<"subscriptions">>}.
+
+subscriptions_element(NodeName, Children) ->
+    #xmlel{name = <<"subscriptions">>,
+           attrs = [{<<"node">>, NodeName}],
+           children = Children}.
+
+subscription_element(User, SubscriptionState) ->
     #xmlel{name = <<"subscription">>,
-           attrs = [{<<"jid">>, Jid},{<<"subscription">>, SubscriptionState}]
-          }.
+           attrs = [{<<"jid">>, escalus_utils:get_jid(User)},
+                    {<<"subscription">>, SubscriptionState}]}.
 
-%% according to Example 187, 8.8.2.1, XEP-0060
-set_subscriptions_stanza(NodeName, SubscriptionChangesListStanza) ->
-    RetrieveNode = #xmlel{
-                      name = <<"subscriptions">>,
-                      attrs = [{<<"node">>, NodeName}],
-                      children = SubscriptionChangesListStanza
-                     },
-    pubsub_stanza([RetrieveNode], ?NS_PUBSUB_OWNER).
-
-%% pass SubscrChangeData as List of tuples {jid, new_subscription_state}
-get_subscription_change_list_stanza(SubscriptionChangeData) ->
-    lists:map(
-      fun(ChangeEntry) ->
-              subscription_stanza({_Jid, _SubsState} = ChangeEntry)
-      end,
-      SubscriptionChangeData).
-
-discover_nodes_stanza(User, IqId, NodeAddr) ->
-    Query = escalus_stanza:query_el(?NS_DISCO_ITEMS, [], []),
-    iq_with_id(get, IqId, NodeAddr, User,  [Query]).
-
-discover_nodes_stanza(User, IqId, NodeAddr, NodeName) ->
-    Query = escalus_stanza:query_el(?NS_DISCO_ITEMS, [{<<"node">>, NodeName}], []),
-    iq_with_id(get, IqId, NodeAddr, User,  [Query]).
-
-%%-----------------------------------------------------------------------------
-%% Form utils
-%%-----------------------------------------------------------------------------
-
-form(ElemName, FormType, Fields) ->
-    #xmlel{name = ElemName,
+form_element(FormName, NodeName, FieldElements) ->
+    #xmlel{name = FormName,
+           attrs = skip_undefined([{<<"node">>, NodeName}]),
            children = [#xmlel{name = <<"x">>,
                               attrs = [{<<"xmlns">>, <<"jabber:x:data">>},
                                        {<<"type">>, <<"submit">>}],
-                              children = [hidden_field(FormType) | form_fields(Fields)]}
+                              children = FieldElements}
                       ]}.
 
-hidden_field(FormType) ->
+form_type_field_element(FormType) ->
     Content = << <<"http://jabber.org/protocol/pubsub#">>/binary, FormType/binary >>,
     #xmlel{name = <<"field">>,
            attrs = [{<<"var">>, <<"FORM_TYPE">>},
@@ -345,9 +235,16 @@ hidden_field(FormType) ->
            children = [#xmlel{name = <<"value">>,
                               children = [#xmlcdata{content = Content}]}]}.
 
-form_fields(Config) ->
-    [#xmlel{name = <<"field">>,
+form_field_element(Var, Content) ->
+    #xmlel{name = <<"field">>,
            attrs = [{<<"var">>, Var}],
            children = [#xmlel{name = <<"value">>,
-                              children = [#xmlcdata{content = Content}]}]}
-     || {Var, Content} <- Config].
+                              children = [#xmlcdata{content = Content}]}]}.
+
+%% Helpers
+
+skip_undefined(L) ->
+    lists:filter(fun(undefined) -> false;
+                    ({_, undefined}) -> false;
+                    (_) -> true
+                 end, L).
