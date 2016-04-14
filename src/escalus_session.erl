@@ -59,15 +59,12 @@
 
 start_stream(Conn, Props) ->
     {server, Server} = lists:keyfind(server, 1, Props),
-    XMLNS = case proplists:get_value(endpoint, Props) of
-                {server, _} -> <<"jabber:server">>;
-                _ -> <<"jabber:client">>
-            end,
+    NS = proplists:get_value(stream_ns, Props, <<"jabber:client">>),
     Transport = proplists:get_value(transport, Props, tcp),
     IsLegacy = proplists:get_value(wslegacy, Props, false),
     StreamStartReq = case {Transport, IsLegacy} of
                          {ws, false} -> escalus_stanza:ws_open(Server);
-                         _ -> escalus_stanza:stream_start(Server, XMLNS)
+                         _ -> escalus_stanza:stream_start(Server, NS)
                      end,
     ok = escalus_connection:send(Conn, StreamStartReq),
     StreamStartRep = escalus_connection:get_stanza(Conn, wait_for_stream),
@@ -75,9 +72,9 @@ start_stream(Conn, Props) ->
     StreamID = case exml_query:attr(stream_start_to_element(StreamStartRep),
                                     <<"id">>, no_id)
                of
-        no_id -> error({invalid_response, no_id});
-        ID when is_binary(ID) -> ID
-    end,
+                   no_id -> error({invalid_response, no_id});
+                   ID when is_binary(ID) -> ID
+               end,
     %% TODO: deprecate 2-tuple return value
     %% To preserve the previous interface we still return a 2-tuple,
     %% but it's guaranteed that the features will be empty.
