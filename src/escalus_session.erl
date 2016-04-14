@@ -72,10 +72,16 @@ start_stream(Conn, Props) ->
     ok = escalus_connection:send(Conn, StreamStartReq),
     StreamStartRep = escalus_connection:get_stanza(Conn, wait_for_stream),
     assert_stream_start(StreamStartRep, Transport, IsLegacy),
+    StreamID = case exml_query:attr(stream_start_to_element(StreamStartRep),
+                                    <<"id">>, no_id)
+               of
+        no_id -> error({invalid_response, no_id});
+        ID when is_binary(ID) -> ID
+    end,
     %% TODO: deprecate 2-tuple return value
     %% To preserve the previous interface we still return a 2-tuple,
     %% but it's guaranteed that the features will be empty.
-    {Props, []}.
+    {lists:keystore(stream_id, 1, Props, {stream_id, StreamID}), []}.
 
 starttls(Conn, Props) ->
     escalus_tcp:upgrade_to_tls(Conn, Props).
@@ -317,3 +323,7 @@ get_stream_management(Features) ->
 -spec get_advanced_message_processing(exml:element()) -> boolean().
 get_advanced_message_processing(Features) ->
     undefined =/= exml_query:subelement(Features, <<"amp">>).
+
+-spec stream_start_to_element(exml_stream:start()) -> exml:element().
+stream_start_to_element(#xmlstreamstart{name = Name, attrs = Attrs}) ->
+    #xmlel{name = Name, attrs = Attrs, children = []}.
