@@ -75,10 +75,16 @@ start_stream(Conn, Props) ->
     ok = escalus_connection:send(Conn, StreamStartReq),
     StreamStartRep = escalus_connection:get_stanza(Conn, wait_for_stream),
     assert_stream_start(StreamStartRep, Transport, IsLegacy),
+    StreamID = case exml_query:attr(stream_start_to_element(StreamStartRep),
+                                    <<"id">>, no_id)
+               of
+        no_id -> error({invalid_response, no_id});
+        ID when is_binary(ID) -> ID
+    end,
     %% TODO: deprecate 2-tuple return value
     %% To preserve the previous interface we still return a 2-tuple,
     %% but it's guaranteed that the features will be empty.
-    {Props, []}.
+    {lists:keystore(stream_id, 1, Props, {stream_id, StreamID}), []}.
 
 -spec starttls(client(), user_spec()) -> {client(), user_spec()}.
 starttls(Conn, Props) ->
@@ -331,7 +337,6 @@ get_stream_management(Features) ->
 get_advanced_message_processing(Features) ->
     undefined =/= exml_query:subelement(Features, <<"amp">>).
 
-
 -spec get_client_state_indication(exml:element()) -> boolean().
 get_client_state_indication(Features) ->
     undefined =/= exml_query:subelement(Features, <<"csi">>).
@@ -349,3 +354,7 @@ mechanism_to_auth_function(<<"ANONYMOUS">>)   -> auth_anonymous;
 mechanism_to_auth_function(<<"EXTERNAL">>)    -> auth_sasl_external;
 mechanism_to_auth_function(<<"SCRAM-SHA-1">>) -> auth_sasl_scram_sha1;
 mechanism_to_auth_function(<<"X-OAUTH">>)     -> auth_sasl_oauth.
+
+-spec stream_start_to_element(exml_stream:start()) -> exml:element().
+stream_start_to_element(#xmlstreamstart{name = Name, attrs = Attrs}) ->
+    #xmlel{name = Name, attrs = Attrs, children = []}.
