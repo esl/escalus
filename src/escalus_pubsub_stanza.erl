@@ -12,22 +12,18 @@
 -include_lib("exml/include/exml.hrl").
 -include_lib("exml/include/exml_stream.hrl").
 
-%% Complete requests
 -export([create_node/3, create_node/4,
          configure_node/4,
          delete_node/3,
          subscribe/3, subscribe/4,
          unsubscribe/3,
-         publish/4,
+         publish/3, publish/5,
          request_all_items/3,
          purge_all_items/3,
          retrieve_user_subscriptions/3,
          retrieve_node_subscriptions/3,
          set_subscriptions/4,
          discover_nodes/3]).
-
-%% Elements used to construct requests
--export([item_element/2]).
 
 -type pubsub_node_id() :: {pep | binary(), binary()}.
 -export_type([pubsub_node_id/0]).
@@ -78,16 +74,19 @@ unsubscribe(User, Id, {NodeAddr, NodeName}) ->
     PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
     iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
 
--spec publish(escalus_utils:jid_spec(), exml:element(), binary(), pubsub_node_id()) ->
+-spec publish(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
+publish(User, Id, {NodeAddr, NodeName}) ->
+    Elements = [publish_element(NodeName, undefined)],
+    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
+    publish_iq(User, PubSubElement, Id, NodeAddr).
+
+-spec publish(escalus_utils:jid_spec(), binary(), exml:element(), binary(), pubsub_node_id()) ->
                      exml:element().
-publish(User, Item, Id, {pep, NodeName}) ->
-    Elements = [publish_element(NodeName, Item)],
+publish(User, ItemId, ContentElement, Id, {NodeAddr, NodeName}) ->
+    ItemElement = item_element(ItemId, ContentElement),
+    Elements = [publish_element(NodeName, ItemElement)],
     PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
-    iq(<<"set">>, User, Id, [PubSubElement]);
-publish(User, Item, Id, {NodeAddr, NodeName}) ->
-    Elements = [publish_element(NodeName, Item)],
-    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
-    iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
+    publish_iq(User, PubSubElement, Id, NodeAddr).
 
 -spec request_all_items(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
 request_all_items(User, Id, {NodeAddr, NodeName}) ->
@@ -137,6 +136,11 @@ discover_nodes(User, Id, NodeAddr) ->
 %%-----------------------------------------------------------------------------
 
 %% Whole stanzas
+
+publish_iq(User, PubSubElement, Id, pep) ->
+    iq(<<"set">>, User, Id, [PubSubElement]);
+publish_iq(User, PubSubElement, Id, NodeAddr) ->
+    iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
 
 iq(Type, From, Id, Elements) ->
     Stanza = escalus_stanza:iq(Type, Elements),
@@ -195,7 +199,6 @@ items_element(NodeName) ->
     #xmlel{name = <<"items">>,
            attrs = [{<<"node">>, NodeName}]}.
 
--spec item_element(binary(), undefined | exml:element()) -> exml:element().
 item_element(ItemId, ContentElement) ->
     #xmlel{name = <<"item">>,
            attrs = [{<<"id">>, ItemId}],
