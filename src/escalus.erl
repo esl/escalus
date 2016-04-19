@@ -85,37 +85,75 @@ end_per_testcase(_CaseName, Config) ->
 %% Public API - forward functions from other modules
 %%--------------------------------------------------------------------
 
--define(FORWARD1(M, F), F(X) -> M:F(X)).
--define(FORWARD2(M, F), F(X, Y) -> M:F(X, Y)).
--define(FORWARD3(M, F), F(X, Y, Z) -> M:F(X, Y, Z)).
--define(FORWARD3_AS(M, F, Alias), Alias(X, Y, Z) -> M:F(X, Y, Z)).
+%% User API
 
-?FORWARD1(escalus_users, create_users).
-?FORWARD2(escalus_users, create_users).
-?FORWARD1(escalus_users, delete_users).
-?FORWARD2(escalus_users, delete_users).
+create_users(Config) ->
+    escalus_users:create_users(Config).
 
-?FORWARD1(escalus_users, get_users).
+create_users(Config, Users) ->
+    escalus_users:create_users(Config, Users).
 
-?FORWARD1(escalus_story, make_everyone_friends).
-?FORWARD3(escalus_story, story).
+delete_users(Config) ->
+    escalus_users:delete_users(Config).
 
-?FORWARD3_AS(escalus_fresh, story, fresh_story).
-?FORWARD3_AS(escalus_fresh, story_with_config, fresh_story_with_config).
+delete_users(Config, Users) ->
+    escalus_users:delete_users(Config, Users).
 
-?FORWARD2(escalus_new_assert, assert).
-?FORWARD3(escalus_new_assert, assert).
-?FORWARD2(escalus_new_assert, assert_many).
+get_users(Names) ->
+    escalus_users:get_users(Names).
 
-?FORWARD2(escalus_client, send).
-?FORWARD2(escalus_client, send_and_wait).
-?FORWARD1(escalus_client, wait_for_stanza).
-?FORWARD2(escalus_client, wait_for_stanza).
-?FORWARD2(escalus_client, wait_for_stanzas).
-?FORWARD3(escalus_client, wait_for_stanzas).
-?FORWARD1(escalus_client, peek_stanzas).
+%% Story API
 
-?FORWARD3(escalus_overridables, override).
+make_everyone_friends(Config) ->
+    escalus_story:make_everyone_friends(Config).
+
+fresh_story(Config, ResourceCounts, Story) ->
+    escalus_fresh:story(Config, ResourceCounts, Story).
+
+fresh_story_with_config(Config, ResourceCounts, Story) ->
+    escalus_fresh:story_with_config(Config, ResourceCounts, Story).
+
+story(Config, ResourceCounts, Story) ->
+    escalus_story:story(Config, ResourceCounts, Story).
+
+%% Assertions
+
+assert(PredSpec, Arg) ->
+    escalus_new_assert:assert(PredSpec, Arg).
+
+assert(PredSpec, Params, Arg) ->
+    escalus_new_assert:assert(PredSpec, Params, Arg).
+
+assert_many(Predicates, Stanzas) ->
+    escalus_new_assert:assert_many(Predicates, Stanzas).
+
+%% Client API
+
+send(Client, Packet) ->
+    escalus_client:send(Client, Packet).
+
+send_and_wait(Client, Packet) ->
+    escalus_client:send_and_wait(Client, Packet).
+
+wait_for_stanza(Client) ->
+    escalus_client:wait_for_stanza(Client).
+
+wait_for_stanza(Client, Timeout) ->
+    escalus_client:wait_for_stanza(Client, Timeout).
+
+wait_for_stanzas(Client, Count) ->
+    escalus_client:wait_for_stanzas(Client, Count).
+
+wait_for_stanzas(Client, Count, Timeout) ->
+    escalus_client:wait_for_stanzas(Client, Count, Timeout).
+
+peek_stanzas(Client) ->
+    escalus_client:peek_stanzas(Client).
+
+%% Other functions
+
+override(Config, OverrideName, NewValue) ->
+    escalus_overridables:override(Config, OverrideName, NewValue).
 
 ensure_started(App) ->
     case application:start(App) of

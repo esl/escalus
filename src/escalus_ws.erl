@@ -96,6 +96,8 @@ get_transport(#client{rcv_pid = Pid}) ->
 %%% gen_server callbacks
 %%%===================================================================
 
+%% TODO: refactor all opt defaults taken from Args into a default_opts function,
+%%       so that we know what options the module actually expects
 init([Args, Owner]) ->
     Host = get_host(Args, "localhost"),
     Port = get_port(Args, 5280),

@@ -137,6 +137,8 @@ recv(#client{rcv_pid = Pid}) ->
 %%% gen_server callbacks
 %%%===================================================================
 
+%% TODO: refactor all opt defaults taken from Args into a default_opts function,
+%%       so that we know what options the module actually expects
 init([Args, Owner]) ->
     Host = proplists:get_value(host, Args, <<"localhost">>),
     Port = proplists:get_value(port, Args, 5222),
