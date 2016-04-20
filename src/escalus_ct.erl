@@ -13,8 +13,7 @@
 -export([add_log_link/3,
          fail/1,
          get_config/1,
-         log_stanza/3,
-         is_ct_available/0]).
+         log_stanza/3]).
 
 %% What about that?
 -export([rpc_call/6]).
@@ -87,15 +86,11 @@ log_stanza(Jid, Direction, Stanza) ->
 
 -spec is_ct_available() -> boolean().
 is_ct_available() ->
-    case application:get_env(?APPNAME, common_test) of
-        %% For a transitional period let's assume that unless
-        %% {common_test, false} is defined, Common Test is available.
-        undefined ->
-            true;
-        {ok, true} ->
-            true;
+    case ct:get_status() of
+        no_tests_running ->
+            false;
         _ ->
-            false
+            true
     end.
 
 -spec do_log_stanza(binary(), in | out, exml:element()) -> ok.
