@@ -96,9 +96,7 @@ bind(Conn, Props) ->
     Resource = proplists:get_value(resource, Props, ?DEFAULT_RESOURCE),
     escalus_connection:send(Conn, escalus_stanza:bind(Resource)),
     BindReply = escalus_connection:get_stanza(Conn, bind_reply),
-    escalus:assert(is_iq_result, BindReply),
-    ?NS_BIND = exml_query:path(BindReply, [{element, <<"bind">>},
-                                           {attr, <<"xmlns">>}]),
+    escalus:assert(is_bind_result, BindReply),
     case proplists:get_value(auth_method, Props) of
         <<"SASL-ANON">> ->
             JID = exml_query:path(BindReply, [{element, <<"bind">>}, {element, <<"jid">>}, cdata]),

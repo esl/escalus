@@ -86,7 +86,8 @@
          has_ns/2,
          is_compressed/1,
          is_mam_archived_message/2,
-         is_mam_fin_message/1
+         is_mam_fin_message/1,
+         is_bind_result/1
         ]).
 
 -export(['not'/1]).
@@ -641,6 +642,12 @@ is_compressed(#xmlel{name = <<"compressed">>} = Stanza) ->
     has_ns(?NS_COMPRESS, Stanza);
 is_compressed(_) ->
     false.
+
+is_bind_result(#xmlel{} = Stanza) ->
+    is_iq_result(Stanza)
+    andalso
+    ?NS_BIND =:= exml_query:path(Stanza, [{element, <<"bind">>},
+                                          {attr, <<"xmlns">>}]).
 
 %%--------------------------------------------------------------------
 %% Functors
