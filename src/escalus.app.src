@@ -13,9 +13,6 @@
   {licenses, ["Apache 2.0"]},
   {links, [{"Github", "https://github.com/esl/escalus"}]},
   {build_tools, ["make", "rebar"]},
-  {mod, { escalus_app, []}},
-  {env, [%% Set config_file in case of using Escalus without Common Test
-         %% (i.e. common_test is false).
-         {common_test, true},
-         {config_file, "priv/escalus.config"}]}
+  {mod, {escalus_app, []}},
+  {env, [{config_file, "priv/escalus.config"}]}
  ]}.
