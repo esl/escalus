@@ -106,7 +106,9 @@ start(Props0, Steps) ->
                                                 {Conn, Props, []},
                                                 [prepare_step(Step)
                                                  || Step <- Steps]),
-        {ok, Conn1, Props1, Features}
+        Jid = escalus_utils:make_jid(Props1),
+        Client = Conn1#client{jid = Jid},
+        {ok, Client, Props1, Features}
     catch
         throw:{connection_step_failed, _Details, _Reason} = Error ->
             {error, Error}

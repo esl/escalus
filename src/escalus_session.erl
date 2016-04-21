@@ -105,13 +105,15 @@ bind(Conn, Props) ->
     escalus:assert(is_iq_result, BindReply),
     ?NS_BIND = exml_query:path(BindReply, [{element, <<"bind">>},
                                            {attr, <<"xmlns">>}]),
+    JID = exml_query:path(BindReply, [{element, <<"bind">>}, {element, <<"jid">>}, cdata]),
+    Resource = escalus_utils:get_resource(JID),
+    PropsWithRes = lists:keystore(resource, 1, Props, {resource, Resource}),
     case proplists:get_value(auth_method, Props) of
         <<"SASL-ANON">> ->
-            JID = exml_query:path(BindReply, [{element, <<"bind">>}, {element, <<"jid">>}, cdata]),
             TMPUsername = escalus_utils:get_username(JID),
-            lists:keyreplace(username, 1, Props, {username, TMPUsername});
+            lists:keyreplace(username, 1, PropsWithRes, {username, TMPUsername});
         _ ->
-            Props
+            PropsWithRes
     end.
 
 -spec compress(client(), user_spec()) -> {client(), user_spec()}.

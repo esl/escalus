@@ -26,7 +26,9 @@
          identity/1,
          mix_match/3,
          get_jid/1,
+         make_jid/1,
          get_short_jid/1,
+         get_resource/1,
          jid_to_lower/1,
          get_username/1,
          get_server/1,
@@ -141,7 +143,15 @@ get_jid(Jid) when is_list(Jid) ->
 get_jid(Jid) when is_binary(Jid) ->
     Jid.
 
--spec get_short_jid(#client{} | atom() | binary() | string()) -> binary().
+-spec make_jid(escalus_users:user_spec()) -> binary().
+make_jid(Proplist) ->
+    {username, U} = lists:keyfind(username, 1, Proplist),
+    {server, S} = lists:keyfind(server, 1, Proplist),
+    {resource, R} = lists:keyfind(resource, 1, Proplist),
+    <<U/binary, "@", S/binary, "/", R/binary>>.
+
+
+-spec get_short_jid(escalus:client() | atom() | binary() | string()) -> binary().
 get_short_jid(#client{}=Recipient) ->
     escalus_client:short_jid(Recipient);
 get_short_jid(Username) when is_atom(Username) ->
@@ -150,6 +160,10 @@ get_short_jid(Jid) when is_list(Jid) ->
     list_to_binary(Jid);
 get_short_jid(Jid) when is_binary(Jid) ->
     Jid.
+
+get_resource(FullJID) ->
+    escalus_utils:regexp_get(FullJID, <<"^[^/]*[/](.*)">>).
+
 
 -spec jid_to_lower(binary()) -> binary().
 jid_to_lower(Jid) ->
