@@ -86,12 +86,7 @@ log_stanza(Jid, Direction, Stanza) ->
 
 -spec is_ct_available() -> boolean().
 is_ct_available() ->
-    case ct:get_status() of
-        no_tests_running ->
-            false;
-        _ ->
-            true
-    end.
+    code:is_loaded(ct) =/= false andalso ct:get_status() =/= no_tests_running.
 
 -spec do_log_stanza(binary(), in | out, exml:element()) -> ok.
 do_log_stanza(Jid, Direction, Stanza) ->

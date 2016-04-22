@@ -151,17 +151,9 @@ This makes predefined environment variables from `escalus.app` available
 for access by `application:get_env`.
 These options and their respective values for running without Common Test are:
 
-    {env, [%% Set config_file in case of using Escalus without Common Test
-           %% (i.e. common_test is false).
-           {common_test, false},
-           {config_file, "priv/escalus.config"}]}
+    {env, [{config_file, "priv/escalus.config"}]}
 
 To recap:
-
--   `common_test` must be false - this will tell Escalus not to rely on
-    modules available in the `common_test` application;
-    this also disallows the use of `escalus_ejabberd:rpc` and similar
-    functions,
 
 -   `config_file` **must** be set to a configuration file location;
     this location may be absolute or relative (in which case the file will
@@ -176,7 +168,6 @@ If you don't want to rely on the application resource file
 after loading Escalus:
 
     > application:ensure_all_started(escalus).
-    > application:set_env(escalus, common_test, false).
     > application:set_env(escalus, config_file, "/absolute/or/relative/path").
 
 Keep in mind that calling `application:ensure_all_started(escalus)` will
@@ -214,7 +205,6 @@ Fire an Erlang shell:
 Run example:
 
     application:ensure_all_started(escalus).
-    application:set_env(escalus, common_test, false).
     {ok, Config} = file:consult("priv/escalus.config").
     CarolSpec = escalus_users:get_options(Config, carol).
     {ok, Carol, _, _} = escalus_connection:start(CarolSpec).
@@ -230,7 +220,6 @@ Run example:
     X2SFun = fun(X) -> lists:flatten(io_lib:format("~p~n", [X])) end.
     {ok, Config0} = file:consult("priv/escalus.config").
     application:ensure_all_started(escalus).
-    application:set_env(escalus, common_test, false).
     escalus:create_users(Config0, {by_name, [alice, mike]}).
     Config = escalus_event:start(escalus_cleaner:start(Config0)).
     SendFun = fun(A, B) -> escalus:send(A, escalus_stanza:chat_to(B, "hi")), ok end.

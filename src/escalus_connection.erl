@@ -155,9 +155,10 @@ get_stanza(Conn, Name) ->
     get_stanza(Conn, Name, ?TIMEOUT).
 
 -spec get_stanza(client(), any(), timeout()) -> exml_stream:element().
-get_stanza(Conn, Name, Timeout) ->
+get_stanza(#client{rcv_pid = Pid, jid = Jid}, Name, Timeout) ->
     receive
-        {stanza, Conn, Stanza} ->
+        {stanza, #client{rcv_pid = Pid}, Stanza} ->
+            escalus_ct:log_stanza(Jid, in, Stanza),
             Stanza
     after Timeout ->
             throw({timeout, Name})
