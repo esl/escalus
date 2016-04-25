@@ -348,4 +348,5 @@ mechanism_to_auth_function(<<"DIGEST-MD5">>)  -> auth_digest_md5;
 mechanism_to_auth_function(<<"ANONYMOUS">>)   -> auth_anonymous;
 mechanism_to_auth_function(<<"EXTERNAL">>)    -> auth_sasl_external;
 mechanism_to_auth_function(<<"SCRAM-SHA-1">>) -> auth_sasl_scram_sha1;
-mechanism_to_auth_function(<<"X-OAUTH">>)     -> auth_sasl_oauth.
+mechanism_to_auth_function(<<"X-OAUTH">>)     -> auth_sasl_oauth;
+mechanism_to_auth_function(_)                 -> auth_unknown.
