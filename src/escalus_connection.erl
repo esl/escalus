@@ -233,8 +233,8 @@ get_module(M) when is_atom(M) ->
             %% However, due to this mapping (predefined atom -> module name)
             %% we limit this flexibility.
             %% TODO: Let's remove this limitation in the future.
-            Msg = io_lib:format("~s:get_module/1 called with transport '~s' (use a module name instead)",
-                                [?MODULE, M]),
+            Msg = io_lib:format("~s:get_module/1 called with transport '~s' "
+                                "(use a module name instead)", [?MODULE, M]),
             escalus_compat:complain(Msg),
             get_module_old(M);
         false ->
