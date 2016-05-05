@@ -643,6 +643,7 @@ is_compressed(#xmlel{name = <<"compressed">>} = Stanza) ->
 is_compressed(_) ->
     false.
 
+-spec is_bind_result(exml:element()) -> boolean().
 is_bind_result(#xmlel{} = Stanza) ->
     is_iq_result(Stanza)
     andalso
