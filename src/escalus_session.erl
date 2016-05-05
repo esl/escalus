@@ -344,7 +344,8 @@ mechanism_to_auth_function(<<"EXTERNAL">>)    -> auth_sasl_external;
 mechanism_to_auth_function(<<"SCRAM-SHA-1">>) -> auth_sasl_scram_sha1;
 mechanism_to_auth_function(<<"X-OAUTH">>)     -> auth_sasl_oauth.
 
--spec stream_start_to_element(exml_stream:start()) -> exml:element().
+-spec stream_start_to_element(exml_stream:start() | exml:element()) -> exml:element().
+stream_start_to_element(#xmlel{name = <<"open">>} = Open) -> Open;
 stream_start_to_element(#xmlstreamstart{name = Name, attrs = Attrs}) ->
     #xmlel{name = Name, attrs = Attrs, children = []}.
 
