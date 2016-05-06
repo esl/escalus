@@ -450,5 +450,6 @@ do_connect(IsSSLConnection, Address, Port, Args, SocketOpts, OnConnectFun) ->
 maybe_ssl_connection(true, Address, Port, Opts, Args) ->
     SSLOpts = proplists:get_value(ssl_opts, Args, []),
     ssl:connect(Address, Port, Opts ++ SSLOpts);
-maybe_ssl_connection(_, Address, Port, Opts, _) ->
-    gen_tcp:connect(Address, Port, Opts).
+maybe_ssl_connection(_, Address, Port, Opts, Args) ->
+    TCPOpts = proplists:get_value(tcp_opts, Args, []),
+    gen_tcp:connect(Address, Port, Opts ++ TCPOpts).
