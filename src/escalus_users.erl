@@ -243,8 +243,8 @@ get_user_by_name(Name) ->
 
 -spec create_user(escalus:config(), named_user()) -> any().
 create_user(Config, {_Name, Options}) ->
-    ClientProps = get_options(Config, Options),
-    {ok, Conn, ClientProps, _} = escalus_connection:start(ClientProps,
+    ClientProps0 = get_options(Config, Options),
+    {ok, Conn, ClientProps, _} = escalus_connection:start(ClientProps0,
                                                           [start_stream,
                                                            stream_features,
                                                            maybe_use_ssl]),
@@ -298,13 +298,11 @@ is_mod_register_enabled(Config) ->
     Server = escalus_config:get_config(escalus_server, Config, <<"localhost">>),
     Host = escalus_config:get_config(escalus_host, Config, Server),
     Port = escalus_config:get_config(escalus_port, Config, 5222),
-    ClientProps = [{server, Server},
-                   {host, Host},
-                   {port, Port}],
-    {ok, Conn, ClientProps, _} = escalus_connection:start(ClientProps,
-                                                          [start_stream,
-                                                           stream_features,
-                                                           maybe_use_ssl]),
+    ClientProps = [{server, Server}, {host, Host}, {port, Port}],
+    {ok, Conn, _, _} = escalus_connection:start(ClientProps,
+                                                [start_stream,
+                                                 stream_features,
+                                                 maybe_use_ssl]),
     escalus_connection:send(Conn, escalus_stanza:get_registration_fields()),
     case wait_for_result(Conn) of
         {error, _, _} ->
@@ -331,6 +329,9 @@ is_mod_register_enabled(Config) ->
                      | 'auth_method' %% <<"PLAIN">> | <<"DIGETS-MD5">>
                                      %% | <<"SASL-ANON">> | <<"SCRAM-SHA-1">>
                                      %% | Other
+                     | 'connection_steps'  %% [escalus_session:step()]
+                     | 'parser_opts' %% a list of exml parser opts,
+                                     %% e.g. infinite_stream
                      .
 
 -type ejabberd_option() :: 'ejabberd_node'

@@ -62,15 +62,12 @@
 -spec start_stream(client(), user_spec()) -> {user_spec(), features()}.
 start_stream(Conn, Props) ->
     {server, Server} = lists:keyfind(server, 1, Props),
-    XMLNS = case proplists:get_value(endpoint, Props) of
-                {server, _} -> <<"jabber:server">>;
-                _ -> <<"jabber:client">>
-            end,
+    NS = proplists:get_value(stream_ns, Props, <<"jabber:client">>),
     Transport = proplists:get_value(transport, Props, tcp),
     IsLegacy = proplists:get_value(wslegacy, Props, false),
     StreamStartReq = case {Transport, IsLegacy} of
                          {ws, false} -> escalus_stanza:ws_open(Server);
-                         _ -> escalus_stanza:stream_start(Server, XMLNS)
+                         _ -> escalus_stanza:stream_start(Server, NS)
                      end,
     ok = escalus_connection:send(Conn, StreamStartReq),
     StreamStartRep = escalus_connection:get_stanza(Conn, wait_for_stream),
@@ -78,7 +75,7 @@ start_stream(Conn, Props) ->
     %% TODO: deprecate 2-tuple return value
     %% To preserve the previous interface we still return a 2-tuple,
     %% but it's guaranteed that the features will be empty.
-    {Props, []}.
+    {maybe_store_stream_id(StreamStartRep, Props), []}.
 
 -spec starttls(client(), user_spec()) -> {client(), user_spec()}.
 starttls(Conn, Props) ->
@@ -102,9 +99,7 @@ bind(Conn, Props) ->
     Resource = proplists:get_value(resource, Props, ?DEFAULT_RESOURCE),
     escalus_connection:send(Conn, escalus_stanza:bind(Resource)),
     BindReply = escalus_connection:get_stanza(Conn, bind_reply),
-    escalus:assert(is_iq_result, BindReply),
-    ?NS_BIND = exml_query:path(BindReply, [{element, <<"bind">>},
-                                           {attr, <<"xmlns">>}]),
+    escalus:assert(is_bind_result, BindReply),
     case proplists:get_value(auth_method, Props) of
         <<"SASL-ANON">> ->
             JID = exml_query:path(BindReply, [{element, <<"bind">>}, {element, <<"jid">>}, cdata]),
@@ -331,7 +326,6 @@ get_stream_management(Features) ->
 get_advanced_message_processing(Features) ->
     undefined =/= exml_query:subelement(Features, <<"amp">>).
 
-
 -spec get_client_state_indication(exml:element()) -> boolean().
 get_client_state_indication(Features) ->
     undefined =/= exml_query:subelement(Features, <<"csi">>).
@@ -349,3 +343,16 @@ mechanism_to_auth_function(<<"ANONYMOUS">>)   -> auth_anonymous;
 mechanism_to_auth_function(<<"EXTERNAL">>)    -> auth_sasl_external;
 mechanism_to_auth_function(<<"SCRAM-SHA-1">>) -> auth_sasl_scram_sha1;
 mechanism_to_auth_function(<<"X-OAUTH">>)     -> auth_sasl_oauth.
+
+-spec stream_start_to_element(exml_stream:start() | exml:element()) -> exml:element().
+stream_start_to_element(#xmlel{name = <<"open">>} = Open) -> Open;
+stream_start_to_element(#xmlstreamstart{name = Name, attrs = Attrs}) ->
+    #xmlel{name = Name, attrs = Attrs, children = []}.
+
+maybe_store_stream_id(StreamStartResponse, Props) ->
+    case exml_query:attr(stream_start_to_element(StreamStartResponse),
+                         <<"id">>, no_id) of
+        no_id -> Props;
+        ID when is_binary(ID) ->
+            lists:keystore(stream_id, 1, Props, {stream_id, ID})
+    end.
