@@ -135,6 +135,7 @@ prepare_step({Mod, Fun}) when is_atom(Mod), is_atom(Fun) ->
 prepare_step(Fun) when is_function(Fun, 3) ->
     Fun.
 
+-spec connect(escalus_users:user_spec()) -> {ok, client(), escalus_users:user_spec()}.
 connect(Props) ->
     Transport = proplists:get_value(transport, Props, escalus_tcp),
     Server = proplists:get_value(server, Props, <<"localhost">>),

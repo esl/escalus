@@ -277,6 +277,11 @@ error_element(Type, Condition) ->
            children = [#xmlel{name = Condition,
                               attrs = [{<<"xmlns">>, ?NS_STANZA_ERRORS}]}]}.
 
+-spec message(From, Recipient, Type, Msg) -> exml:element() when
+      From :: undefined | binary(),
+      Recipient :: escalus_utils:jid_spec(),
+      Type :: binary(),
+      Msg :: binary().
 message(From, Recipient, Type, Msg) when is_atom(Recipient) ->
     %% TODO: Drop support for passing just an atom as Recipient,
     %%       therefore removing reliance on users being defined in the config file.
