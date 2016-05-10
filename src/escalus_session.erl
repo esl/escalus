@@ -36,7 +36,7 @@
               step/0,
               step_state/0]).
 
--type feature() :: {atom(), boolean()}.
+-type feature() :: {atom(), any()}.
 -type features() :: [feature()].
 -define(CONNECTION_STEP, (escalus_connection:client(),
                           escalus_users:user_spec(),
@@ -303,8 +303,8 @@ get_stream_features(Features) ->
      {starttls, get_starttls(Features)},
      {stream_management, get_stream_management(Features)},
      {advanced_message_processing, get_advanced_message_processing(Features)},
-     {client_state_indication, get_client_state_indication(Features)}]
-    ++ get_sasl_mechanisms(Features).
+     {client_state_indication, get_client_state_indication(Features)},
+     {sasl_mechanisms, get_sasl_mechanisms(Features)}].
 
 -spec get_compression(exml:element()) -> boolean().
 get_compression(Features) ->
@@ -332,17 +332,8 @@ get_client_state_indication(Features) ->
 
 -spec get_sasl_mechanisms(exml:element()) -> features().
 get_sasl_mechanisms(Features) ->
-    MechCDataPath = [{element, <<"mechanisms">>}, {element, <<"mechanism">>}, cdata],
-    [ {mechanism_to_auth_function(Mech), true}
-      || Mech <- exml_query:paths(Features, MechCDataPath) ].
-
-mechanism_to_auth_function(<<"PLAIN">>)       -> auth_plain;
-mechanism_to_auth_function(<<"DIGEST-MD5">>)  -> auth_digest_md5;
-%% TODO: no auth_anonymous in escalus_auth!
-mechanism_to_auth_function(<<"ANONYMOUS">>)   -> auth_anonymous;
-mechanism_to_auth_function(<<"EXTERNAL">>)    -> auth_sasl_external;
-mechanism_to_auth_function(<<"SCRAM-SHA-1">>) -> auth_sasl_scram_sha1;
-mechanism_to_auth_function(<<"X-OAUTH">>)     -> auth_sasl_oauth.
+    exml_query:paths(Features, [{element, <<"mechanisms">>},
+                                {element, <<"mechanism">>}, cdata]).
 
 -spec stream_start_to_element(exml_stream:start() | exml:element()) -> exml:element().
 stream_start_to_element(#xmlel{name = <<"open">>} = Open) -> Open;
