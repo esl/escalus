@@ -1,5 +1,5 @@
 %%%----------------------------------------------------------------------
-%%% File    : scram.erl
+%%% File    : escalus_scram.erl
 %%% Author  : Stephen Röttger <stephen.roettger@googlemail.com>
 %%% Purpose : SCRAM (RFC 5802)
 %%% Created : 7 Aug 2011 by Stephen Röttger <stephen.roettger@googlemail.com>
@@ -24,7 +24,7 @@
 %%%
 %%%----------------------------------------------------------------------
 
--module(scram).
+-module(escalus_scram).
 
 -author('stephen.roettger@googlemail.com').
 

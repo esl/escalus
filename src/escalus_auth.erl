@@ -161,23 +161,23 @@ scram_sha1_response(Conn, GS2Headers, ClientFirstMessageBare, Props) ->
     Nonce = get_property(<<"r">>, ChallengeData),
     Iteration = binary_to_integer(get_property(<<"i">>, ChallengeData)),
     Salt = base64:decode(get_property(<<"s">>, ChallengeData)),
-    SaltedPassword = scram:salted_password(Password, Salt, Iteration),
-    ClientKey = scram:client_key(SaltedPassword),
-    StoredKey = scram:stored_key(ClientKey),
+    SaltedPassword = escalus_scram:salted_password(Password, Salt, Iteration),
+    ClientKey = escalus_scram:client_key(SaltedPassword),
+    StoredKey = escalus_scram:stored_key(ClientKey),
     GS2Headers64 = base64:encode(GS2Headers),
     ClientFinalMessageWithoutProof = <<"c=",GS2Headers64/binary,",r=", Nonce/binary>>,
     AuthMessage = <<ClientFirstMessageBare/binary,$,,
                     Challenge/binary,$,,
                     ClientFinalMessageWithoutProof/binary>>,
-    ClientSignature = scram:client_signature(StoredKey, AuthMessage),
+    ClientSignature = escalus_scram:client_signature(StoredKey, AuthMessage),
     ClientProof = base64:encode(crypto:exor(ClientKey, ClientSignature)),
     ClientFinalMessage = <<ClientFinalMessageWithoutProof/binary,
                            ",p=", ClientProof/binary>>,
     {base64_cdata(ClientFinalMessage),SaltedPassword, AuthMessage}.
 
 scram_sha1_validate_server(SaltedPassword, AuthMessage, ServerSignature) ->
-    ServerKey = scram:server_key(SaltedPassword),
-    ServerSignatureComputed = scram:server_signature(ServerKey, AuthMessage),
+    ServerKey = escalus_scram:server_key(SaltedPassword),
+    ServerSignatureComputed = escalus_scram:server_signature(ServerKey, AuthMessage),
     case ServerSignatureComputed == ServerSignature of
         true ->
             ok;
