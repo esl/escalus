@@ -161,7 +161,7 @@ init([Args, Owner]) ->
          end,
 
 
-    BasicOpts = [binary, {active, once}],
+    BasicOpts = [binary, {active, once}, {reuseaddr, true}],
     SocketOpts = case Interface of
                      undefined -> BasicOpts;
                      _         -> [{ip, iface_to_ip_address(Interface)}] ++ BasicOpts
