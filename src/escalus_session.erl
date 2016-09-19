@@ -67,7 +67,7 @@ start_stream(Conn, Props) ->
     Transport = proplists:get_value(transport, Props, tcp),
     IsLegacy = proplists:get_value(wslegacy, Props, false),
     StreamStartReq = case {Transport, IsLegacy} of
-                         {ws, false} -> escalus_stanza:ws_open(Server);
+                         {escalus_ws, false} -> escalus_stanza:ws_open(Server);
                          _ -> escalus_stanza:stream_start(Server, NS)
                      end,
     ok = escalus_connection:send(Conn, StreamStartReq),
@@ -265,12 +265,12 @@ session(Conn, Props, Features) ->
 
 assert_stream_start(StreamStartRep, Transport, IsLegacy) ->
     case {StreamStartRep, Transport, IsLegacy} of
-        {#xmlel{name = <<"open">>}, ws, false} ->
+        {#xmlel{name = <<"open">>}, escalus_ws, false} ->
             ok;
-        {#xmlel{name = <<"open">>}, ws, true} ->
+        {#xmlel{name = <<"open">>}, escalus_ws, true} ->
             error("<open/> with legacy WebSocket",
                   [StreamStartRep]);
-        {#xmlstreamstart{}, ws, false} ->
+        {#xmlstreamstart{}, escalus_ws, false} ->
             error("<stream:stream> with non-legacy WebSocket",
                   [StreamStartRep]);
         {#xmlstreamstart{}, _, _} ->
@@ -281,11 +281,11 @@ assert_stream_start(StreamStartRep, Transport, IsLegacy) ->
 
 assert_stream_features(StreamFeatures, Transport, IsLegacy) ->
     case {StreamFeatures, Transport, IsLegacy} of
-        {#xmlel{name = <<"features">>}, ws, false} ->
+        {#xmlel{name = <<"features">>}, escalus_ws, false} ->
             ok;
-        {#xmlel{name = <<"features">>}, ws, true} ->
+        {#xmlel{name = <<"features">>}, escalus_ws, true} ->
             error("<features> with legacy WebSocket");
-        {#xmlel{name = <<"stream:features">>}, ws, false} ->
+        {#xmlel{name = <<"stream:features">>}, escalus_ws, false} ->
             error("<stream:features> with non-legacy WebSocket",
                   [StreamFeatures]);
         {#xmlel{name = <<"stream:features">>}, _, _} ->
