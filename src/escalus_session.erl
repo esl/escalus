@@ -41,6 +41,7 @@
 -define(CONNECTION_STEP, (escalus_connection:client(),
                           escalus_users:user_spec(),
                           features()) -> step_state()).
+-define(CONNECTION_STEP_SIG(Module), Module?CONNECTION_STEP).
 -type step() :: fun(?CONNECTION_STEP).
 -type step_state() :: {escalus_connection:client(),
                        escalus_users:user_spec(),
@@ -162,12 +163,12 @@ can_use(Feature, Props, Features) ->
 %%% New style connection initiation
 %%%===================================================================
 
--spec start_stream/3 :: ?CONNECTION_STEP.
+-spec ?CONNECTION_STEP_SIG(start_stream).
 start_stream(Conn, Props, [] = _Features) ->
     {Props1, []} = start_stream(Conn, Props),
     {Conn, Props1, []}.
 
--spec stream_features/3 :: ?CONNECTION_STEP.
+-spec ?CONNECTION_STEP_SIG(stream_features).
 stream_features(Conn, Props, [] = _Features) ->
     StreamFeatures = escalus_connection:get_stanza(Conn, wait_for_features),
     Transport = proplists:get_value(transport, Props, tcp),
@@ -175,7 +176,7 @@ stream_features(Conn, Props, [] = _Features) ->
     assert_stream_features(StreamFeatures, Transport, IsLegacy),
     {Conn, Props, get_stream_features(StreamFeatures)}.
 
--spec maybe_use_ssl/3 :: ?CONNECTION_STEP.
+-spec ?CONNECTION_STEP_SIG(maybe_use_ssl).
 maybe_use_ssl(Conn, Props, Features) ->
     case use_ssl(Props, Features) of
         true ->
@@ -186,7 +187,7 @@ maybe_use_ssl(Conn, Props, Features) ->
             {Conn, Props, Features}
     end.
 
--spec maybe_use_carbons/3 :: ?CONNECTION_STEP.
+-spec ?CONNECTION_STEP_SIG(maybe_use_carbons).
 maybe_use_carbons(Conn, Props, Features) ->
     case can_use_carbons(Props, Features) of
         true ->
@@ -195,14 +196,14 @@ maybe_use_carbons(Conn, Props, Features) ->
             {Conn, Props, Features}
     end.
 
--spec use_carbons/3 :: ?CONNECTION_STEP.
+-spec ?CONNECTION_STEP_SIG(use_carbons).
 use_carbons(Conn, Props, Features) ->
     escalus_connection:send(Conn, escalus_stanza:carbons_enable()),
     Result = escalus_connection:get_stanza(Conn, carbon_iq_response),
     escalus:assert(is_iq, [<<"result">>], Result),
     {Conn, Props, Features}.
 
--spec maybe_use_compression/3 :: ?CONNECTION_STEP.
+-spec ?CONNECTION_STEP_SIG(maybe_use_compression).
 maybe_use_compression(Conn, Props, Features) ->
     case can_use_compression(Props, Features) of
         true ->
@@ -213,7 +214,7 @@ maybe_use_compression(Conn, Props, Features) ->
             {Conn, Props, Features}
     end.
 
--spec maybe_stream_management/3 :: ?CONNECTION_STEP.
+-spec ?CONNECTION_STEP_SIG(maybe_stream_management).
 maybe_stream_management(Conn, Props, Features) ->
     case can_use_stream_management(Props, Features) of
         true ->
@@ -222,14 +223,14 @@ maybe_stream_management(Conn, Props, Features) ->
             {Conn, Props, Features}
     end.
 
--spec stream_management/3 :: ?CONNECTION_STEP.
+-spec ?CONNECTION_STEP_SIG(stream_management).
 stream_management(Conn, Props, Features) ->
     escalus_connection:send(Conn, escalus_stanza:enable_sm()),
     Enabled = escalus_connection:get_stanza(Conn, stream_management),
     true = escalus_pred:is_sm_enabled(Enabled),
     {Conn, Props, Features}.
 
--spec maybe_stream_resumption/3 :: ?CONNECTION_STEP.
+-spec ?CONNECTION_STEP_SIG(maybe_stream_resumption).
 maybe_stream_resumption(Conn, Props, Features) ->
     case can_use_stream_management(Props, Features) of
         true ->
@@ -238,7 +239,7 @@ maybe_stream_resumption(Conn, Props, Features) ->
             {Conn, Props, Features}
     end.
 
--spec stream_resumption/3 :: ?CONNECTION_STEP.
+-spec ?CONNECTION_STEP_SIG(stream_resumption).
 stream_resumption(Conn, Props, Features) ->
     escalus_connection:send(Conn, escalus_stanza:enable_sm([resume])),
     Enabled = escalus_connection:get_stanza(Conn, stream_resumption),
@@ -246,15 +247,15 @@ stream_resumption(Conn, Props, Features) ->
     SMID = exml_query:attr(Enabled, <<"id">>),
     {Conn, [{smid, SMID} | Props], Features}.
 
--spec authenticate/3 :: ?CONNECTION_STEP.
+-spec ?CONNECTION_STEP_SIG(authenticate).
 authenticate(Conn, Props, Features) ->
     {Conn, authenticate(Conn, Props), Features}.
 
--spec bind/3 :: ?CONNECTION_STEP.
+-spec ?CONNECTION_STEP_SIG(bind).
 bind(Conn, Props, Features) ->
     {Conn, bind(Conn, Props), Features}.
 
--spec session/3 :: ?CONNECTION_STEP.
+-spec ?CONNECTION_STEP_SIG(session).
 session(Conn, Props, Features) ->
     {Conn, session(Conn, Props), Features}.
 
