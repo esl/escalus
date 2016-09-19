@@ -10,11 +10,7 @@
 	 handle_event/2,
      code_change/3]).
 
--ifdef(namespaced_types).
 -type dict_t() :: dict:dict().
--else.
--type dict_t() :: dict().
--endif.
 
 -record(state, {
         events :: list(),
