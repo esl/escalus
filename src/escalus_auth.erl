@@ -22,7 +22,6 @@
 -type user_spec() :: escalus_users:user_spec().
 
 -include_lib("exml/include/exml.hrl").
--include("no_binary_to_integer.hrl").
 
 %%--------------------------------------------------------------------
 %% Public API

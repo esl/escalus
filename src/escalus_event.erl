@@ -21,7 +21,6 @@
 -export_type([event_client/0]).
 
 -include_lib("exml/include/exml.hrl").
--include("no_binary_to_integer.hrl").
 
 -type config() :: escalus_config:config().
 -type event_client() :: list({atom(), any()}).
