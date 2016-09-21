@@ -4,11 +4,11 @@
 -export([get_history/1]).
 
 -export([init/1,
-	 terminate/2,
-	 handle_info/2,
-	 handle_call/2,
-	 handle_event/2,
-     code_change/3]).
+         terminate/2,
+         handle_info/2,
+         handle_call/2,
+         handle_event/2,
+         code_change/3]).
 
 -type dict_t() :: dict:dict().
 
