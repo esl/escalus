@@ -4,17 +4,13 @@
 -export([get_history/1]).
 
 -export([init/1,
-	 terminate/2,
-	 handle_info/2,
-	 handle_call/2,
-	 handle_event/2,
-     code_change/3]).
+         terminate/2,
+         handle_info/2,
+         handle_call/2,
+         handle_event/2,
+         code_change/3]).
 
--ifdef(namespaced_types).
 -type dict_t() :: dict:dict().
--else.
--type dict_t() :: dict().
--endif.
 
 -record(state, {
         events :: list(),

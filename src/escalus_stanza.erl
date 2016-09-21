@@ -129,7 +129,6 @@
 
 -include("escalus.hrl").
 -include("escalus_xmlns.hrl").
--include("no_binary_to_integer.hrl").
 -include_lib("exml/include/exml.hrl").
 -include_lib("exml/include/exml_stream.hrl").
 

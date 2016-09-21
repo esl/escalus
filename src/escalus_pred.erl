@@ -99,7 +99,6 @@
 -include("escalus_xmlns.hrl").
 -include("escalus_deprecated.hrl").
 -include_lib("exml/include/exml_stream.hrl").
--include("no_binary_to_integer.hrl").
 
 -import(escalus_compat, [bin/1]).
 

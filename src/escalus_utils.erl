@@ -37,11 +37,6 @@
          start_clients/2,
          regexp_get/2]).
 
--ifdef(no_binary_to_integer).
--export([binary_to_integer/1,
-         integer_to_binary/1]).
--endif.
-
 -import(escalus_compat, [unimplemented/0, bin/1]).
 
 -include("escalus.hrl").
@@ -191,16 +186,3 @@ regexp_get(Jid, Regex) ->
         re:run(Jid, Regex, [{capture, all_but_first, binary}]),
     ShortJid.
 
--ifdef(no_binary_to_integer).
-
-binary_to_integer(B) when is_binary(B) ->
-    list_to_integer(binary_to_list(B));
-binary_to_integer(B) ->
-    error(badarg, [B]).
-
-integer_to_binary(I) when is_integer(I) ->
-    list_to_binary(integer_to_list(I));
-integer_to_binary(I) ->
-    error(badarg, [I]).
-
--endif.

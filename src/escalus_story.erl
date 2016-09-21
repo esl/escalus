@@ -24,7 +24,6 @@
          send_initial_presence/1]).
 
 -include("escalus.hrl").
--include_lib("test_server/include/test_server.hrl").
 
 %%--------------------------------------------------------------------
 %% Public API

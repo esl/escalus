@@ -11,7 +11,6 @@
 -include_lib("exml/include/exml_stream.hrl").
 -include("escalus.hrl").
 -include("escalus_xmlns.hrl").
--include("no_binary_to_integer.hrl").
 
 %% Escalus transport callbacks
 -export([connect/1,

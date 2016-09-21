@@ -173,18 +173,11 @@ wait_for_session_count(Config, Count, _) ->
 %% `reset_option/2` will restore that saved value using the appropriate
 %% setter function and delete it from `Config`.
 
--ifdef(no_types_with_arities).
--type option() :: {Name   :: atom(),
-                   Getter :: fun(() -> any()),
-                   Setter :: fun((any()) -> any()),
-                   Value  :: any()}.
--else.
 -type option(Type) :: {Name   :: atom(),
                        Getter :: fun(() -> Type),
                        Setter :: fun((Type) -> any()),
                        Value  :: Type}.
 -type option() :: option(_).
--endif.
 
 -spec setup_option(option(), Config) -> Config.
 setup_option({Option, Get, Set, Value}, Config) ->
