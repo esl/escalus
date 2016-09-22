@@ -5,7 +5,6 @@
 %%%===================================================================
 -module(escalus_connection).
 
--include_lib("exml/include/exml_stream.hrl").
 -include("escalus.hrl").
 
 %% High-level API
@@ -34,7 +33,7 @@
 -type step_spec() :: atom() | {module(), atom()} | escalus_session:step().
 -export_type([step_spec/0]).
 
--type filter_pred() :: fun((#xmlel{}) -> boolean()) | none.
+-type filter_pred() :: fun((exml:element()) -> boolean()) | none.
 -export_type([filter_pred/0]).
 
 -export_type([t/0]).
@@ -54,7 +53,7 @@
 -type t() :: module().
 
 -callback connect([proplists:property()]) -> {ok, client()}.
--callback send(client(), #xmlel{}) -> no_return().
+-callback send(client(), exml:element()) -> ok.
 -callback stop(client()) -> ok | already_stopped.
 
 -callback is_connected(client()) -> boolean().
@@ -144,6 +143,7 @@ connect(Props) ->
     {ok, Conn} = Transport:connect(NewProps),
     {ok, Conn, NewProps}.
 
+-spec send(escalus:client(), exml:element()) -> ok.
 send(#client{module = Mod, event_client = EventClient, jid = Jid} = Client, Elem) ->
     escalus_event:outgoing_stanza(EventClient, Elem),
     escalus_ct:log_stanza(Jid, out, Elem),
@@ -193,8 +193,8 @@ kill(#client{module = Mod} = Client) ->
     Mod:kill(Client).
 
 
--spec maybe_forward_to_owner(filter_pred(), term(), [#xmlel{}],
-                             fun(([#xmlel{}], term()) -> term()))
+-spec maybe_forward_to_owner(filter_pred(), term(), [exml:element()],
+                             fun(([exml:element()], term()) -> term()))
         -> term().
 maybe_forward_to_owner(none, State, _Stanzas, _Fun) ->
     State;
