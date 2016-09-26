@@ -1,6 +1,6 @@
 ExtraDeps = [
              {mongooseim, ".*",
-              {git, "git://github.com/esl/mongooseim", {branch, "add-support-for-erlang-otp-19"}}}
+              {git, "git://github.com/esl/mongooseim", "3c0fa40"}}
             ].
 
 AddExtraDeps = fun (Deps) ->
