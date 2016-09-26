@@ -5,7 +5,6 @@
 %%%===================================================================
 -module(escalus_connection).
 
--include_lib("exml/include/exml_stream.hrl").
 -include("escalus.hrl").
 
 %% High-level API
@@ -34,7 +33,7 @@
 -type step_spec() :: atom() | {module(), atom()} | escalus_session:step().
 -export_type([step_spec/0]).
 
--type filter_pred() :: fun((#xmlel{}) -> boolean()) | none.
+-type filter_pred() :: fun((exml:element()) -> boolean()) | none.
 -export_type([filter_pred/0]).
 
 -export_type([t/0]).
@@ -54,7 +53,7 @@
 -type t() :: module().
 
 -callback connect([proplists:property()]) -> {ok, client()}.
--callback send(client(), #xmlel{}) -> no_return().
+-callback send(client(), exml:element()) -> ok.
 -callback stop(client()) -> ok | already_stopped.
 
 -callback is_connected(client()) -> boolean().
@@ -141,10 +140,10 @@ connect(Props) ->
     Server = proplists:get_value(server, Props, <<"localhost">>),
     Host = proplists:get_value(host, Props, Server),
     NewProps = lists:keystore(host, 1, Props, {host, Host}),
-    Mod = get_module(Transport),
-    {ok, Conn} = Mod:connect(NewProps),
+    {ok, Conn} = Transport:connect(NewProps),
     {ok, Conn, NewProps}.
 
+-spec send(escalus:client(), exml:element()) -> ok.
 send(#client{module = Mod, event_client = EventClient, jid = Jid} = Client, Elem) ->
     escalus_event:outgoing_stanza(EventClient, Elem),
     escalus_ct:log_stanza(Jid, out, Elem),
@@ -194,8 +193,8 @@ kill(#client{module = Mod} = Client) ->
     Mod:kill(Client).
 
 
--spec maybe_forward_to_owner(filter_pred(), term(), [#xmlel{}],
-                             fun(([#xmlel{}], term()) -> term()))
+-spec maybe_forward_to_owner(filter_pred(), term(), [exml:element()],
+                             fun(([exml:element()], term()) -> term()))
         -> term().
 maybe_forward_to_owner(none, State, _Stanzas, _Fun) ->
     State;
@@ -215,32 +214,6 @@ maybe_forward_to_owner(_, State, Stanzas, Fun) ->
 %%%===================================================================
 %%% Helpers
 %%%===================================================================
-
-%% TODO: drop
-get_module_old(tcp) -> escalus_tcp;
-get_module_old(ws) -> escalus_ws;
-get_module_old(bosh) -> escalus_bosh.
-
-%% TODO: drop
-is_deprecated_connection_module(M) when M == tcp; M == ws; M == bosh -> true;
-is_deprecated_connection_module(_) -> false.
-
--spec get_module(module() | atom()) -> ?MODULE:t().
-get_module(M) when is_atom(M) ->
-    case is_deprecated_connection_module(M) of
-        true ->
-            %% This function is a natural extension point - we could extend Escalus freely
-            %% by providing modules that implement escalus_connection behaviour.
-            %% However, due to this mapping (predefined atom -> module name)
-            %% we limit this flexibility.
-            %% TODO: Let's remove this limitation in the future.
-            Msg = io_lib:format("~s:get_module/1 called with transport '~s' "
-                                "(use a module name instead)", [?MODULE, M]),
-            escalus_compat:complain(Msg),
-            get_module_old(M);
-        false ->
-            M
-    end.
 
 get_connection_steps(UserSpec) ->
     case lists:keyfind(connection_steps, 1, UserSpec) of
