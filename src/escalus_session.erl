@@ -305,7 +305,8 @@ get_stream_features(Features) ->
      {stream_management, get_stream_management(Features)},
      {advanced_message_processing, get_advanced_message_processing(Features)},
      {client_state_indication, get_client_state_indication(Features)},
-     {sasl_mechanisms, get_sasl_mechanisms(Features)}].
+     {sasl_mechanisms, get_sasl_mechanisms(Features)},
+     {caps, get_server_caps(Features)}].
 
 -spec get_compression(exml:element()) -> boolean().
 get_compression(Features) ->
@@ -335,6 +336,16 @@ get_client_state_indication(Features) ->
 get_sasl_mechanisms(Features) ->
     exml_query:paths(Features, [{element, <<"mechanisms">>},
                                 {element, <<"mechanism">>}, cdata]).
+
+-spec get_server_caps(exml:element()) -> map().
+get_server_caps(Features) ->
+    case exml_query:subelement(Features, <<"c">>) of
+        #xmlel{attrs = Attrs} ->
+            maps:from_list(Attrs);
+        _ ->
+            undefined
+    end.
+
 
 -spec stream_start_to_element(exml_stream:start() | exml:element()) -> exml:element().
 stream_start_to_element(#xmlel{name = <<"open">>} = Open) -> Open;
