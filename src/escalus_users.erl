@@ -304,12 +304,14 @@ is_mod_register_enabled(Config) ->
                                                  stream_features,
                                                  maybe_use_ssl]),
     escalus_connection:send(Conn, escalus_stanza:get_registration_fields()),
-    case wait_for_result(Conn) of
-        {error, _, _} ->
-            false;
-        _ ->
-            true
-    end.
+    Result = case wait_for_result(Conn) of
+                 {error, _, _} ->
+                     false;
+                 _ ->
+                     true
+             end,
+    escalus_connection:stop(Conn),
+    Result.
 
 %%--------------------------------------------------------------------
 %% Helpers
