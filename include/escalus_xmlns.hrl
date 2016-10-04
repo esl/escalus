@@ -552,6 +552,9 @@
 % Defined by XEP-0313: Message Archive Management (MAM)
 -define(NS_MAM, <<"urn:xmpp:mam:0">>).
 
+% Defined by XEP-0333: Chat Markers
+-define(NS_CHAT_MARKERS, <<"urn:xmpp:chat-markers:0">>).
+
 % Defined by XHTML 1.0.
 -define(NS_XHTML, <<"http://www.w3.org/1999/xhtml">>).
 

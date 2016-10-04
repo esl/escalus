@@ -30,6 +30,7 @@
          is_0184_request/1,
          is_0184_receipt/2,
          is_0184_receipt/3,
+         is_chat_marker/3,
          is_iq/1,
          is_iq/2,
          is_iq/3,
@@ -288,6 +289,14 @@ is_0184_receipt(Request, ProperResFrom,
     end;
 is_0184_receipt(_, _, _) ->
     false.
+
+-spec is_chat_marker(binary(), binary(), exml:element()) -> boolean().
+is_chat_marker(MarkerName, MessageId, Stanza) ->
+    is_message(Stanza)
+        andalso is_chat_marker_element(MessageId, exml_query:subelement(Stanza, MarkerName)).
+
+is_chat_marker_element(MessageId, Element) ->
+    has_ns(?NS_CHAT_MARKERS, Element) andalso MessageId =:= exml_query:attr(Element, <<"id">>).
 
 -spec is_iq_set(exml:element()) -> boolean().
 is_iq_set(Stanza) -> is_iq(<<"set">>, Stanza).
@@ -633,8 +642,8 @@ is_sm_resumed(_, _) ->
     false.
 
 -spec has_ns(namespace(), exml:element()) -> boolean().
-has_ns(NS, Stanza) ->
-    NS == exml_query:attr(Stanza, <<"xmlns">>).
+has_ns(NS, Element) ->
+    NS == exml_query:attr(Element, <<"xmlns">>).
 
 -spec is_compressed(exml:element()) -> boolean().
 is_compressed(#xmlel{name = <<"compressed">>} = Stanza) ->
