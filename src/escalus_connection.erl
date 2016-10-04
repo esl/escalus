@@ -21,6 +21,7 @@
          set_filter_predicate/2,
          reset_parser/1,
          is_connected/1,
+         wait_for_close/2,
          kill/1]).
 
 %% Behaviour helpers
@@ -191,6 +192,27 @@ stop(#client{module = Mod} = Client) ->
 %% Brutally kill the connection without terminating the XMPP stream.
 kill(#client{module = Mod} = Client) ->
     Mod:kill(Client).
+
+%% @doc Waits at most MaxWait ms for the client to be closed.
+%% Returns true if the client was disconnected, otherwise false.
+-spec wait_for_close(client(), non_neg_integer()) -> boolean().
+wait_for_close(Client, MaxWait) ->
+    %% Determine how many times the is_connect check should be run.
+    %% There will be 100ms sleep between subsequent checks.
+    %% This guarantees at least one check and no longer than MaxWait + 100ms
+    NoOfTries = MaxWait div 100 + 1,
+    do_wait_for_close(Client, NoOfTries).
+
+do_wait_for_close(Client, 0) ->
+    false == is_connected(Client);
+do_wait_for_close(Client, N) ->
+    case is_connected(Client) of
+        false ->
+            true;
+        _ ->
+            timer:sleep(100),
+            do_wait_for_close(Client, N - 1)
+    end.
 
 
 -spec maybe_forward_to_owner(filter_pred(), term(), [exml:element()],
