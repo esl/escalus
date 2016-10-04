@@ -21,6 +21,7 @@
          set_filter_predicate/2,
          reset_parser/1,
          is_connected/1,
+         wait_for_close/2,
          kill/1]).
 
 %% Behaviour helpers
@@ -57,8 +58,8 @@
 -callback stop(client()) -> ok | already_stopped.
 
 -callback is_connected(client()) -> boolean().
--callback reset_parser(client()) -> no_return().
--callback kill(client()) -> no_return().
+-callback reset_parser(client()) -> ok.
+-callback kill(client()) -> any().
 -callback set_filter_predicate(client(), filter_pred()) -> ok.
 
 
@@ -179,18 +180,43 @@ set_sm_h(#client{module = Mod}, _) ->
 set_filter_predicate(#client{module = Module} = Conn, Pred) ->
     Module:set_filter_predicate(Conn, Pred).
 
+-spec reset_parser(client()) -> ok.
 reset_parser(#client{module = Mod} = Client) ->
     Mod:reset_parser(Client).
 
+-spec is_connected(client()) -> boolean().
 is_connected(#client{module = Mod} = Client) ->
     Mod:is_connected(Client).
 
+-spec stop(client()) -> ok | already_stopped.
 stop(#client{module = Mod} = Client) ->
     Mod:stop(Client).
 
-%% Brutally kill the connection without terminating the XMPP stream.
+%% @doc Brutally kill the connection without terminating the XMPP stream.
+-spec kill(client()) -> any().
 kill(#client{module = Mod} = Client) ->
     Mod:kill(Client).
+
+%% @doc Waits at most MaxWait ms for the client to be closed.
+%% Returns true if the client was disconnected, otherwise false.
+-spec wait_for_close(client(), non_neg_integer()) -> boolean().
+wait_for_close(Client, MaxWait) ->
+    %% Determine how many times the is_connect check should be run.
+    %% There will be 100ms sleep between subsequent checks.
+    %% This guarantees at least one check and no longer than MaxWait + 100ms
+    NoOfTries = MaxWait div 100 + 1,
+    do_wait_for_close(Client, NoOfTries).
+
+do_wait_for_close(Client, 0) ->
+    false == is_connected(Client);
+do_wait_for_close(Client, N) ->
+    case is_connected(Client) of
+        false ->
+            true;
+        _ ->
+            timer:sleep(100),
+            do_wait_for_close(Client, N - 1)
+    end.
 
 
 -spec maybe_forward_to_owner(filter_pred(), term(), [exml:element()],
