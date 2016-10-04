@@ -58,8 +58,8 @@
 -callback stop(client()) -> ok | already_stopped.
 
 -callback is_connected(client()) -> boolean().
--callback reset_parser(client()) -> no_return().
--callback kill(client()) -> no_return().
+-callback reset_parser(client()) -> ok.
+-callback kill(client()) -> any().
 -callback set_filter_predicate(client(), filter_pred()) -> ok.
 
 
@@ -180,16 +180,20 @@ set_sm_h(#client{module = Mod}, _) ->
 set_filter_predicate(#client{module = Module} = Conn, Pred) ->
     Module:set_filter_predicate(Conn, Pred).
 
+-spec reset_parser(client()) -> ok.
 reset_parser(#client{module = Mod} = Client) ->
     Mod:reset_parser(Client).
 
+-spec is_connected(client()) -> boolean().
 is_connected(#client{module = Mod} = Client) ->
     Mod:is_connected(Client).
 
+-spec stop(client()) -> ok | already_stopped.
 stop(#client{module = Mod} = Client) ->
     Mod:stop(Client).
 
-%% Brutally kill the connection without terminating the XMPP stream.
+%% @doc Brutally kill the connection without terminating the XMPP stream.
+-spec kill(client()) -> any().
 kill(#client{module = Mod} = Client) ->
     Mod:kill(Client).
 
