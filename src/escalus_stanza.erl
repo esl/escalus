@@ -92,6 +92,10 @@
          mam_lookup_messages_iq/5
         ]).
 
+%% XEP-0333: Chat Markers
+-export([markable/1,
+         chat_marker/3]).
+
 %% XEP-0198: Stream Management
 -export([enable_sm/0, enable_sm/1,
          sm_request/0,
@@ -775,6 +779,28 @@ disable_carbons_el() ->
 enable_carbons_el() ->
     #xmlel{name = <<"enable">>,
            attrs = [{<<"xmlns">>, ?NS_CARBONS_2}]}.
+
+%% XEP-0333 Chat Markers
+%%
+-spec markable(exml:element()) -> exml:element().
+markable(Message = #xmlel{name = <<"message">>, children = Children}) ->
+    Message#xmlel{children = [markable_el() | Children]}.
+
+-spec chat_marker(escalus_utils:jid_spec(), binary(), binary()) -> exml:element().
+chat_marker(To, MarkerName, MessageId) ->
+    #xmlel{name = <<"message">>,
+           attrs = [{<<"to">>, escalus_utils:get_jid(To)}],
+           children = [marker_el(MarkerName, MessageId)]}.
+
+markable_el() ->
+    #xmlel{name = <<"markable">>, attrs = [{<<"xmlns">>, ?NS_CHAT_MARKERS}]}.
+
+marker_el(MarkerName, MessageId) when MarkerName =:= <<"received">> orelse
+                                      MarkerName =:= <<"displayed">> orelse
+                                      MarkerName =:= <<"acknowledged">>,
+                                      is_binary(MessageId) ->
+    #xmlel{name = MarkerName, attrs = [{<<"xmlns">>, ?NS_CHAT_MARKERS},
+                                       {<<"id">>, MessageId}]}.
 
 %%--------------------------------------------------------------------
 %% Stanzas from inline XML
