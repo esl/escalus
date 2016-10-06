@@ -95,6 +95,8 @@ stop(#client{rcv_pid = Pid}) ->
         gen_server:call(Pid, stop)
     catch
         exit:{noproc, {gen_server, call, _}} ->
+            already_stopped;
+        exit:{normal, {gen_server, call, _}} ->
             already_stopped
     end.
 
