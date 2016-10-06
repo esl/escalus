@@ -64,8 +64,7 @@ escalus_plt: dialyzer/escalus.plt
 
 dialyzer: erlang_plt deps_plt escalus_plt
 	@dialyzer --plts dialyzer/*.plt --no_check_plt \
-	--get_warnings -o dialyzer/error.log ebin; \
-	status=$$? ; if [ $$status -ne 2 ]; then exit $$status; else exit 0; fi
+	--get_warnings -o dialyzer/error.log ebin;
 
 MIM := deps/mongooseim
 MIM_REL := ${MIM}/rel/mongooseim
