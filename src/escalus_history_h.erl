@@ -14,6 +14,7 @@
         events :: list()
 }).
 
+-spec get_history(escalus_event:manager()) -> list().
 get_history(Mgr) ->
     gen_event:call(Mgr, escalus_history_h, get_history).
 
