@@ -10,11 +10,8 @@
          handle_event/2,
          code_change/3]).
 
--type dict_t() :: dict:dict().
-
 -record(state, {
-        events :: list(),
-        counters :: dict_t()
+        events :: list()
 }).
 
 get_history(Mgr) ->
