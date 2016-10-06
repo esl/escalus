@@ -74,7 +74,7 @@ rpc_call(Node, Module, Function, Args, TimeOut, Cookie) ->
             error({escalus_error, common_test_unavailable})
     end.
 
--spec log_stanza(undefined | binary(), in | out, exml:element()) -> ok.
+-spec log_stanza(undefined | binary(), in | out, exml_stream:element()) -> ok.
 log_stanza(undefined, _, _) -> ok;
 log_stanza(Jid, Direction, Stanza) ->
     case is_ct_available() andalso ct:get_config(stanza_log) of
