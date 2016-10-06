@@ -64,7 +64,7 @@ escalus_plt: dialyzer/escalus.plt
 
 dialyzer: erlang_plt deps_plt escalus_plt
 	@dialyzer --plts dialyzer/*.plt --no_check_plt \
-	--get_warnings -o dialyzer/error.log ebin;
+	--get_warnings ebin;
 
 MIM := deps/mongooseim
 MIM_REL := ${MIM}/rel/mongooseim
