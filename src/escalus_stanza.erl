@@ -667,7 +667,7 @@ resume(SMID, PrevH) ->
 %%
 %% @TODO: move the stanza constructors from
 %% tests/mam_SUITE.erl into here.
--spec field_el(binary(), binary(), undefined | [binary()]) ->
+-spec field_el(binary(), binary(), undefined | binary() | [binary()]) ->
     exml:element().
 field_el(_Name, _Type, undefined) ->
     undefined;
