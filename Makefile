@@ -27,12 +27,13 @@ rebar:
 	wget https://github.com/rebar/rebar/releases/download/2.2.0/rebar
 	chmod u+x rebar
 
+OTP_APPS = kernel stdlib crypto common_test ssl erts public_key
 deps := $(wildcard deps/*/ebin)
 
 dialyzer/erlang.plt:
 	@mkdir -p dialyzer
 	@dialyzer --build_plt --output_plt dialyzer/erlang.plt \
-	-o dialyzer/erlang.log --apps kernel stdlib crypto common_test ssl erts \
+	-o dialyzer/erlang.log --apps $(OTP_APPS) \
 		> erlang_plt.log 2>&1; status=$$? ; \
 	if [ $$status -ne 2 ]; then (cat erlang_plt.log; exit $$status); else exit 0; fi
 
