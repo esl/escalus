@@ -64,7 +64,7 @@
 start_stream(Conn, Props) ->
     {server, Server} = lists:keyfind(server, 1, Props),
     NS = proplists:get_value(stream_ns, Props, <<"jabber:client">>),
-    Transport = proplists:get_value(transport, Props, tcp),
+    Transport = proplists:get_value(transport, Props, escalus_tcp),
     IsLegacy = proplists:get_value(wslegacy, Props, false),
     StreamStartReq = case {Transport, IsLegacy} of
                          {escalus_ws, false} -> escalus_stanza:ws_open(Server);
@@ -332,7 +332,7 @@ get_advanced_message_processing(Features) ->
 get_client_state_indication(Features) ->
     undefined =/= exml_query:subelement(Features, <<"csi">>).
 
--spec get_sasl_mechanisms(exml:element()) -> features().
+-spec get_sasl_mechanisms(exml:element()) -> [exml:element() | binary()].
 get_sasl_mechanisms(Features) ->
     exml_query:paths(Features, [{element, <<"mechanisms">>},
                                 {element, <<"mechanism">>}, cdata]).
@@ -347,7 +347,7 @@ get_server_caps(Features) ->
     end.
 
 
--spec stream_start_to_element(exml_stream:start() | exml:element()) -> exml:element().
+-spec stream_start_to_element(exml_stream:element()) -> exml:element().
 stream_start_to_element(#xmlel{name = <<"open">>} = Open) -> Open;
 stream_start_to_element(#xmlstreamstart{name = Name, attrs = Attrs}) ->
     #xmlel{name = Name, attrs = Attrs, children = []}.
