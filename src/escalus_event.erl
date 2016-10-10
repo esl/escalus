@@ -18,7 +18,7 @@
 -export([get_history/1,
          print_history/1]).
 
--export_type([event_client/0]).
+-export_type([event_client/0, manager/0]).
 
 -include_lib("exml/include/exml.hrl").
 

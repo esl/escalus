@@ -667,7 +667,7 @@ resume(SMID, PrevH) ->
 %%
 %% @TODO: move the stanza constructors from
 %% tests/mam_SUITE.erl into here.
--spec field_el(binary(), binary(), undefined | [binary()]) ->
+-spec field_el(binary(), binary(), undefined | binary() | [binary()]) ->
     exml:element().
 field_el(_Name, _Type, undefined) ->
     undefined;
@@ -733,15 +733,6 @@ fmapM(_F, undefined) -> undefined;
 fmapM(F, MaybeVal) -> F(MaybeVal).
 
 defined(L) when is_list(L) -> [ El || El <- L, El /= undefined ].
-
-start_elem(StartTime) ->
-    #xmlel{name = <<"start">>, children = [#xmlcdata{content = StartTime}]}.
-
-end_elem(EndTime) ->
-    #xmlel{name = <<"end">>, children = [#xmlcdata{content = EndTime}]}.
-
-with_elem(BWithJID) ->
-    #xmlel{name = <<"with">>, children = [#xmlcdata{content = BWithJID}]}.
 
 rsm_after_or_before({Direction, AbstractID, MaxCount}) ->
     #xmlel{name = <<"set">>,

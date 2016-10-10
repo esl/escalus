@@ -21,7 +21,7 @@
         resource = <<"">> :: binary()}).
 
 -record(client, {
-        jid :: binary(),
+        jid :: binary() | undefined,
         module :: atom(),
         socket :: term(),
         ssl :: boolean(),

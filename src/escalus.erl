@@ -58,25 +58,29 @@
 %%--------------------------------------------------------------------
 %% Public API
 %%--------------------------------------------------------------------
-
+-spec suite() -> [{atom(), atom()}].
 suite() ->
     [{require, escalus_users}].
 
+-spec init_per_suite(config()) -> config().
 init_per_suite(Config) ->
     ensure_started(escalus),
     escalus_users:start(Config),
     escalus_fresh:start(Config),
     Config.
 
+-spec end_per_suite(config()) -> ok.
 end_per_suite(Config) ->
     escalus_users:stop(Config),
     escalus_fresh:stop(Config),
     ok.
 
+-spec init_per_testcase(atom(), config()) -> config().
 init_per_testcase(CaseName, Config) ->
     Config1 = escalus_cleaner:start(Config),
     escalus_event:start([{tc_name, CaseName}|Config1]).
 
+-spec end_per_testcase(atom(), config()) -> ok.
 end_per_testcase(_CaseName, Config) ->
     Config1 = escalus_event:stop(Config),
     escalus_cleaner:stop(Config1).
@@ -86,33 +90,44 @@ end_per_testcase(_CaseName, Config) ->
 %%--------------------------------------------------------------------
 
 %% User API
-
+-spec create_users(config()) -> config().
 create_users(Config) ->
     escalus_users:create_users(Config).
 
+-spec create_users(config(), escalus_users:user_spec()) -> config().
 create_users(Config, Users) ->
     escalus_users:create_users(Config, Users).
 
+-spec delete_users(config()) -> config().
 delete_users(Config) ->
     escalus_users:delete_users(Config).
 
+-spec delete_users(config(), escalus_users:user_spec()) -> config().
 delete_users(Config, Users) ->
     escalus_users:delete_users(Config, Users).
 
+-spec get_users(Names) -> Result when
+      Names :: all | [escalus_users:user_name()]
+               | {by_name, [escalus_users:user_name()]},
+      Result :: [escalus_users:named_user()].
 get_users(Names) ->
     escalus_users:get_users(Names).
 
 %% Story API
 
+-spec make_everyone_friends(config()) -> config().
 make_everyone_friends(Config) ->
     escalus_story:make_everyone_friends(Config).
 
+-spec fresh_story(config(), escalus_users:user_spec(), fun()) -> any().
 fresh_story(Config, ResourceCounts, Story) ->
     escalus_fresh:story(Config, ResourceCounts, Story).
 
+-spec fresh_story_with_config(config(), escalus_users:user_spec(), fun()) -> any().
 fresh_story_with_config(Config, ResourceCounts, Story) ->
     escalus_fresh:story_with_config(Config, ResourceCounts, Story).
 
+-spec story(config(), escalus_users:user_spec(), fun()) -> any().
 story(Config, ResourceCounts, Story) ->
     escalus_story:story(Config, ResourceCounts, Story).
 

@@ -60,7 +60,7 @@ end_per_testcase(CaseName, Config) ->
 %%--------------------------------------------------------------------
 
 messages_story(Config) ->
-    escalus:story(Config, [1, 1], fun(Alice, Bob) ->
+    escalus:story(Config, [{alice, 1}, {bob, 1}], fun(Alice, Bob) ->
 
         %% Alice sends a message to Bob
         escalus:send(Alice, escalus_stanza:chat_to(Bob, <<"OH, HAI!">>)),
