@@ -106,9 +106,9 @@ delete_users(Config) ->
 delete_users(Config, Users) ->
     escalus_users:delete_users(Config, Users).
 
--spec get_users(Spec) -> Result when
-      Spec :: all | [escalus_users:user_name()]
-              | {by_name, [escalus_users:user_name()]},
+-spec get_users(Names) -> Result when
+      Names :: all | [escalus_users:user_name()]
+               | {by_name, [escalus_users:user_name()]},
       Result :: [escalus_users:named_user()].
 get_users(Names) ->
     escalus_users:get_users(Names).
