@@ -123,15 +123,6 @@ parameter list. Calling `escalus:assert(Pred, [Param1, Param2], Stanza)`
 makes sure that Pred(Param1, Param2, Stanza) yields true.
 Stanza is separate from parameters to improve error reporting.
 
-## Logging
-
-It's possible to log stanza's beening send. There 2 types of logging is present:
-
-1. Stanza's which was send from/to specific JID
-2. All stanza's
-
-Check `test/test.config` how to enable it (`stanza_log` and `stanza_debug_log` atoms)
-
 
 # Escalus as a standalone application
 
