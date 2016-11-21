@@ -75,7 +75,13 @@ rpc_call(Node, Module, Function, Args, TimeOut, Cookie) ->
     end.
 
 -spec log_stanza(undefined | binary(), in | out, exml_stream:element()) -> ok.
-log_stanza(undefined, _, _) -> ok;
+log_stanza(undefined, Direction, Stanza) ->
+    case ct:get_config(stanza_debug_log) of
+      true ->
+          log_stanza(<<"">>, Direction, Stanza);
+      _ ->
+          ok
+    end;
 log_stanza(Jid, Direction, Stanza) ->
     case is_ct_available() andalso ct:get_config(stanza_log) of
         true ->
