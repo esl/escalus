@@ -47,7 +47,7 @@
 -type sm_state() :: {boolean(), non_neg_integer(), 'active'|'inactive'}.
 -export_type([sm_state/0]).
 
--define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
+-define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, timer:seconds(15)).
 -define(SERVER, ?MODULE).
 -include("escalus_tcp.hrl").
 
@@ -83,7 +83,7 @@ set_filter_predicate(#client{rcv_pid = Pid}, Pred) ->
 
 stop(#client{rcv_pid = Pid}) ->
     try
-        gen_server:call(Pid, stop)
+        gen_server:call(Pid, stop, ?WAIT_FOR_SOCKET_CLOSE_TIMEOUT * 2)
     catch
         exit:{noproc, {gen_server, call, _}} ->
             already_stopped;
@@ -225,7 +225,7 @@ handle_call(kill_connection, _, #state{socket = Socket } = S) ->
 handle_call(stop, _From, #state{} = S) ->
     send_stream_end(S),
     close_compression_streams(S#state.compress),
-    wait_until_closed(S#state.socket),
+    ok = wait_until_closed(S#state.socket),
     {stop, normal, ok, S}.
 
 -spec handle_cast({send, any(), any()}, any()) -> {noreply, any()}.
@@ -398,7 +398,7 @@ wait_until_closed(Socket) ->
         {tcp_closed, Socket} ->
             ok
     after ?WAIT_FOR_SOCKET_CLOSE_TIMEOUT ->
-            ok
+            {error, timeout_when_closing_socket}
     end.
 
 -spec host_to_inet(tuple() | atom() | list() | binary())
