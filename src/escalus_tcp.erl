@@ -222,8 +222,9 @@ handle_call(kill_connection, _, #state{socket = Socket } = S) ->
     gen_tcp:close(Socket),
     close_compression_streams(S#state.compress),
     {stop, normal, ok, S};
-handle_call(stop, _From, #state{} = S) ->
+handle_call(stop, _From, #state{socket=Socket} = S) ->
     send_stream_end(S),
+    ok = inet:setopts(Socket, [{active, true}]),
     close_compression_streams(S#state.compress),
     ok = wait_until_closed(S#state.socket),
     {stop, normal, ok, S}.
@@ -260,6 +261,8 @@ handle_info({ssl, Socket, Data}, State) ->
     NewState = handle_data(Socket, Data, State),
     {noreply, NewState};
 handle_info({tcp_closed, Socket}, #state{socket = Socket} = State) ->
+    {stop, normal, State};
+handle_info({ssl_closed, Socket}, #state{socket = Socket} = State) ->
     {stop, normal, State};
 handle_info(_, State) ->
     {noreply, State}.
@@ -396,6 +399,8 @@ transport(#state{socket = Socket,
 wait_until_closed(Socket) ->
     receive
         {tcp_closed, Socket} ->
+            ok;
+        {ssl_closed, Socket} ->
             ok
     after ?WAIT_FOR_SOCKET_CLOSE_TIMEOUT ->
             {error, timeout_when_closing_socket}
