@@ -69,8 +69,9 @@ stop(#client{rcv_pid = Pid}) ->
             already_stopped
     end.
 
-kill(Transport) ->
-    error({not_implemented_for, ?MODULE}, [Transport]).
+kill(#client{rcv_pid = Pid}) ->
+    %% Use `kill_connection` to avoid confusion with exit reason `kill`.
+    gen_server:call(Pid, kill_connection).
 
 -spec set_filter_predicate(escalus_connection:client(),
     escalus_connection:filter_pred()) -> ok.
@@ -138,6 +139,8 @@ handle_call(use_zlib, _, #state{parser = Parser, socket = Socket} = State) ->
                                 compress = {zlib, {Zin,Zout}}}};
 handle_call({set_filter_pred, Pred}, _From, State) ->
     {reply, ok, State#state{filter_pred = Pred}};
+handle_call(kill_connection, _, S) ->
+    {stop, normal, ok, S};
 handle_call(stop, _From, #state{socket = Socket,
                                 compress = Compress} = State) ->
     StreamEnd = if
