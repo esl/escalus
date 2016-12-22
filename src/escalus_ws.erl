@@ -16,12 +16,15 @@
          send/2,
          is_connected/1,
          upgrade_to_tls/2,
-         use_zlib/2,
-         get_transport/1,
+         use_zlib/1,
          reset_parser/1,
+         set_filter_predicate/2,
          stop/1,
          kill/1,
-         set_filter_predicate/2]).
+         stream_start_req/1,
+         stream_end_req/1,
+         assert_stream_start/2,
+         assert_stream_end/2]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -37,29 +40,31 @@
 
 -record(state, {owner, socket, parser, legacy_ws, compress = false,
                 event_client, filter_pred}).
+-type state() :: #state{}.
 
 %%%===================================================================
 %%% API
 %%%===================================================================
 
--spec connect([proplists:property()]) -> {ok, escalus:client()}.
+-spec connect([proplists:property()]) -> pid().
 connect(Args) ->
     {ok, Pid} = gen_server:start_link(?MODULE, [Args, self()], []),
-    Transport = gen_server:call(Pid, get_transport),
-    {ok, Transport}.
+    Pid.
 
-send(#client{rcv_pid = Pid, compress = {zlib, {_, Zout}}}, Elem) ->
-    gen_server:cast(Pid, {send_compressed, Zout, Elem});
-send(#client{rcv_pid = Pid}, Elem) ->
-    gen_server:cast(Pid, {send, exml:to_iolist(Elem)}).
+-spec send(pid(), exml:element()) -> ok.
+send(Pid, Elem) ->
+    gen_server:cast(Pid, {send, Elem}).
 
-is_connected(#client{rcv_pid = Pid}) ->
+-spec is_connected(pid()) -> boolean().
+is_connected(Pid) ->
     erlang:is_process_alive(Pid).
 
-reset_parser(#client{rcv_pid = Pid}) ->
+-spec reset_parser(pid()) -> ok.
+reset_parser(Pid) ->
     gen_server:cast(Pid, reset_parser).
 
-stop(#client{rcv_pid = Pid}) ->
+-spec stop(pid()) -> ok | already_stopped.
+stop(Pid) ->
     try
         gen_server:call(Pid, stop)
     catch
@@ -69,31 +74,81 @@ stop(#client{rcv_pid = Pid}) ->
             already_stopped
     end.
 
-kill(#client{rcv_pid = Pid}) ->
+-spec kill(pid()) -> ok | already_stopped.
+kill(Pid) ->
     %% Use `kill_connection` to avoid confusion with exit reason `kill`.
-    gen_server:call(Pid, kill_connection).
+    try
+        gen_server:call(Pid, kill_connection)
+    catch
+        exit:{noproc, {gen_server, call, _}} ->
+            already_stopped;
+        exit:{normal, {gen_server, call, _}} ->
+            already_stopped
+    end.
 
--spec set_filter_predicate(escalus_connection:client(),
-    escalus_connection:filter_pred()) -> ok.
-set_filter_predicate(#client{rcv_pid = Pid}, Pred) ->
+-spec set_filter_predicate(pid(), escalus_connection:filter_pred()) -> ok.
+set_filter_predicate(Pid, Pred) ->
     gen_server:call(Pid, {set_filter_pred, Pred}).
 
-
+-spec upgrade_to_tls(_, _) -> no_return().
 upgrade_to_tls(_, _) ->
     throw(starttls_not_supported).
 
-%% TODO: this is en exact duplicate of escalus_tcp:use_zlib/2, DRY!
-use_zlib(#client{rcv_pid = Pid} = Client, Props) ->
-    escalus_connection:send(Client, escalus_stanza:compress(<<"zlib">>)),
-    Compressed = escalus_connection:get_stanza(Client, compressed),
-    escalus:assert(is_compressed, Compressed),
-    gen_server:call(Pid, use_zlib),
-    Client1 = get_transport(Client),
-    {Props2, _} = escalus_session:start_stream(Client1, Props),
-    {Client1, Props2}.
+-spec use_zlib(pid()) -> ok.
+use_zlib(Pid) ->
+    gen_server:call(Pid, use_zlib).
 
-get_transport(#client{rcv_pid = Pid}) ->
-    gen_server:call(Pid, get_transport).
+-spec stream_start_req(escalus_users:user_spec()) -> exml_stream:element().
+stream_start_req(Props) ->
+    {server, Server} = lists:keyfind(server, 1, Props),
+    case proplists:get_value(wslegacy, Props, false) of
+        true ->
+            NS = proplists:get_value(stream_ns, Props, <<"jabber:client">>),
+            escalus_stanza:stream_start(Server, NS);
+        false ->
+            escalus_stanza:ws_open(Server)
+    end.
+
+-spec stream_end_req(_) -> exml_stream:element().
+stream_end_req(Props) ->
+    case proplists:get_value(wslegacy, Props, false) of
+        true -> escalus_stanza:stream_end();
+        false -> escalus_stanza:ws_close()
+    end.
+
+-spec assert_stream_start(exml_stream:element(), _) -> exml_stream:element().
+assert_stream_start(StreamStartRep, Props) ->
+    case {StreamStartRep, proplists:get_value(wslegacy, Props, false)} of
+        {#xmlel{name = <<"open">>}, false} ->
+            StreamStartRep;
+        {#xmlel{name = <<"open">>}, true} ->
+            error("<open/> with legacy WebSocket",
+                  [StreamStartRep]);
+        {#xmlstreamstart{}, false} ->
+            error("<stream:stream> with non-legacy WebSocket",
+                  [StreamStartRep]);
+        {#xmlstreamstart{}, _} ->
+            StreamStartRep;
+        _ ->
+            error("Not a valid stream start", [StreamStartRep])
+    end.
+
+-spec assert_stream_end(exml_stream:element(), _) -> exml_stream:element().
+assert_stream_end(StreamEndRep, Props) ->
+    case {StreamEndRep, proplists:get_value(wslegacy, Props, false)} of
+        {#xmlel{name = <<"close">>}, false} ->
+            StreamEndRep;
+        {#xmlel{name = <<"close">>}, true} ->
+            error("<close/> with legacy WebSocket",
+                  [StreamEndRep]);
+        {#xmlstreamend{}, false} ->
+            error("<stream:stream> with non-legacy WebSocket",
+                  [StreamEndRep]);
+        {#xmlstreamend{}, _} ->
+            StreamEndRep;
+        _ ->
+            error("Not a valid stream end", [StreamEndRep])
+    end.
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -101,6 +156,7 @@ get_transport(#client{rcv_pid = Pid}) ->
 
 %% TODO: refactor all opt defaults taken from Args into a default_opts function,
 %%       so that we know what options the module actually expects
+-spec init(list()) -> {ok, state()}.
 init([Args, Owner]) ->
     Host = get_host(Args, "localhost"),
     Port = get_port(Args, 5280),
@@ -122,60 +178,43 @@ init([Args, Owner]) ->
                  end,
     {ok, Parser} = exml_stream:new_parser(ParserOpts),
     {ok, #state{owner = Owner,
-                socket = Socket,
+                 socket = Socket,
                 parser = Parser,
                 legacy_ws = LegacyWS,
                 event_client = EventClient}}.
 
-handle_call(get_transport, _From, State) ->
-    {reply, transport(State), State};
-handle_call(use_zlib, _, #state{parser = Parser, socket = Socket} = State) ->
+-spec handle_call(term(), {pid(), term()}, state()) ->
+    {reply, term(), state()} | {stop, normal, ok, state()}.
+handle_call(use_zlib, _, #state{parser = Parser} = State) ->
     Zin = zlib:open(),
     Zout = zlib:open(),
     ok = zlib:inflateInit(Zin),
     ok = zlib:deflateInit(Zout),
     {ok, NewParser} = exml_stream:reset_parser(Parser),
-    {reply, Socket, State#state{parser = NewParser,
-                                compress = {zlib, {Zin,Zout}}}};
+    {reply, ok, State#state{parser = NewParser,
+                            compress = {zlib, {Zin, Zout}}}};
 handle_call({set_filter_pred, Pred}, _From, State) ->
     {reply, ok, State#state{filter_pred = Pred}};
 handle_call(kill_connection, _, S) ->
     {stop, normal, ok, S};
-handle_call(stop, _From, #state{socket = Socket,
-                                compress = Compress} = State) ->
-    StreamEnd = if
-                    State#state.legacy_ws -> escalus_stanza:stream_end();
-                    true -> escalus_stanza:ws_close()
-                end,
-    case Compress of
-        {zlib, {Zin, Zout}} ->
-            try
-                ok = zlib:inflateEnd(Zin)
-            catch
-                error:data_error -> ok
-            end,
-            ok = zlib:close(Zin),
-            wsecli:send(Socket, zlib:deflate(Zout,
-                                             exml:to_iolist(StreamEnd),
-                                             finish)),
-            ok = zlib:deflateEnd(Zout),
-            ok = zlib:close(Zout);
-        false ->
-            wsecli:send(Socket, exml:to_iolist(StreamEnd))
-    end,
+handle_call(stop, _From, State) ->
+    close_compression_streams(State#state.compress),
     wait_until_closed(),
     {stop, normal, ok, State}.
 
-handle_cast({send_compressed, Zout, Elem}, State) ->
-    wsecli:send(State#state.socket, zlib:deflate(Zout, exml:to_iolist(Elem), sync)),
-    {noreply, State};
-handle_cast({send, Data}, State) ->
+-spec handle_cast(term(), state()) -> {noreply, state()}.
+handle_cast({send, Elem}, State) ->
+    Data = case State#state.compress of
+               {zlib, {_, Zout}} -> zlib:deflate(Zout, exml:to_iolist(Elem), sync);
+               false -> exml:to_iolist(Elem)
+           end,
     wsecli:send(State#state.socket, Data),
     {noreply, State};
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
     {noreply, State#state{parser = NewParser}}.
 
+-spec handle_info(term(), state()) -> {noreply, state()} | {stop, term(), state()}.
 handle_info(tcp_closed, State) ->
     {stop, normal, State};
 handle_info({error, Reason}, State) ->
@@ -187,10 +226,12 @@ handle_info({binary, Data}, State) ->
 handle_info(_, State) ->
     {noreply, State}.
 
-terminate(_Reason, #state{socket = Socket} = State) ->
-    common_terminate(_Reason, State),
+-spec terminate(term(), state()) -> term().
+terminate(Reason, #state{socket = Socket} = State) ->
+    common_terminate(Reason, State),
     wsecli:stop(Socket).
 
+-spec code_change(term(), state(), term()) -> {ok, state()}.
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
@@ -223,24 +264,14 @@ is_stream_end(#xmlstreamend{}) -> true;
 is_stream_end(_) -> false.
 
 forward_to_owner(Stanzas, #state{owner = Owner,
-                                 event_client = EventClient} = NewState) ->
+                                 event_client = EventClient}) ->
     lists:foreach(fun(Stanza) ->
                           escalus_event:incoming_stanza(EventClient, Stanza),
-                          Owner ! {stanza, transport(NewState), Stanza}
+                          Owner ! {stanza, self(), Stanza}
                   end, Stanzas).
 
 common_terminate(_Reason, #state{parser = Parser}) ->
     exml_stream:free_parser(Parser).
-
-transport(#state{socket = Socket,
-                 compress = Compress,
-                 event_client = EventClient}) ->
-    #client{module = ?MODULE,
-               socket = Socket,
-               ssl = false,
-               compress = Compress,
-               rcv_pid = self(),
-               event_client = EventClient}.
 
 wait_until_closed() ->
     receive
@@ -284,3 +315,19 @@ get_option(Key, Opts, Default) ->
         false -> Default;
         {Key, Value} -> Value
     end.
+
+close_compression_streams(false) ->
+    ok;
+close_compression_streams({zlib, {Zin, Zout}}) ->
+    try
+        zlib:deflate(Zout, <<>>, finish),
+        ok = zlib:inflateEnd(Zin),
+        ok = zlib:deflateEnd(Zout)
+    catch
+        error:data_error -> ok
+    after
+        ok = zlib:close(Zin),
+        ok = zlib:close(Zout)
+    end.
+
+
