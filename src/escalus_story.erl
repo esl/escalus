@@ -40,15 +40,17 @@ story(ConfigIn, ResourceCounts, Story) ->
         apply_w_arity_check(Story, Clients),
         escalus_event:story_end(Config),
         post_story_checks(Config, Clients),
-        escalus_server:post_story(Config)
+        escalus_server:post_story(Config),
+        stop_clients(ConfigIn)
     catch Class:Reason ->
         Stacktrace = erlang:get_stacktrace(),
         escalus_event:print_history(ConfigIn),
         erlang:raise(Class, Reason, Stacktrace)
     after
-        escalus_cleaner:clean(ConfigIn)
+        kill_client_connections(ConfigIn)
     end.
 
+-spec make_everyone_friends(escalus:config()) -> escalus:config().
 make_everyone_friends(Config) ->
     Users = escalus_config:get_config(escalus_users, Config),
     make_everyone_friends(Config, Users).
@@ -61,7 +63,7 @@ make_everyone_friends(Config0, Users) ->
     make_all_clients_friends(Clients),
 
     % stop the clients
-    escalus_cleaner:clean(Config1),
+    stop_clients(Config1),
     escalus_cleaner:stop(Config1),
 
     % return Config0
@@ -143,6 +145,14 @@ start_clients(Config, ClientDescs) ->
                 call_start_ready_clients(Config, UserCDs)
             end, ClientDescs)
     end.
+
+stop_clients(Config) ->
+    Clients = escalus_cleaner:get_clients(Config),
+    lists:foreach(fun(Client) -> escalus_client:stop(Config, Client) end, Clients).
+
+kill_client_connections(Config) ->
+    Clients = escalus_cleaner:get_clients(Config),
+    lists:foreach(fun(Client) -> escalus_client:kill_connection(Config, Client) end, Clients).
 
 drop_presences(Client, N) ->
     Dropped = escalus_client:wait_for_stanzas(Client, N),

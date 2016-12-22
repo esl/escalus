@@ -16,14 +16,19 @@
          send/2,
          is_connected/1,
          upgrade_to_tls/2,
-         use_zlib/2,
-         get_transport/1,
+         use_zlib/1,
          reset_parser/1,
          get_sm_h/1,
          set_sm_h/2,
+         is_using_compression/1,
+         is_using_ssl/1,
          set_filter_predicate/2,
          stop/1,
-         kill/1]).
+         kill/1,
+         stream_start_req/1,
+         stream_end_req/1,
+         assert_stream_start/2,
+         assert_stream_end/2]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -51,37 +56,51 @@
 -define(SERVER, ?MODULE).
 -include("escalus_tcp.hrl").
 
+-type state() :: #state{}.
+
 %%%===================================================================
 %%% API
 %%%===================================================================
 
--spec connect([proplists:property()]) -> {ok, #client{}}.
+-spec connect([proplists:property()]) -> pid().
 connect(Args) ->
     {ok, Pid} = gen_server:start_link(?MODULE, [Args, self()], []),
-    Transport = gen_server:call(Pid, get_transport),
-    {ok, Transport}.
+    Pid.
 
-send(#client{rcv_pid = Pid} = Client, Elem) ->
-    gen_server:cast(Pid, {send, Client, Elem}).
+-spec send(pid(), exml:element()) -> ok.
+send(Pid, Elem) ->
+    gen_server:cast(Pid, {send, Elem}).
 
-is_connected(#client{rcv_pid = Pid}) ->
+-spec is_connected(pid()) -> boolean().
+is_connected(Pid) ->
     erlang:is_process_alive(Pid).
 
-reset_parser(#client{rcv_pid = Pid}) ->
+-spec reset_parser(pid()) -> ok.
+reset_parser(Pid) ->
     gen_server:cast(Pid, reset_parser).
 
-get_sm_h(#client{rcv_pid = Pid}) ->
+-spec get_sm_h(pid()) -> non_neg_integer().
+get_sm_h(Pid) ->
     gen_server:call(Pid, get_sm_h).
 
-set_sm_h(#client{rcv_pid = Pid}, H) ->
+-spec set_sm_h(pid(), non_neg_integer()) -> {ok, non_neg_integer()}.
+set_sm_h(Pid, H) ->
     gen_server:call(Pid, {set_sm_h, H}).
 
--spec set_filter_predicate(escalus_connection:client(),
-                           escalus_connection:filter_pred()) -> ok.
-set_filter_predicate(#client{rcv_pid = Pid}, Pred) ->
+-spec is_using_compression(pid()) -> boolean().
+is_using_compression(Pid) ->
+    gen_server:call(Pid, get_compress) =/= false.
+
+-spec is_using_ssl(pid()) -> boolean().
+is_using_ssl(Pid) ->
+    gen_server:call(Pid, get_ssl).
+
+-spec set_filter_predicate(pid(), escalus_connection:filter_pred()) -> ok.
+set_filter_predicate(Pid, Pred) ->
     gen_server:call(Pid, {set_filter_pred, Pred}).
 
-stop(#client{rcv_pid = Pid}) ->
+-spec stop(pid()) -> ok | already_stopped.
+stop(Pid) ->
     try
         gen_server:call(Pid, stop)
     catch
@@ -91,48 +110,66 @@ stop(#client{rcv_pid = Pid}) ->
             already_stopped
     end.
 
-kill(#client{rcv_pid = Pid}) ->
+-spec kill(pid()) -> ok | already_stopped.
+kill(Pid) ->
     %% Use `kill_connection` to avoid confusion with exit reason `kill`.
-    gen_server:call(Pid, kill_connection).
+    try
+        gen_server:call(Pid, kill_connection)
+    catch
+        exit:{noproc, {gen_server, call, _}} ->
+            already_stopped;
+        exit:{normal, {gen_server, call, _}} ->
+            already_stopped
+    end.
 
-upgrade_to_tls(#client{socket = Socket, rcv_pid = Pid} = Client, Props) ->
-    Starttls = escalus_stanza:starttls(),
-    gen_tcp:send(Socket, exml:to_iolist(Starttls)),
-    escalus_connection:get_stanza(Client, proceed),
-    SSLOpts = proplists:get_value(ssl_opts, Props, []),
+%% TODO get rid of the functions using #client
+
+-spec upgrade_to_tls(pid(), proplists:proplist()) -> ok.
+upgrade_to_tls(Pid, SSLOpts) ->
     case gen_server:call(Pid, {upgrade_to_tls, SSLOpts}) of
         {error, Error} ->
             error(Error);
         _ ->
-            Client2 = get_transport(Client),
-            {Props2, _} = escalus_session:start_stream(Client2, Props),
-            {Client2, Props2}
+            ok
     end.
 
-use_zlib(#client{rcv_pid = Pid} = Client, Props) ->
-    escalus_connection:send(Client, escalus_stanza:compress(<<"zlib">>)),
-    Compressed = escalus_connection:get_stanza(Client, compressed),
-    escalus:assert(is_compressed, Compressed),
-    gen_server:call(Pid, use_zlib),
-    Client1 = get_transport(Client),
-    {Props2, _} = escalus_session:start_stream(Client1, Props),
-    {Client1, Props2}.
+-spec use_zlib(pid()) -> ok.
+use_zlib(Pid) ->
+    gen_server:call(Pid, use_zlib).
 
-get_transport(#client{rcv_pid = Pid}) ->
-    gen_server:call(Pid, get_transport).
+-spec stream_start_req(escalus_users:user_spec()) -> exml_stream:element().
+stream_start_req(Props) ->
+    {server, Server} = lists:keyfind(server, 1, Props),
+    NS = proplists:get_value(stream_ns, Props, <<"jabber:client">>),
+    escalus_stanza:stream_start(Server, NS).
+
+-spec stream_end_req(_) -> exml_stream:element().
+stream_end_req(_) ->
+    escalus_stanza:stream_end().
+
+-spec assert_stream_start(exml_stream:element(), _) -> exml_stream:element().
+assert_stream_start(Rep = #xmlstreamstart{}, _) -> Rep;
+assert_stream_start(Rep, _) -> error("Not a valid stream start", [Rep]).
+
+-spec assert_stream_end(exml_stream:element(), _) -> exml_stream:element().
+assert_stream_end(Rep = #xmlstreamend{}, _) -> Rep;
+assert_stream_end(Rep, _) -> error("Not a valid stream end", [Rep]).
+
 
 %%%===================================================================
 %%% Low level API
 %%%===================================================================
 
-get_active(#client{rcv_pid = Pid}) ->
+-spec get_active(pid()) -> boolean().
+get_active(Pid) ->
     gen_server:call(Pid, get_active).
 
-set_active(#client{rcv_pid = Pid}, Active) ->
+-spec set_active(pid(), boolean()) -> ok.
+set_active(Pid, Active) ->
     gen_server:call(Pid, {set_active, Active}).
 
--spec recv(#client{}) -> exml_stream:element() | empty.
-recv(#client{rcv_pid = Pid}) ->
+-spec recv(pid()) -> exml_stream:element() | empty.
+recv(Pid) ->
     gen_server:call(Pid, recv).
 
 %%%===================================================================
@@ -141,6 +178,7 @@ recv(#client{rcv_pid = Pid}) ->
 
 %% TODO: refactor all opt defaults taken from Args into a default_opts function,
 %%       so that we know what options the module actually expects
+-spec init(list()) -> {ok, state()}.
 init([Args, Owner]) ->
     Host = proplists:get_value(host, Args, <<"localhost">>),
     Port = proplists:get_value(port, Args, 5222),
@@ -182,13 +220,13 @@ init([Args, Owner]) ->
                 on_reply = OnReplyFun,
                 on_request = OnRequestFun}}.
 
+-spec handle_call(term(), {pid(), term()}, state()) ->
+    {reply, term(), state()} | {stop, normal, ok, state()}.
 handle_call(get_sm_h, _From, #state{sm_state = {_, H, _}} = State) ->
     {reply, H, State};
 handle_call({set_sm_h, H}, _From, #state{sm_state = {A, _OldH, S}} = State) ->
     NewState = State#state{sm_state={A, H, S}},
     {reply, {ok, H}, NewState};
-handle_call(get_transport, _From, State) ->
-    {reply, transport(State), State};
 handle_call({upgrade_to_tls, SSLOpts}, _From, #state{socket = Socket} = State) ->
     SSLOpts1 = [{reuse_sessions, true}],
     SSLOpts2 = lists:keymerge(1, lists:keysort(1, SSLOpts),
@@ -201,16 +239,20 @@ handle_call({upgrade_to_tls, SSLOpts}, _From, #state{socket = Socket} = State) -
         {error, closed} = E ->
             {reply, E, State}
     end;
-handle_call(use_zlib, _, #state{parser = Parser, socket = Socket} = State) ->
+handle_call(use_zlib, _, #state{parser = Parser} = State) ->
     Zin = zlib:open(),
     Zout = zlib:open(),
     ok = zlib:inflateInit(Zin),
     ok = zlib:deflateInit(Zout),
     {ok, NewParser} = exml_stream:reset_parser(Parser),
-    {reply, Socket, State#state{parser = NewParser,
-                                compress = {zlib, {Zin,Zout}}}};
+    {reply, ok, State#state{parser = NewParser,
+                            compress = {zlib, {Zin, Zout}}}};
 handle_call(get_active, _From, #state{active = Active} = State) ->
     {reply, Active, State};
+handle_call(get_compress, _From, #state{compress = Compress} = State) ->
+    {reply, Compress, State};
+handle_call(get_ssl, _From, #state{ssl = Ssl} = State) ->
+    {reply, Ssl, State};
 handle_call({set_active, Active}, _From, State) ->
     {reply, ok, State#state{active = Active}};
 handle_call({set_filter_pred, Pred}, _From, State) ->
@@ -218,19 +260,22 @@ handle_call({set_filter_pred, Pred}, _From, State) ->
 handle_call(recv, _From, State) ->
     {Reply, NS} = handle_recv(State),
     {reply, Reply, NS};
-handle_call(kill_connection, _, #state{socket = Socket } = S) ->
-    gen_tcp:close(Socket),
+handle_call(kill_connection, _, #state{socket = Socket, ssl = SSL} = S) ->
+    case SSL of
+        true -> ssl:close(Socket);
+        false -> gen_tcp:close(Socket)
+    end,
     close_compression_streams(S#state.compress),
     {stop, normal, ok, S};
-handle_call(stop, _From, #state{} = S) ->
-    send_stream_end(S),
+handle_call(stop, _From, S) ->
     close_compression_streams(S#state.compress),
     wait_until_closed(S#state.socket),
     {stop, normal, ok, S}.
 
--spec handle_cast({send, any(), any()}, any()) -> {noreply, any()}.
-handle_cast({send, #client{socket = Socket, ssl = Ssl, compress = Compress},
-             Elem}, #state{on_request = OnRequestFun} = State) ->
+
+-spec handle_cast({send, any()}, any()) -> {noreply, state()} | {stop, term(), state()}.
+handle_cast({send, Elem}, #state{socket = Socket, ssl = Ssl, compress = Compress,
+                                 on_request = OnRequestFun} = State) ->
     Reply = case {Ssl, Compress} of
                 {true, {zlib, {_, Zout}}} ->
                     Deflated = zlib:deflate(Zout, exml:to_iolist(Elem), sync),
@@ -251,6 +296,7 @@ handle_cast(reset_parser, #state{parser = Parser} = State) ->
 handle_cast(stop, State) ->
     {stop, normal, State}.
 
+-spec handle_info(term(), state()) -> {noreply, state()} | {stop, term(), state()}.
 handle_info({tcp, Socket, Data}, State) ->
     inet:setopts(Socket, [{active, once}]),
     NewState = handle_data(Socket, Data, State),
@@ -264,13 +310,15 @@ handle_info({tcp_closed, Socket}, #state{socket = Socket} = State) ->
 handle_info(_, State) ->
     {noreply, State}.
 
-terminate(_Reason, #state{socket = Socket, ssl = true} = State) ->
-    common_terminate(_Reason, State),
+-spec terminate(term(), state()) -> term().
+terminate(Reason, #state{socket = Socket, ssl = true} = State) ->
+    common_terminate(Reason, State),
     ssl:close(Socket);
-terminate(_Reason, #state{socket = Socket} = State) ->
-    common_terminate(_Reason, State),
+terminate(Reason, #state{socket = Socket} = State) ->
+    common_terminate(Reason, State),
     gen_tcp:close(Socket).
 
+-spec code_change(term(), state(), term()) -> {ok, state()}.
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
@@ -310,7 +358,7 @@ forward_to_owner(Stanzas0, #state{owner = Owner,
 
     lists:foreach(fun(Stanza) ->
         escalus_event:incoming_stanza(EventClient, Stanza),
-        Owner ! {stanza, transport(NewState), Stanza}
+        Owner ! {stanza, self(), Stanza}
     end, StanzasNoRs),
 
     case lists:keyfind(xmlstreamend, 1, StanzasNoRs) of
@@ -382,23 +430,12 @@ raw_send(#state{socket=Socket}, Elem) ->
 common_terminate(_Reason, #state{parser = Parser}) ->
     exml_stream:free_parser(Parser).
 
-transport(#state{socket = Socket,
-                 ssl = Ssl,
-                 compress = Compress,
-                 event_client = EventClient}) ->
-    #client{module = ?MODULE,
-               rcv_pid = self(),
-               socket = Socket,
-               ssl = Ssl,
-               compress = Compress,
-               event_client = EventClient}.
-
 wait_until_closed(Socket) ->
     receive
         {tcp_closed, Socket} ->
             ok
     after ?WAIT_FOR_SOCKET_CLOSE_TIMEOUT ->
-            ok
+            error(tcp_close_timeout)
     end.
 
 -spec host_to_inet(tuple() | atom() | list() | binary())
@@ -415,6 +452,7 @@ close_compression_streams(false) ->
     ok;
 close_compression_streams({zlib, {Zin, Zout}}) ->
     try
+        zlib:deflate(Zout, <<>>, finish),
         ok = zlib:inflateEnd(Zin),
         ok = zlib:deflateEnd(Zout)
     catch
@@ -422,19 +460,6 @@ close_compression_streams({zlib, {Zin, Zout}}) ->
     after
         ok = zlib:close(Zin),
         ok = zlib:close(Zout)
-    end.
-
-send_stream_end(#state{socket = Socket, ssl = Ssl, compress = Compress}) ->
-    StreamEnd = escalus_stanza:stream_end(),
-    case {Ssl, Compress} of
-        {true, _} ->
-            ssl:send(Socket, exml:to_iolist(StreamEnd));
-        {false, {zlib, {_, Zout}}} ->
-            gen_tcp:send(Socket, zlib:deflate(Zout,
-                                              exml:to_iolist(StreamEnd),
-                                              finish));
-        {false, false} ->
-            gen_tcp:send(Socket, exml:to_iolist(StreamEnd))
     end.
 
 do_connect(IsSSLConnection, Address, Port, Args, SocketOpts, OnConnectFun) ->

@@ -71,7 +71,7 @@
 -spec start(escalus:config()) -> any().
 start(Config) ->
     case auth_type(Config) of
-        {escalus_user_db, {module, M, Opts}} ->
+        {module, M, Opts} ->
             M:start(Opts);
         _ ->
             ok
@@ -80,7 +80,7 @@ start(Config) ->
 -spec stop(escalus:config()) -> any().
 stop(Config) ->
     case auth_type(Config) of
-        {escalus_user_db, {module, M, Opts}} ->
+        {module, M, Opts} ->
             M:stop(Opts);
         _ ->
             ok
@@ -89,9 +89,9 @@ stop(Config) ->
 -spec create_users(escalus:config(), [user_spec()]) -> escalus:config().
 create_users(Config, Users) ->
     case auth_type(Config) of
-        {escalus_user_db, xmpp} ->
+        xmpp ->
             create_users_via_xmpp(Config, Users);
-        {escalus_user_db, {module, M, _}} ->
+        {module, M, _} ->
             M:create_users(Config, Users)
     end.
 
@@ -104,9 +104,9 @@ create_users_via_xmpp(Config, Users) ->
 -spec delete_users(escalus:config(), [user_spec()]) -> escalus:config().
 delete_users(Config, Users) ->
     case auth_type(Config) of
-        {escalus_user_db, xmpp} ->
+        xmpp ->
             [delete_user(Config, User) || User <- Users];
-        {escalus_user_db, {module, M, _}} ->
+        {module, M, _} ->
             M:delete_users(Config, Users)
     end.
 
@@ -245,13 +245,13 @@ get_user_by_name(Name) ->
 -spec create_user(escalus:config(), named_user()) -> any().
 create_user(Config, {_Name, Options}) ->
     ClientProps0 = get_options(Config, Options),
-    {ok, Conn, ClientProps, _} = escalus_connection:start(ClientProps0,
+    {ok, Conn, _} = escalus_connection:start(ClientProps0,
                                                           [start_stream,
                                                            stream_features,
                                                            maybe_use_ssl]),
     escalus_connection:send(Conn, escalus_stanza:get_registration_fields()),
     {ok, result, RegisterInstrs} = wait_for_result(Conn),
-    Answers = get_answers(ClientProps, RegisterInstrs),
+    Answers = get_answers(Conn#client.props, RegisterInstrs),
     escalus_connection:send(Conn, escalus_stanza:register_account(Answers)),
     Result = wait_for_result(Conn),
     escalus_connection:stop(Conn),
@@ -272,22 +272,23 @@ verify_creation({error, Error, Raw}) ->
       {ok, _, _} | {error, _, _}.
 delete_user(Config, {_Name, UserSpec}) ->
     Options = get_options(Config, UserSpec),
-    {ok, Conn, _, _} = escalus_connection:start(Options),
+    {ok, Conn, _} = escalus_connection:start(Options),
     escalus_connection:send(Conn, escalus_stanza:remove_account()),
     Result = wait_for_result(Conn),
     escalus_connection:stop(Conn),
     Result.
 
--spec auth_type([proplists:property()]) -> {escalus_user_db, {module, atom(), list()} | xmpp}.
+-spec auth_type([proplists:property()]) -> {module, atom(), list()} | xmpp.
 auth_type(Config) ->
-    Type = case {escalus_config:get_config(escalus_user_db, Config, undefined),
-                 try_check_mod_register(Config)} of
-               {{module, M, Args}, _} -> {module, M, Args};
-               {{module, M}, _} -> {module, M, []};
-               {_, false} -> {module, escalus_ejabberd, []};
-               {_, true} -> xmpp
-           end,
-    {escalus_user_db, Type}.
+    auth_type(escalus_config:get_config(escalus_user_db, Config, undefined), Config).
+
+auth_type({module, M, Args}, _Config) -> {module, M, Args};
+auth_type({module, M}, _Config) -> {module, M, []};
+auth_type(_, Config) ->
+    case try_check_mod_register(Config) of
+        false -> {module, escalus_ejabberd, []};
+        true -> xmpp
+    end.
 
 try_check_mod_register(Config) ->
     try is_mod_register_enabled(Config)
@@ -300,7 +301,7 @@ is_mod_register_enabled(Config) ->
     Host = escalus_config:get_config(escalus_host, Config, Server),
     Port = escalus_config:get_config(escalus_port, Config, 5222),
     ClientProps = [{server, Server}, {host, Host}, {port, Port}],
-    {ok, Conn, _, _} = escalus_connection:start(ClientProps,
+    {ok, Conn, _} = escalus_connection:start(ClientProps,
                                                 [start_stream,
                                                  stream_features,
                                                  maybe_use_ssl]),
@@ -384,9 +385,9 @@ get_defined_option(Config, Name, Short, Long) ->
                                          | {ok, conflict, exml:element()}
                                          | {error, Error, exml:cdata()}
       when Error :: 'failed_to_register' | 'bad_response' | 'timeout'.
-wait_for_result(Conn) ->
+wait_for_result(#client{rcv_pid = Pid}) ->
     receive
-        {stanza, Conn, Stanza} ->
+        {stanza, Pid, Stanza} ->
             case response_type(Stanza) of
                 result ->
                     {ok, result, Stanza};
