@@ -89,7 +89,8 @@
 %% XEP-0313: Message Archive Management
 -export([mam_archive_query/1,
          mam_lookup_messages_iq/4,
-         mam_lookup_messages_iq/5
+         mam_lookup_messages_iq/5,
+         mam_lookup_messages_iq/6
         ]).
 
 %% XEP-0333: Chat Markers
@@ -700,6 +701,7 @@ mam_archive_query(QueryId, Children) ->
                       %% no need to create form element
                       []
               end,
+
     escalus_stanza:iq(
       <<"set">>,
       [#xmlel{
@@ -711,19 +713,32 @@ mam_archive_query(QueryId, Children) ->
 -spec mam_lookup_messages_iq(binary(), binary(), binary(), binary()) ->
     exml:element().
 mam_lookup_messages_iq(QueryId, Start, End, WithJID) ->
+    mam_lookup_messages_iq(QueryId, Start, End, WithJID, false).
+
+-spec mam_lookup_messages_iq(binary(), binary(), binary(), binary(), term()) ->
+    exml:element().
+mam_lookup_messages_iq(QueryId, Start, End, WithJID, Simple)
+  when Simple =:= true; Simple =:= false ->
     Fields = [field_el(<<"FORM_TYPE">>, <<"hidden">>, ?NS_MAM),
               field_el(<<"start">>, <<"text-single">>, Start),
               field_el(<<"end">>, <<"text-single">>, End),
               field_el(<<"with">>, <<"jid-single">>, WithJID)
              ],
-    mam_archive_query(QueryId, [Fields]).
-
+    WithSimpleField =
+        case Simple of
+            true -> [field_el(<<"simple">>, <<"boolean">>, <<"true">>) | Fields];
+            false -> Fields
+        end,
+    mam_archive_query(QueryId, WithSimpleField);
 %% Include an rsm id for a particular message.
--spec mam_lookup_messages_iq(binary(), binary(), binary(), binary(), term()) ->
-    exml:element().
 mam_lookup_messages_iq(QueryId, Start, End, WithJID, DirectionWMessageId) ->
+    mam_lookup_messages_iq(QueryId, Start, End, WithJID, DirectionWMessageId, false).
+
+-spec mam_lookup_messages_iq(binary(), binary(), binary(), binary(), term(), boolean()) ->
+    exml:element().
+mam_lookup_messages_iq(QueryId, Start, End, WithJID, DirectionWMessageId, Simple) ->
     IQ = #xmlel{children=[Q]} = mam_lookup_messages_iq(QueryId, Start, End,
-                                                       WithJID),
+                                                       WithJID, Simple),
     RSM  = defined([fmapM(fun rsm_after_or_before/1, DirectionWMessageId)]),
     Other = Q#xmlel.children,
     Q2 = Q#xmlel{children = Other ++ RSM},
@@ -743,6 +758,8 @@ direction_el('after', AbstractID) when is_binary(AbstractID) ->
     #xmlel{name = <<"after">>, children = [#xmlcdata{content = AbstractID}]};
 direction_el('before', AbstractID) when is_binary(AbstractID) ->
     #xmlel{name = <<"before">>, children = [#xmlcdata{content = AbstractID}]};
+direction_el('index', N) when is_integer(N) ->
+    #xmlel{name = <<"index">>, children = [#xmlcdata{content = integer_to_binary(N)}]};
 direction_el(_, undefined) ->
     undefined.
 
