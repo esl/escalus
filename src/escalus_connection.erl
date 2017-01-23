@@ -101,10 +101,10 @@ start(Props) ->
 start(Props0, Steps) ->
     try
         {ok, Conn, Props} = connect(Props0),
+        PreparedSteps = [prepare_step(Step) || Step <- Steps],
         {Conn1, Props1, Features} = lists:foldl(fun connection_step/2,
                                                 {Conn, Props, []},
-                                                [prepare_step(Step)
-                                                 || Step <- Steps]),
+                                                PreparedSteps),
         {ok, Conn1, Props1, Features}
     catch
         throw:{connection_step_failed, _Details, _Reason} = Error ->
