@@ -119,7 +119,8 @@
          to/2,
          from/2,
          tags/1,
-         set_id/2]).
+         set_id/2,
+         uuid_v4/0]).
 
 -export([get_registration_fields/0,
          register_account/1]).
@@ -813,6 +814,10 @@ marker_el(MarkerName, MessageId) when MarkerName =:= <<"received">> orelse
 -spec id() -> binary().
 id() ->
     base16:encode(crypto:rand_bytes(16)).
+
+-spec uuid_v4() -> binary().
+uuid_v4() ->
+    iolist_to_binary(uuid:uuid_to_string(uuid:get_v4())).
 
 %%--------------------------------------------------------------------
 %% Stanzas from inline XML
