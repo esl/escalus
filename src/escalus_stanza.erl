@@ -810,6 +810,10 @@ marker_el(MarkerName, MessageId) when MarkerName =:= <<"received">> orelse
     #xmlel{name = MarkerName, attrs = [{<<"xmlns">>, ?NS_CHAT_MARKERS},
                                        {<<"id">>, MessageId}]}.
 
+-spec id() -> binary().
+id() ->
+    base16:encode(crypto:rand_bytes(16)).
+
 %%--------------------------------------------------------------------
 %% Stanzas from inline XML
 %%--------------------------------------------------------------------
@@ -898,11 +902,3 @@ argument_to_string(E) when is_binary(E) -> ?b2l(E);
 argument_to_string(E) when is_list(E) -> E;
 argument_to_string(I) when is_integer(I) -> ?i2l(I);
 argument_to_string(F) when is_float(F) -> io_lib:format("~.2f", [F]).
-
-%%--------------------------------------------------------------------
-%% Helpers
-%%--------------------------------------------------------------------
-
--spec id() -> binary().
-id() ->
-    base16:encode(crypto:rand_bytes(16)).
