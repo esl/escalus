@@ -49,7 +49,7 @@ fresh_users_can_be_created_outside_a_story(_) ->
     given_escalus_started(C),
 
     % when
-    escalus_fresh:create_users(C, [{ada, 1}]),
+    escalus_fresh:create_users(C, [ada]),
 
     % then
     [{Suffix,
