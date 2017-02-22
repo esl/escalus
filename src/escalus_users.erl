@@ -384,20 +384,16 @@ get_defined_option(Config, Name, Short, Long) ->
                                          | {error, Error, exml:cdata()}
       when Error :: 'failed_to_register' | 'bad_response' | 'timeout'.
 wait_for_result(Conn) ->
-    receive
-        {stanza, Conn, Stanza} ->
-            case response_type(Stanza) of
-                result ->
-                    {ok, result, Stanza};
-                conflict ->
-                    {ok, conflict, Stanza};
-                error ->
-                    {error, failed_to_register, Stanza};
-                _ ->
-                    {error, bad_response, Stanza}
-            end
-    after 3000 ->
-            {error, timeout, exml:escape_cdata(<<"timeout">>)}
+    Stanza = escalus:wait_for_stanza(Conn),
+    case response_type(Stanza) of
+        result ->
+            {ok, result, Stanza};
+        conflict ->
+            {ok, conflict, Stanza};
+        error ->
+            {error, failed_to_register, Stanza};
+        _ ->
+            {error, bad_response, Stanza}
     end.
 
 response_type(#xmlel{name = <<"iq">>} = IQ) ->
