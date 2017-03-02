@@ -13,11 +13,12 @@
 -include_lib("exml/include/exml_stream.hrl").
 
 -export([create_node/3, create_node/4,
-         configure_node/4,
+         request_configuration/3, configure_node/4,
          delete_node/3,
          subscribe/3, subscribe/4,
          unsubscribe/3,
          publish/3, publish/5,
+         retract/4,
          request_all_items/3,
          purge_all_items/3,
          retrieve_user_subscriptions/3,
@@ -43,12 +44,19 @@ create_node(User, Id, {NodeAddr, NodeName}, ConfigFields) ->
     PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
     iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
 
+-spec request_configuration(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
+request_configuration(User, Id, {NodeAddr, NodeName}) ->
+    Elements = [#xmlel{ name = <<"configure">>,
+                        attrs = [{<<"node">>, NodeName}] }],
+    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB_OWNER),
+    iq(<<"get">>, User, Id, NodeAddr, [PubSubElement]).
+
 -spec configure_node(escalus_utils:jid_spec(), binary(), pubsub_node_id(),
                      [{binary(), binary()}]) ->
                             exml:element().
 configure_node(User, Id, {NodeAddr, NodeName}, ConfigFields) ->
     Elements = configure_node_form(ConfigFields, NodeName),
-    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
+    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB_OWNER),
     iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
 
 -spec delete_node(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
@@ -87,6 +95,12 @@ publish(User, ItemId, ContentElement, Id, {NodeAddr, NodeName}) ->
     Elements = [publish_element(NodeName, ItemElement)],
     PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
     publish_iq(User, PubSubElement, Id, NodeAddr).
+
+-spec retract(escalus_utils:jid_spec(), binary(), pubsub_node_id(), binary()) -> exml:element().
+retract(User, Id, {NodeAddr, NodeName}, ItemId) ->
+    Elements = [retract_item(NodeName, ItemId)],
+    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
+    iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
 
 -spec request_all_items(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
 request_all_items(User, Id, {NodeAddr, NodeName}) ->
@@ -203,6 +217,12 @@ item_element(ItemId, ContentElement) ->
     #xmlel{name = <<"item">>,
            attrs = [{<<"id">>, ItemId}],
            children = skip_undefined([ContentElement])}.
+
+retract_item(NodeName, ItemId) ->
+    #xmlel{name = <<"retract">>,
+           attrs = [{<<"node">>, NodeName}],
+           children = [#xmlel{ name = <<"item">>,
+                               attrs = [{<<"id">>, ItemId}] }]}.
 
 purge_element(NodeName) ->
     #xmlel{name = <<"purge">>,
