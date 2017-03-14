@@ -233,15 +233,15 @@ handle_cast({send, #client{socket = Socket, ssl = Ssl, compress = Compress},
              Elem}, #state{on_request = OnRequestFun} = State) ->
     Reply = case {Ssl, Compress} of
                 {true, {zlib, {_, Zout}}} ->
-                    Deflated = zlib:deflate(Zout, exml:to_iolist(Elem), sync),
+                    Deflated = zlib:deflate(Zout, exml:to_pretty_iolist(Elem), sync),
                     ssl:send(Socket, Deflated);
                 {true, _} ->
-                    ssl:send(Socket, exml:to_iolist(Elem));
+                    ssl:send(Socket, exml:to_pretty_iolist(Elem));
                 {false, {zlib, {_, Zout}}} ->
-                    Deflated = zlib:deflate(Zout, exml:to_iolist(Elem), sync),
+                    Deflated = zlib:deflate(Zout, exml:to_pretty_iolist(Elem), sync),
                     gen_tcp:send(State#state.socket, Deflated);
                 {false, false} ->
-                    gen_tcp:send(Socket, exml:to_iolist(Elem))
+                    gen_tcp:send(Socket, exml:to_pretty_iolist(Elem))
             end,
     OnRequestFun(Reply),
     {noreply, State};
