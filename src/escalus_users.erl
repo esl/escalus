@@ -382,8 +382,8 @@ get_defined_option(Config, Name, Short, Long) ->
 
 -spec wait_for_result(escalus:client()) -> {ok, result, exml:element()}
                                          | {ok, conflict, exml:element()}
-                                         | {error, Error, exml:cdata()}
-      when Error :: 'failed_to_register' | 'bad_response' | 'timeout'.
+                                         | {error, Error, exml:element()}
+      when Error :: 'failed_to_register' | 'bad_response'.
 wait_for_result(Conn) ->
     Stanza = escalus:wait_for_stanza(Conn),
     case response_type(Stanza) of
