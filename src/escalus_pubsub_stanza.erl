@@ -48,30 +48,26 @@ create_node(User, Id, Node) ->
                          exml:element().
 create_node(User, Id, {NodeAddr, NodeName}, ConfigFields) ->
     Elements = [create_node_element(NodeName) | configure_node_form(ConfigFields, undefined)],
-    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
-    iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
+    pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
 
 -spec request_configuration(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
 request_configuration(User, Id, {NodeAddr, NodeName}) ->
     Elements = [#xmlel{ name = <<"configure">>,
                         attrs = [{<<"node">>, NodeName}] }],
-    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB_OWNER),
-    iq(<<"get">>, User, Id, NodeAddr, [PubSubElement]).
+    pubsub_owner_iq(<<"get">>, User, Id, NodeAddr, Elements).
 
 -spec configure_node(escalus_utils:jid_spec(), binary(), pubsub_node_id(),
                      [{binary(), binary()}]) ->
                             exml:element().
 configure_node(User, Id, {NodeAddr, NodeName}, ConfigFields) ->
     Elements = configure_node_form(ConfigFields, NodeName),
-    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB_OWNER),
-    iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
+    pubsub_owner_iq(<<"set">>, User, Id, NodeAddr, Elements).
 
 -spec request_affiliations(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
 request_affiliations(User, Id, {NodeAddr, NodeName}) ->
     Elements = [#xmlel{ name = <<"affiliations">>,
                         attrs = [{<<"node">>, NodeName}] }],
-    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB_OWNER),
-    iq(<<"get">>, User, Id, NodeAddr, [PubSubElement]).
+    pubsub_owner_iq(<<"get">>, User, Id, NodeAddr, Elements).
 
 -spec set_affiliations(escalus_utils:jid_spec(), binary(), pubsub_node_id(),
                        [{escalus_utils:jid_spec(), binary()}]) ->
@@ -83,14 +79,12 @@ set_affiliations(User, Id, {NodeAddr, NodeName}, AffChange) ->
                 || {U, A} <- AffChange ],
     Affiliations = #xmlel{ name = <<"affiliations">>, attrs = [{<<"node">>, NodeName}],
                            children = AffList },
-    PubSubElement = pubsub_element([Affiliations], ?NS_PUBSUB_OWNER),
-    iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
+    pubsub_owner_iq(<<"set">>, User, Id, NodeAddr, [Affiliations]).
 
 -spec delete_node(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
 delete_node(User, Id, {NodeAddr, NodeName}) ->
     Elements = [delete_element(NodeName)],
-    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB_OWNER),
-    iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
+    pubsub_owner_iq(<<"set">>, User, Id, NodeAddr, Elements).
 
 -spec subscribe(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
 subscribe(User, Id, Node) ->
@@ -100,14 +94,12 @@ subscribe(User, Id, Node) ->
                          exml:element().
 subscribe(User, Id, {NodeAddr, NodeName}, ConfigFields) ->
     Elements = [subscribe_element(NodeName, User) | subscribe_options_form(ConfigFields)],
-    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
-    iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
+    pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
 
 -spec unsubscribe(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
 unsubscribe(User, Id, {NodeAddr, NodeName}) ->
     Elements = [unsubscribe_element(NodeName, User)],
-    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
-    iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
+    pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
 
 -spec submit_subscription_response(escalus_utils:jid_spec(), binary(), pubsub_node_id(), form()) ->
     exml:element().
@@ -135,34 +127,29 @@ request_pending_subscriptions(User, Id, NodesAddr) ->
 -spec publish(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
 publish(User, Id, {NodeAddr, NodeName}) ->
     Elements = [publish_element(NodeName, undefined)],
-    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
-    publish_iq(User, PubSubElement, Id, NodeAddr).
+    pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
 
 -spec publish(escalus_utils:jid_spec(), binary(), exml:element(), binary(), pubsub_node_id()) ->
                      exml:element().
 publish(User, ItemId, ContentElement, Id, {NodeAddr, NodeName}) ->
     ItemElement = item_element(ItemId, ContentElement),
     Elements = [publish_element(NodeName, ItemElement)],
-    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
-    publish_iq(User, PubSubElement, Id, NodeAddr).
+    pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
 
 -spec retract(escalus_utils:jid_spec(), binary(), pubsub_node_id(), binary()) -> exml:element().
 retract(User, Id, {NodeAddr, NodeName}, ItemId) ->
     Elements = [retract_item(NodeName, ItemId)],
-    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
-    iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
+    pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
 
 -spec request_all_items(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
 request_all_items(User, Id, {NodeAddr, NodeName}) ->
     Elements = [items_element(NodeName)],
-    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
-    iq(<<"get">>, User, Id, NodeAddr, [PubSubElement]).
+    pubsub_iq(<<"get">>, User, Id, NodeAddr, Elements).
 
 -spec purge_all_items(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
 purge_all_items(User, Id, {NodeAddr, NodeName}) ->
     Elements = [purge_element(NodeName)],
-    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB_OWNER),
-    iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
+    pubsub_owner_iq(<<"set">>, User, Id, NodeAddr, Elements).
 
 -spec retrieve_user_subscriptions(escalus_utils:jid_spec(), binary(),
                                   pubsub_node_id() | binary()) -> exml:element().
@@ -172,15 +159,13 @@ retrieve_user_subscriptions(User, Id, Node) ->
           {NodeAddr0, NodeName} -> {subscriptions_element(NodeName, []), NodeAddr0};
           NodeAddr0 -> {subscriptions_element(), NodeAddr0}
       end,
-    PubSubElement = pubsub_element([Element], ?NS_PUBSUB),
-    iq(<<"get">>, User, Id, NodeAddr, [PubSubElement]).
+    pubsub_iq(<<"get">>, User, Id, NodeAddr, [Element]).
 
 -spec retrieve_node_subscriptions(escalus_utils:jid_spec(), binary(), pubsub_node_id()) ->
                                          exml:element().
 retrieve_node_subscriptions(User, Id, {NodeAddr, NodeName}) ->
     Elements = [subscriptions_element(NodeName, [])],
-    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB_OWNER),
-    iq(<<"get">>, User, Id, NodeAddr, [PubSubElement]).
+    pubsub_owner_iq(<<"get">>, User, Id, NodeAddr, Elements).
 
 -spec set_subscriptions(escalus_utils:jid_spec(), binary(),
                         [{escalus_utils:jid_spec(), binary()}], pubsub_node_id()) ->
@@ -188,8 +173,7 @@ retrieve_node_subscriptions(User, Id, {NodeAddr, NodeName}) ->
 set_subscriptions(User, Id, Subscriptions, {NodeAddr, NodeName}) ->
     SubElements = [subscription_element(Jid, SubState) || {Jid, SubState} <- Subscriptions],
     Elements = [subscriptions_element(NodeName, SubElements)],
-    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB_OWNER),
-    iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
+    pubsub_owner_iq(<<"set">>, User, Id, NodeAddr, Elements).
 
 -spec discover_nodes(escalus_utils:jid_spec(), binary(), binary() | pubsub_node_id()) ->
                             exml:element().
@@ -206,20 +190,25 @@ discover_nodes(User, Id, NodeAddr) ->
 
 %% Whole stanzas
 
-publish_iq(User, PubSubElement, Id, pep) ->
-    iq(<<"set">>, User, Id, [PubSubElement]);
-publish_iq(User, PubSubElement, Id, NodeAddr) ->
-    iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
-
-iq(Type, From, Id, Elements) ->
+iq(Type, From, Id, pep, Elements) ->
     Stanza = escalus_stanza:iq(Type, Elements),
     StanzaWithId = escalus_stanza:set_id(Stanza, Id),
-    escalus_stanza:from(StanzaWithId, escalus_utils:get_jid(From)).
-
+    escalus_stanza:from(StanzaWithId, escalus_utils:get_jid(From));
 iq(Type, From, Id, To, Elements) ->
     Stanza = escalus_stanza:iq(To, Type, Elements),
     StanzaWithId = escalus_stanza:set_id(Stanza, Id),
     escalus_stanza:from(StanzaWithId, escalus_utils:get_jid(From)).
+
+pubsub_iq(Type, User, Id, NodeAddr, Elements) ->
+    pubsub_iq(Type, User, Id, NodeAddr, Elements, ?NS_PUBSUB).
+
+pubsub_iq(Type, User, Id, NodeAddr, Elements, NS) ->
+    PubSubElement = pubsub_element(Elements, NS),
+    iq(Type, User, Id, NodeAddr, [PubSubElement]).
+
+pubsub_owner_iq(Type, User, Id, NodeAddr, Elements) ->
+    pubsub_iq(Type, User, Id, NodeAddr, Elements, ?NS_PUBSUB_OWNER).
+
 
 %% Form utils
 
