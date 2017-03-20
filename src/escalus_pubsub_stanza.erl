@@ -14,9 +14,12 @@
 
 -export([create_node/3, create_node/4,
          request_configuration/3, configure_node/4,
+         request_affiliations/3, set_affiliations/4,
          delete_node/3,
          subscribe/3, subscribe/4,
          unsubscribe/3,
+         submit_subscription_response/4,
+         request_pending_subscriptions/3,
          publish/3, publish/5,
          retract/4,
          request_all_items/3,
@@ -28,6 +31,10 @@
 
 -type pubsub_node_id() :: {pep | binary(), binary()}.
 -export_type([pubsub_node_id/0]).
+
+-type form_field() :: {Var :: binary(), Value :: binary()}
+                      | {Var :: binary(), Type :: binary(), Value :: binary()}.
+-type form() :: [form_field()].
 
 %%-----------------------------------------------------------------------------
 %% Request construction
@@ -59,6 +66,26 @@ configure_node(User, Id, {NodeAddr, NodeName}, ConfigFields) ->
     PubSubElement = pubsub_element(Elements, ?NS_PUBSUB_OWNER),
     iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
 
+-spec request_affiliations(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
+request_affiliations(User, Id, {NodeAddr, NodeName}) ->
+    Elements = [#xmlel{ name = <<"affiliations">>,
+                        attrs = [{<<"node">>, NodeName}] }],
+    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB_OWNER),
+    iq(<<"get">>, User, Id, NodeAddr, [PubSubElement]).
+
+-spec set_affiliations(escalus_utils:jid_spec(), binary(), pubsub_node_id(),
+                       [{escalus_utils:jid_spec(), binary()}]) ->
+    exml:element().
+set_affiliations(User, Id, {NodeAddr, NodeName}, AffChange) ->
+    AffList = [ #xmlel{ name = <<"affiliation">>,
+                        attrs = [{<<"jid">>, escalus_utils:get_short_jid(U)},
+                                 {<<"affiliation">>, A}] }
+                || {U, A} <- AffChange ],
+    Affiliations = #xmlel{ name = <<"affiliations">>, attrs = [{<<"node">>, NodeName}],
+                           children = AffList },
+    PubSubElement = pubsub_element([Affiliations], ?NS_PUBSUB_OWNER),
+    iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
+
 -spec delete_node(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
 delete_node(User, Id, {NodeAddr, NodeName}) ->
     Elements = [delete_element(NodeName)],
@@ -81,6 +108,29 @@ unsubscribe(User, Id, {NodeAddr, NodeName}) ->
     Elements = [unsubscribe_element(NodeName, User)],
     PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
     iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
+
+-spec submit_subscription_response(escalus_utils:jid_spec(), binary(), pubsub_node_id(), form()) ->
+    exml:element().
+submit_subscription_response(User, Id, {NodeAddr, _NodeName}, Form) ->
+    Fields = [ encode_form_field(F) || F <- Form ],
+    XEl = escalus_stanza:x_data_form(<<"submit">>, Fields),
+    Msg = #xmlel{ name = <<"message">>,
+                  attrs = [{<<"to">>, NodeAddr}, {<<"id">>, Id}],
+                  children = [XEl] },
+    escalus_stanza:from(Msg, escalus_utils:get_jid(User)).
+
+-spec request_pending_subscriptions(escalus_utils:jid_spec(), binary(),
+                                    pubsub_node_id() | binary()) -> exml:element().
+request_pending_subscriptions(User, Id, {NodeAddr, NodeName}) ->
+    Fields = [ encode_form_field(<<"pubsub#node">>, NodeName) ],
+    Payload = [ escalus_stanza:x_data_form(<<"submit">>, Fields) ],
+    Node = <<"http://jabber.org/protocol/pubsub#get-pending">>,
+    CommandIQ = escalus_stanza:adhoc_request(Node, Payload),
+    escalus_stanza:from(escalus_stanza:set_id(escalus_stanza:to(CommandIQ, NodeAddr), Id), User);
+request_pending_subscriptions(User, Id, NodesAddr) ->
+    Node = <<"http://jabber.org/protocol/pubsub#get-pending">>,
+    CommandIQ = escalus_stanza:adhoc_request(Node, []),
+    escalus_stanza:from(escalus_stanza:set_id(escalus_stanza:to(CommandIQ, NodesAddr), Id), User).
 
 -spec publish(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
 publish(User, Id, {NodeAddr, NodeName}) ->
@@ -114,10 +164,15 @@ purge_all_items(User, Id, {NodeAddr, NodeName}) ->
     PubSubElement = pubsub_element(Elements, ?NS_PUBSUB_OWNER),
     iq(<<"set">>, User, Id, NodeAddr, [PubSubElement]).
 
--spec retrieve_user_subscriptions(escalus_utils:jid_spec(), binary(), binary()) -> exml:element().
-retrieve_user_subscriptions(User, Id, NodeAddr) ->
-    Elements = [subscriptions_element()],
-    PubSubElement = pubsub_element(Elements, ?NS_PUBSUB),
+-spec retrieve_user_subscriptions(escalus_utils:jid_spec(), binary(),
+                                  pubsub_node_id() | binary()) -> exml:element().
+retrieve_user_subscriptions(User, Id, Node) ->
+    {Element, NodeAddr}
+    = case Node of
+          {NodeAddr0, NodeName} -> {subscriptions_element(NodeName, []), NodeAddr0};
+          NodeAddr0 -> {subscriptions_element(), NodeAddr0}
+      end,
+    PubSubElement = pubsub_element([Element], ?NS_PUBSUB),
     iq(<<"get">>, User, Id, NodeAddr, [PubSubElement]).
 
 -spec retrieve_node_subscriptions(escalus_utils:jid_spec(), binary(), pubsub_node_id()) ->
@@ -177,7 +232,7 @@ subscribe_options_form(Fields) ->
 optional_form(_FormName, _NodeName, _Type, []) -> [];
 optional_form(FormName, NodeName, Type, Fields) ->
     FormTypeField = form_type_field_element(Type),
-    FormFields = [form_field_element(Var, Content) || {Var, Content} <- Fields],
+    FormFields = [encode_form_field(F) || F <- Fields],
     [form_element(FormName, NodeName, [FormTypeField | FormFields])].
 
 %% Elements
@@ -258,7 +313,12 @@ form_type_field_element(FormType) ->
            children = [#xmlel{name = <<"value">>,
                               children = [#xmlcdata{content = Content}]}]}.
 
-form_field_element(Var, Content) ->
+encode_form_field({Var, Content}) ->
+    encode_form_field(Var, Content);
+encode_form_field({Var, _Type, Content}) ->
+    encode_form_field(Var, Content).
+
+encode_form_field(Var, Content) ->
     #xmlel{name = <<"field">>,
            attrs = [{<<"var">>, Var}],
            children = [#xmlel{name = <<"value">>,
