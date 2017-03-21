@@ -205,11 +205,15 @@ x_data_form(Type, Children) ->
 
 -spec bind(binary()) -> exml:element().
 bind(Resource) ->
+    Children =
+        case Resource of
+            <<>> -> [];
+            _ -> [#xmlel{name = <<"resource">>, children = [#xmlcdata{content = Resource}]}]
+        end,
     iq(<<"set">>,
        [#xmlel{name = <<"bind">>,
                attrs = [{<<"xmlns">>, <<"urn:ietf:params:xml:ns:xmpp-bind">>}],
-               children = [#xmlel{name = <<"resource">>,
-                                  children = [#xmlcdata{content = Resource}]}]}]).
+               children = Children}]).
 
 -spec session() -> exml:element().
 session() ->

@@ -34,12 +34,16 @@
          resource/1
         ]).
 
+-export_type([client/0]).
+
 -import(escalus_compat, [bin/1, unimplemented/0]).
 
 -define(WAIT_FOR_STANZA_TIMEOUT, 1000).
 
 -include("escalus.hrl").
 -include_lib("exml/include/exml.hrl").
+
+-type client() :: #client{}.
 
 %%--------------------------------------------------------------------
 %% Public API
@@ -141,8 +145,9 @@ username(Client) ->
 server(Client) ->
     escalus_utils:regexp_get(full_jid(Client), <<"^[^@]*[@]([^/]*)">>).
 
+-spec resource(client()) -> binary().
 resource(Client) ->
-    escalus_utils:regexp_get(full_jid(Client), <<"^[^/]*[/](.*)">>).
+    escalus_utils:get_resource(full_jid(Client)).
 
 %%--------------------------------------------------------------------
 %% helpers
@@ -153,4 +158,3 @@ make_jid(Proplist) ->
     {server, S} = lists:keyfind(server, 1, Proplist),
     {resource, R} = lists:keyfind(resource, 1, Proplist),
     <<U/binary, "@", S/binary, "/", R/binary>>.
-

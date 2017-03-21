@@ -30,6 +30,7 @@
          jid_to_lower/1,
          get_username/1,
          get_server/1,
+         get_resource/1,
          drop_first_such/2,
          show_backtrace/0,
          is_prefix/2,
@@ -157,11 +158,17 @@ jid_to_lower(Jid) ->
     %% simplified lowercaseing
     list_to_binary(string:to_lower(binary_to_list(Jid))).
 
+-spec get_username(UserOrClient :: jid_spec()) -> binary().
 get_username(UserOrClient) ->
     regexp_get(get_short_jid(UserOrClient), <<"^([^@]*)">>).
 
+-spec get_server(UserOrClient :: jid_spec()) -> binary().
 get_server(UserOrClient) ->
     regexp_get(get_short_jid(UserOrClient), <<"^[^@]*[@]([^/]*)">>).
+
+-spec get_resource(JID :: binary()) -> binary().
+get_resource(JID) ->
+    regexp_get(JID, <<"^[^/]+/(.*)$">>).
 
 is_prefix(Prefix, Full) when is_binary(Prefix), is_binary(Full) ->
     LCP = binary:longest_common_prefix([Prefix, Full]),
@@ -185,4 +192,3 @@ regexp_get(Jid, Regex) ->
     {match, [ShortJid]} =
         re:run(Jid, Regex, [{capture, all_but_first, binary}]),
     ShortJid.
-
