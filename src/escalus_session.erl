@@ -98,16 +98,25 @@ authenticate(Conn, Props) ->
 -spec bind(client(), user_spec()) -> user_spec().
 bind(Conn, Props) ->
     Resource = proplists:get_value(resource, Props, ?DEFAULT_RESOURCE),
-    escalus_connection:send(Conn, escalus_stanza:bind(Resource)),
+    BindStanza = escalus_stanza:bind(Resource),
+
+    escalus_connection:send(Conn, BindStanza),
     BindReply = escalus_connection:get_stanza(Conn, bind_reply),
     escalus:assert(is_bind_result, BindReply),
+
+    JID = exml_query:path(BindReply, [{element, <<"bind">>}, {element, <<"jid">>}, cdata]),
+    PropsWithResource =
+        case is_binary(JID) of
+            true -> lists:keystore(resource, 1, Props, {resource, escalus_utils:get_resource(JID)});
+            false -> Props
+        end,
+
     case proplists:get_value(auth_method, Props) of
         <<"SASL-ANON">> ->
-            JID = exml_query:path(BindReply, [{element, <<"bind">>}, {element, <<"jid">>}, cdata]),
             TMPUsername = escalus_utils:get_username(JID),
-            lists:keyreplace(username, 1, Props, {username, TMPUsername});
+            lists:keyreplace(username, 1, PropsWithResource, {username, TMPUsername});
         _ ->
-            Props
+            PropsWithResource
     end.
 
 -spec compress(client(), user_spec()) -> {client(), user_spec()}.
