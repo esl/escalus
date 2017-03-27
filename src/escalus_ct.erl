@@ -22,7 +22,11 @@
 
 -spec add_log_link(any(), any(), any()) -> ok | false.
 add_log_link(Heading, File, Type) ->
-    is_ct_available() andalso ct_logs:add_link(Heading, File, Type).
+    is_ct_available() andalso
+    case is_18_3_or_higher() of
+        true -> ct_add_link(Heading, File, Type);
+        false -> ct_logs:add_link(Heading, File, Type)
+    end.
 
 -spec fail(any()) -> no_return().
 fail(Reason) ->
@@ -101,3 +105,42 @@ do_log_stanza(Jid, Direction, Stanza) ->
         end,
     ct:print(stanza_log, "~s~n~s", [ReportString, PrettyStanza]),
     ct:log(stanza_log, "~s~n~s", [ReportString, exml:escape_attr(PrettyStanza)]).
+
+%% ------------- Common Test hack! -------------
+%% There is a bug in Common Test since 18.3, which causes links to be printed inside <pre/>.
+%% This hack is a copy & paste from ct_logs.erl with a modification.
+%% A patch will most probably be submitted to OTP team soon.
+
+is_18_3_or_higher() ->
+    VerFloat = (catch list_to_float(erlang:system_info(version))),
+    is_float(VerFloat) andalso VerFloat >= 7.3.
+
+ct_add_link(Heading, File, Type) ->
+    ct_log(Heading, "<a href=\"~ts\" type=~p>~ts</a>\n",
+           [ct_uri(filename:join("log_private", File)), Type, File]).
+
+ct_uri("") -> "";
+ct_uri(Href) -> test_server_ctrl:uri_encode(Href).
+
+ct_log(Heading, Format, Args) ->
+    ct_logs ! {log, sync, self(), group_leader(), ct_internal, 99,
+               [{hd, ct_int_header(), [ct_log_timestamp(os:timestamp()), Heading]},
+                {Format, Args},
+                {ft, ct_int_footer(), []}],
+               false},
+    true.
+
+ct_int_header() ->
+    "</pre><div class=\"ct_internal\"><b>*** CT ~s *** ~ts</b>".
+
+ct_int_footer() ->
+    "</div><pre>".
+
+ct_log_timestamp({MS, S, US}) ->
+    put(log_timestamp, {MS, S, US}),
+    {{Year, Month, Day}, {Hour, Min, Sec}} = calendar:now_to_local_time({MS,S,US}),
+    MilliSec = trunc(US/1000),
+    lists:flatten(io_lib:format("~4.10.0B-~2.10.0B-~2.10.0B "
+                                "~2.10.0B:~2.10.0B:~2.10.0B.~3.10.0B",
+                                [Year, Month, Day, Hour, Min, Sec, MilliSec])).
+
