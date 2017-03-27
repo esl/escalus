@@ -20,6 +20,7 @@
 -export([story/3,
          make_everyone_friends/1,
          make_everyone_friends/2,
+         make_all_clients_friends/1,
          start_ready_clients/2,
          send_initial_presence/1]).
 
@@ -57,6 +58,16 @@ make_everyone_friends(Config0, Users) ->
     Config1 = escalus_cleaner:start(Config0),
     Clients = start_clients(Config1, [[{US, <<"friendly">>}] || {_Name, US} <- Users]),
 
+    make_all_clients_friends(Clients),
+
+    % stop the clients
+    escalus_cleaner:clean(Config1),
+    escalus_cleaner:stop(Config1),
+
+    % return Config0
+    [{everyone_is_friends, true} | Config0].
+
+make_all_clients_friends(Clients) ->
     % exchange subscribe and subscribed stanzas
     escalus_utils:distinct_pairs(fun(C1, C2) ->
         send_presence(C1, <<"subscribe">>, C2),
@@ -73,14 +84,7 @@ make_everyone_friends(Config0, Users) ->
         swallow_stanzas(C2, 1, 2)
     end, Clients),
 
-    ensure_all_clean(Clients),
-
-    % stop the clients
-    escalus_cleaner:clean(Config1),
-    escalus_cleaner:stop(Config1),
-
-    % return Config0
-    [{everyone_is_friends, true} | Config0].
+    ensure_all_clean(Clients).
 
 call_start_ready_clients(Config, UserCDs) ->
     escalus_overridables:do(Config, start_ready_clients, [Config, UserCDs],

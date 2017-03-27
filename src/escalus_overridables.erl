@@ -21,6 +21,8 @@
 -spec do([{atom(), term()}], atom(), [term()], {atom(), atom()}) -> term().
 do(Config, OverrideName, Args, Default) ->
     case get_mf(Config, OverrideName, Default) of
+        {Mod, Fun, ExtraArgs} ->
+            apply(Mod, Fun, ExtraArgs ++ Args);
         {Mod, Fun} ->
             apply(Mod, Fun, Args);
         Fun ->
