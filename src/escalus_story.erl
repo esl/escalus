@@ -67,6 +67,7 @@ make_everyone_friends(Config0, Users) ->
     % return Config0
     [{everyone_is_friends, true} | Config0].
 
+-spec make_all_clients_friends(Clients :: [escalus:client()]) -> ok.
 make_all_clients_friends(Clients) ->
     % exchange subscribe and subscribed stanzas
     escalus_utils:distinct_pairs(fun(C1, C2) ->
