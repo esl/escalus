@@ -83,7 +83,7 @@ print_history(Config) ->
     Events = get_history(Config),
     write_events(Events, FullFileName),
     % escalus_ct:add_log_link(Heading, FileName, Type),
-    escalus_ct:add_log_link("history.xml", FileName, ""),
+    escalus_ct:add_log_link("Stanza Log:", FileName, ""),
     ok.
 
 write_events([], _) ->
