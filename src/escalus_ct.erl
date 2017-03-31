@@ -112,8 +112,8 @@ do_log_stanza(Jid, Direction, Stanza) ->
 %% A patch will most probably be submitted to OTP team soon.
 
 is_18_3_or_higher() ->
-    VerFloat = (catch list_to_float(erlang:system_info(version))),
-    is_float(VerFloat) andalso VerFloat >= 7.3.
+    lists:map(fun erlang:list_to_integer/1,
+              string:tokens(erlang:system_info(version), ".")) >= [7, 3].
 
 ct_add_link(Heading, File, Type) ->
     ct_log(Heading, "<a href=\"~ts\" type=~p>~ts</a>\n",
