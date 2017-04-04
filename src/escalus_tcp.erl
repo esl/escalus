@@ -229,19 +229,19 @@ handle_call(stop, _From, #state{} = S) ->
     {stop, normal, ok, S}.
 
 -spec handle_cast({send, any(), any()}, any()) -> {noreply, any()}.
-handle_cast({send, #client{socket = Socket, ssl = Ssl, compress = Compress},
+handle_cast({send, #client{socket = Socket, ssl = Ssl, compress = Compress} = Client,
              Elem}, #state{on_request = OnRequestFun} = State) ->
     Reply = case {Ssl, Compress} of
                 {true, {zlib, {_, Zout}}} ->
-                    Deflated = zlib:deflate(Zout, exml:to_pretty_iolist(Elem), sync),
+                    Deflated = zlib:deflate(Zout, encode_exml(Client, Elem), sync),
                     ssl:send(Socket, Deflated);
                 {true, _} ->
-                    ssl:send(Socket, exml:to_pretty_iolist(Elem));
+                    ssl:send(Socket, encode_exml(Client, Elem));
                 {false, {zlib, {_, Zout}}} ->
-                    Deflated = zlib:deflate(Zout, exml:to_pretty_iolist(Elem), sync),
+                    Deflated = zlib:deflate(Zout, encode_exml(Client, Elem), sync),
                     gen_tcp:send(State#state.socket, Deflated);
                 {false, false} ->
-                    gen_tcp:send(Socket, exml:to_pretty_iolist(Elem))
+                    gen_tcp:send(Socket, encode_exml(Client, Elem))
             end,
     OnRequestFun(Reply),
     {noreply, State};
@@ -277,6 +277,11 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Helpers
 %%%===================================================================
+encode_exml(#client{formatting = pretty}, Element) ->
+    exml:to_pretty_iolist(Element);
+encode_exml(_, Element) ->
+    exml:to_iolist(Element).
+
 handle_data(Socket, Data, #state{parser = Parser,
                                  socket = Socket,
                                  compress = Compress,

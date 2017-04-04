@@ -140,9 +140,10 @@ connect(Props) ->
     Transport = proplists:get_value(transport, Props, escalus_tcp),
     Server = proplists:get_value(server, Props, <<"localhost">>),
     Host = proplists:get_value(host, Props, Server),
+    Formatting = proplists:get_value(formatting, Props, raw),
     NewProps = lists:keystore(host, 1, Props, {host, Host}),
     {ok, Conn} = Transport:connect(NewProps),
-    {ok, Conn, NewProps}.
+    {ok, Conn#client{formatting = Formatting}, NewProps}.
 
 -spec send(escalus:client(), exml:element()) -> ok.
 send(#client{module = Mod, event_client = EventClient, jid = Jid} = Client, Elem) ->
