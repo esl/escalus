@@ -2,7 +2,7 @@
 -export([story/3, story_with_config/3, create_users/2]).
 -export([start/1, stop/1, clean/0]).
 
--type userspec() :: {atom(), integer()}.
+-type user_with_res_count() :: {escalus_users:user_name(), integer()}.
 -type config() :: escalus:config().
 
 %% @doc
@@ -10,9 +10,10 @@
 %% The genererated fresh usernames will consist of the predefined {username, U} value
 %% prepended to a unique, per-story suffix.
 %% {username, <<"alice">>} -> {username, <<"alice32.632506">>}
--spec story(config(), [userspec()], fun()) -> any().
+-spec story(config(), [user_with_res_count()], fun()) -> any().
 story(Config, UserSpecs, StoryFun) ->
-    escalus:story(create_users(Config, UserSpecs), UserSpecs, StoryFun).
+    escalus:story(create_users_from_story_spec(Config, UserSpecs),
+                  UserSpecs, StoryFun).
 
 %% @doc
 %% Run story with fresh users AND fresh config passed as first argument
@@ -26,16 +27,16 @@ story(Config, UserSpecs, StoryFun) ->
 %% fresh_story_with_config(C,[..],fun(FreshConfig, Alice, Bob) ->
 %%
 %% and any queries rewritten to use FreshConfig within this scope
--spec story_with_config(config(), [userspec()], fun()) -> any().
+-spec story_with_config(config(), [user_with_res_count()], fun()) -> any().
 story_with_config(Config, UserSpecs, StoryFun) ->
-    FreshConfig = create_users(Config, UserSpecs),
+    FreshConfig = create_users_from_story_spec(Config, UserSpecs),
     escalus:story(FreshConfig, UserSpecs,
                   fun(Args) -> apply(StoryFun, [FreshConfig|Args]) end).
 
 %% @doc
 %% Create fresh users for lower-level testing (NOT escalus:stories)
 %% The users are created and the config updated with their fresh usernames.
--spec create_users(config(), [userspec()]) -> config().
+-spec create_users(config(), [escalus_users:user_name()]) -> config().
 create_users(Config, UserSpecs) ->
     Suffix = fresh_suffix(),
     FreshSpecs = fresh_specs(Config, UserSpecs, Suffix),
@@ -58,6 +59,13 @@ clean() ->
     ok.
 
 %%% Internals
+
+-spec create_users_from_story_spec(config(), [user_with_res_count()]) ->
+    config().
+create_users_from_story_spec(Config, UserSpecsFromStory) ->
+    Users = [User || {User, _Cnt} <- UserSpecsFromStory],
+    create_users(Config, Users).
+
 nasty_global_table() -> escalus_fresh_db.
 
 delete_users({_Suffix, Conf}) ->
@@ -85,9 +93,7 @@ make_fresh_username({N, UserConfig}, Suffix) ->
     NewName = << OldName/binary, Suffix/binary >>,
     {N, lists:keyreplace(username, 1, UserConfig, {username, NewName})}.
 
-select(UserResources, FullSpecs) ->
-    Fst = fun({A, _}) -> A end,
-    UserNames = lists:map(Fst, UserResources),
+select(UserNames, FullSpecs) ->
     lists:filter(fun({Name, _}) -> lists:member(Name, UserNames) end,
                  FullSpecs).
 
