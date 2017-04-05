@@ -119,7 +119,8 @@
          to/2,
          from/2,
          tags/1,
-         set_id/2]).
+         set_id/2,
+         uuid_v4/0]).
 
 -export([get_registration_fields/0,
          register_account/1]).
@@ -814,6 +815,14 @@ marker_el(MarkerName, MessageId) when MarkerName =:= <<"received">> orelse
     #xmlel{name = MarkerName, attrs = [{<<"xmlns">>, ?NS_CHAT_MARKERS},
                                        {<<"id">>, MessageId}]}.
 
+-spec id() -> binary().
+id() ->
+    base16:encode(crypto:strong_rand_bytes(16)).
+
+-spec uuid_v4() -> binary().
+uuid_v4() ->
+    iolist_to_binary(uuid:uuid_to_string(uuid:get_v4())).
+
 %%--------------------------------------------------------------------
 %% Stanzas from inline XML
 %%--------------------------------------------------------------------
@@ -902,11 +911,3 @@ argument_to_string(E) when is_binary(E) -> ?b2l(E);
 argument_to_string(E) when is_list(E) -> E;
 argument_to_string(I) when is_integer(I) -> ?i2l(I);
 argument_to_string(F) when is_float(F) -> io_lib:format("~.2f", [F]).
-
-%%--------------------------------------------------------------------
-%% Helpers
-%%--------------------------------------------------------------------
-
--spec id() -> binary().
-id() ->
-    base16:encode(crypto:rand_bytes(16)).
