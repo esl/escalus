@@ -813,7 +813,7 @@ marker_el(MarkerName, MessageId) when MarkerName =:= <<"received">> orelse
 
 -spec id() -> binary().
 id() ->
-    base16:encode(crypto:rand_bytes(16)).
+    base16:encode(crypto:strong_rand_bytes(16)).
 
 -spec uuid_v4() -> binary().
 uuid_v4() ->
