@@ -73,7 +73,9 @@
          has_field_with_type/3,
          has_field_value/2,
          has_item/2,
+         has_node/3,
          has_no_such_item/2,
+         has_no_such_node/3,
          has_identity/3,
          stanza_timeout/1,
          is_stream_start/1,
@@ -529,6 +531,20 @@ has_identity(Category, Type, Stanza) ->
                           and (exml_query:attr(Ident, <<"type">>) == Type)
               end,
               Idents).
+
+-spec has_node(binary(), binary(), exml:element()) -> boolean().
+has_node(Jid, Node, Stanza) ->
+    Items = exml_query:paths(Stanza, [{element, <<"query">>},
+                                      {element, <<"item">>}]),
+    lists:any(fun(Item) ->
+                      (exml_query:attr(Item, <<"jid">>) == Jid)
+                          and (exml_query:attr(Item, <<"node">>) == Node)
+              end,
+              Items).
+
+-spec has_no_such_node(binary(), binary(), exml:element()) -> boolean().
+has_no_such_node(Jid, Node, Stanza) ->
+    not has_node(Jid, Node, Stanza).
 
 %% TODO: Remove as duplicates escalus_assert:has_no_stanzas/1 functionality.
 stanza_timeout(Arg) ->
