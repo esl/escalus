@@ -80,7 +80,7 @@
          }).
 
 -type state() :: #state{}.
--type async_req() :: {reference(), fun(() -> any())}.
+-type async_req() :: {Ref :: reference(), Rid :: integer(), ReqFun :: fun(() -> any())}.
 
 %%%===================================================================
 %%% API
@@ -168,7 +168,7 @@ session_creation_body(_Wait, _Version, Lang, Rid, To, Sid) ->
                  {<<"to">>, To},
                  {<<"xmpp:restart">>, <<"true">>}]).
 
--spec session_termination_body(Rid :: integer(), Sid :: binary()) -> exml:element().
+-spec session_termination_body(Rid :: integer(), Sid :: binary() | nil) -> exml:element().
 session_termination_body(Rid, Sid) ->
     Body = empty_body(Rid, Sid, [{<<"type">>, <<"terminate">>}]),
     Body#xmlel{children = [escalus_stanza:presence(<<"unavailable">>)]}.
@@ -177,7 +177,8 @@ session_termination_body(Rid, Sid) ->
 empty_body(Rid, Sid) ->
     empty_body(Rid, Sid, []).
 
--spec empty_body(Rid :: integer(), Sid :: binary(), ExtraAttrs :: [exml:attr()]) -> exml:element().
+-spec empty_body(Rid :: integer(), Sid :: binary() | nil, ExtraAttrs :: [exml:attr()]) ->
+    exml:element().
 empty_body(Rid, Sid, ExtraAttrs) ->
     #xmlel{name = <<"body">>,
            attrs = common_attrs(Rid, Sid) ++ ExtraAttrs}.
