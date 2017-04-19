@@ -92,15 +92,19 @@ connect(Args) ->
     Transport = gen_server:call(Pid, get_transport),
     {ok, Transport}.
 
+-spec send(escalus:client(), exml:element()) -> ok.
 send(#client{rcv_pid = Pid} = Socket, Elem) ->
     gen_server:call(Pid, {send, Socket, Elem}).
 
+-spec is_connected(escalus:client()) -> boolean().
 is_connected(#client{rcv_pid = Pid}) ->
     erlang:is_process_alive(Pid).
 
+-spec reset_parser(escalus:client()) -> ok.
 reset_parser(#client{rcv_pid = Pid}) ->
     gen_server:cast(Pid, reset_parser).
 
+-spec stop(escalus:client()) -> ok | already_stopped.
 stop(#client{rcv_pid = Pid}) ->
     try
         gen_server:call(Pid, stop)
@@ -114,16 +118,20 @@ stop(#client{rcv_pid = Pid}) ->
                    process_info(Pid, messages), catch sys:get_state(Pid)})
     end.
 
+-spec kill(escalus:client()) -> ok.
 kill(#client{} = Client) ->
     mark_as_terminated(Client),
     stop(Client).
 
+-spec upgrade_to_tls(escalus:client(), list()) -> not_supported.
 upgrade_to_tls(#client{} = _Conn, _Props) ->
     not_supported.
 
+-spec use_zlib(escalus:client(), list()) -> not_supported.
 use_zlib(#client{} = _Conn, _Props) ->
     not_supported.
 
+-spec get_transport(escalus:client()) -> escalus:client().
 get_transport(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_transport).
 
@@ -136,9 +144,13 @@ set_filter_predicate(#client{rcv_pid = Pid}, Pred) ->
 %%% BOSH XML elements
 %%%===================================================================
 
+-spec session_creation_body(Rid :: integer(), To :: binary()) -> exml:element().
 session_creation_body(Rid, To) ->
     session_creation_body(?DEFAULT_WAIT, <<"1.0">>, <<"en">>, Rid, To, nil).
 
+-spec session_creation_body(Wait :: integer(), Version :: binary(), Lang :: binary(),
+                            Rid :: integer(), To :: binary(), Sid :: binary() | nil) ->
+    exml:element().
 session_creation_body(Wait, Version, Lang, Rid, To, nil) ->
     empty_body(Rid, nil,
                [{<<"content">>, <<"text/xml; charset=utf-8">>},
@@ -149,7 +161,6 @@ session_creation_body(Wait, Version, Lang, Rid, To, nil) ->
                 {<<"wait">>, list_to_binary(integer_to_list(Wait))},
                 {<<"xml:lang">>, Lang},
                 {<<"to">>, To}]);
-
 session_creation_body(_Wait, _Version, Lang, Rid, To, Sid) ->
     empty_body(Rid, Sid,
                 [{<<"xmlns:xmpp">>, ?NS_BOSH},
@@ -157,13 +168,16 @@ session_creation_body(_Wait, _Version, Lang, Rid, To, Sid) ->
                  {<<"to">>, To},
                  {<<"xmpp:restart">>, <<"true">>}]).
 
+-spec session_termination_body(Rid :: integer(), Sid :: binary()) -> exml:element().
 session_termination_body(Rid, Sid) ->
     Body = empty_body(Rid, Sid, [{<<"type">>, <<"terminate">>}]),
     Body#xmlel{children = [escalus_stanza:presence(<<"unavailable">>)]}.
 
+-spec empty_body(Rid :: integer(), Sid :: binary()) -> exml:element().
 empty_body(Rid, Sid) ->
     empty_body(Rid, Sid, []).
 
+-spec empty_body(Rid :: integer(), Sid :: binary(), ExtraAttrs :: [exml:attr()]) -> exml:element().
 empty_body(Rid, Sid, ExtraAttrs) ->
     #xmlel{name = <<"body">>,
            attrs = common_attrs(Rid, Sid) ++ ExtraAttrs}.
@@ -205,6 +219,7 @@ pack_rid(Rid) ->
 %%
 %% Otherwise, the non-matching request IDs will
 %% confuse the server and possibly cause errors.
+-spec send_raw(escalus:client(), exml:element()) -> ok.
 send_raw(#client{rcv_pid = Pid} = Transport, Body) ->
     gen_server:cast(Pid, {send_raw, Transport, Body}).
 
@@ -212,24 +227,32 @@ send_raw(#client{rcv_pid = Pid} = Transport, Body) ->
 %% the request ID won't be autoincremented on send.
 %% I.e. it is intended for resending packets which were
 %% already sent.
+-spec resend_raw(escalus:client(), exml:element()) -> ok.
 resend_raw(#client{rcv_pid = Pid} = Transport, Body) ->
     gen_server:cast(Pid, {resend_raw, Transport, Body}).
 
+-spec get_rid(escalus:client()) -> integer() | nil.
 get_rid(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_rid).
 
+-spec get_sid(escalus:client()) -> binary() | nil.
 get_sid(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_sid).
 
+-spec get_keepalive(escalus:client()) -> boolean().
 get_keepalive(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_keepalive).
 
+-spec set_keepalive(escalus:client(), boolean()) ->
+    {ok, OldKeepalive :: boolean(), NewKeepalive :: boolean()}.
 set_keepalive(#client{rcv_pid = Pid}, NewKeepalive) ->
     gen_server:call(Pid, {set_keepalive, NewKeepalive}).
 
+-spec mark_as_terminated(escalus:client()) -> {ok, marked_as_terminated}.
 mark_as_terminated(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, mark_as_terminated).
 
+-spec pause(escalus:client(), integer()) -> ok.
 pause(#client{rcv_pid = Pid} = Transport, Seconds) ->
     gen_server:cast(Pid, {pause, Transport, Seconds}).
 
@@ -242,9 +265,11 @@ pause(#client{rcv_pid = Pid} = Transport, Seconds) ->
 %%
 %% Sometimes it's necessary to intercept the whole BOSH wrapper
 %% not only the wrapped stanzas. That's when this mechanism proves useful.
+-spec get_active(escalus:client()) -> boolean().
 get_active(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_active).
 
+-spec set_active(escalus:client(), boolean()) -> ok.
 set_active(#client{rcv_pid = Pid}, Active) ->
     gen_server:call(Pid, {set_active, Active}).
 
@@ -252,11 +277,13 @@ set_active(#client{rcv_pid = Pid}, Active) ->
 recv(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, recv).
 
+-spec get_requests(escalus:client()) -> non_neg_integer().
 get_requests(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_requests).
 
 %% This flag makes client to fail on stream error,
 %% even if it arrives out of order (according to RIDs)
+-spec set_quickfail(escalus:client(), boolean()) -> ok.
 set_quickfail(#client{rcv_pid = Pid}, QuickfailFlag) ->
     gen_server:call(Pid, {set_quickfail, QuickfailFlag}).
 
@@ -266,6 +293,7 @@ set_quickfail(#client{rcv_pid = Pid}, QuickfailFlag) ->
 
 %% TODO: refactor all opt defaults taken from Args into a default_opts function,
 %%       so that we know what options the module actually expects
+-spec init(list()) -> {ok, state()}.
 init([Args, Owner]) ->
     Host = proplists:get_value(host, Args, <<"localhost">>),
     Port = proplists:get_value(port, Args, 5280),
@@ -276,7 +304,7 @@ init([Args, Owner]) ->
     HostStr = host_to_list(Host),
     OnReplyFun = proplists:get_value(on_reply, Args, fun(_) -> ok end),
     OnConnectFun = proplists:get_value(on_connect, Args, fun(_) -> ok end),
-    {MS, S, MMS} = now(),
+    {MS, S, MMS} = os:timestamp(),
     InitRid = MS * 1000000 * 1000000 + S * 1000000 + MMS,
     {ok, Parser} = exml_stream:new_parser(),
     {ok, Client} = fusco_cp:start_link({HostStr, Port, HTTPS},
@@ -295,7 +323,10 @@ init([Args, Owner]) ->
                 client = Client,
                 on_reply = OnReplyFun}}.
 
-
+-spec handle_call(term(), {pid(), term()}, state()) ->
+    {reply, term(), state()}
+    | {noreply, state()}
+    | {stop, normal, ok, state()}.
 handle_call({send, Transport, Elem}, _From, State) ->
     NewState = wrap_and_send(Transport, Elem, State),
     {reply, ok, NewState};
@@ -345,24 +376,30 @@ handle_call(stop, From, #state{ waiting_requesters = WaitingRequesters } = State
     NewState = wrap_and_send(transport(State), exml:to_iolist(StreamEnd), Ref, State),
     {noreply, NewState#state{ waiting_requesters = [{Ref, From} | WaitingRequesters] }}.
 
+-spec handle_cast(term(), state()) -> {noreply, state()} | {stop, normal, state()}.
 handle_cast(stop, State) ->
     {stop, normal, State};
+
 handle_cast({send_raw, Transport, Body}, State) ->
     NewState = send(Transport, Body, State),
     {noreply, NewState};
+
 handle_cast({resend_raw, Transport, Body}, State) ->
     NewState = send(Transport, Body, make_ref(), State#state.rid, State),
     {noreply, NewState};
+
 handle_cast({pause, Transport, Seconds},
             #state{rid = Rid, sid = Sid} = State) ->
     NewState = send(Transport, pause_body(Rid, Sid, Seconds), State),
     {noreply, NewState};
+
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
     {noreply, State#state{parser = NewParser}}.
 
 
 %% Handle async HTTP request replies.
+-spec handle_info(term(), state()) -> {noreply, state()}.
 handle_info(_, #state{ terminated = true } = S) ->
     {noreply, S};
 handle_info({http_reply, Ref, Body, Transport} = HttpReply,
@@ -387,12 +424,12 @@ handle_info({http_reply, Ref, Body, Transport} = HttpReply,
 handle_info(_, State) ->
     {noreply, State}.
 
-
+-spec terminate(term(), state()) -> any().
 terminate(_Reason, #state{client = Client, parser = Parser}) ->
     fusco_cp:stop(Client),
     exml_stream:free_parser(Parser).
 
-
+-spec code_change(term(), state(), term()) -> {ok, state()}.
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
