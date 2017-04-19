@@ -49,27 +49,38 @@
          get_active/1,
          set_active/2,
          recv/1,
-         get_requests/1]).
+         get_requests/1,
+         set_quickfail/2]).
 
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
 -define(SERVER, ?MODULE).
 -define(DEFAULT_WAIT, 60).
+-define(MAX_CONCURRENT_REQUESTS, 2).
 
--record(state, {owner,
-                url,
-                parser,
-                sid = nil,
-                rid = nil,
-                requests = [],
-                keepalive = true,
-                wait,
-                active = true,
-                replies = [],
-                terminated = false,
-                event_client,
-                client,
-                on_reply,
-                filter_pred}).
+-record(state, {
+          owner,
+          url,
+          parser,
+          sid = nil,
+          rid = nil,
+          pending_requests,
+          requests,
+          pending_replies = [],
+          waiting_requesters = [],
+          keepalive = true,
+          wait,
+          active = true,
+          replies = [],
+          terminated = false,
+          event_client,
+          client,
+          on_reply,
+          filter_pred,
+          quickfail = false
+         }).
+
+-type state() :: #state{}.
+-type async_req() :: {Ref :: reference(), Rid :: integer(), ReqFun :: fun(() -> any())}.
 
 %%%===================================================================
 %%% API
@@ -81,15 +92,19 @@ connect(Args) ->
     Transport = gen_server:call(Pid, get_transport),
     {ok, Transport}.
 
+-spec send(escalus:client(), exml:element()) -> ok.
 send(#client{rcv_pid = Pid} = Socket, Elem) ->
-    gen_server:cast(Pid, {send, Socket, Elem}).
+    gen_server:call(Pid, {send, Socket, Elem}).
 
+-spec is_connected(escalus:client()) -> boolean().
 is_connected(#client{rcv_pid = Pid}) ->
     erlang:is_process_alive(Pid).
 
+-spec reset_parser(escalus:client()) -> ok.
 reset_parser(#client{rcv_pid = Pid}) ->
     gen_server:cast(Pid, reset_parser).
 
+-spec stop(escalus:client()) -> ok | already_stopped.
 stop(#client{rcv_pid = Pid}) ->
     try
         gen_server:call(Pid, stop)
@@ -97,19 +112,26 @@ stop(#client{rcv_pid = Pid}) ->
         exit:{noproc, {gen_server, call, _}} ->
             already_stopped;
         exit:{normal, {gen_server, call, _}} ->
-            already_stopped
+            already_stopped;
+        exit:{timeout, {gen_server, call, _}} ->
+            error({timeout, process_info(Pid, current_stacktrace),
+                   process_info(Pid, messages), catch sys:get_state(Pid)})
     end.
 
+-spec kill(escalus:client()) -> ok.
 kill(#client{} = Client) ->
     mark_as_terminated(Client),
     stop(Client).
 
+-spec upgrade_to_tls(escalus:client(), list()) -> not_supported.
 upgrade_to_tls(#client{} = _Conn, _Props) ->
     not_supported.
 
+-spec use_zlib(escalus:client(), list()) -> not_supported.
 use_zlib(#client{} = _Conn, _Props) ->
     not_supported.
 
+-spec get_transport(escalus:client()) -> escalus:client().
 get_transport(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_transport).
 
@@ -122,9 +144,13 @@ set_filter_predicate(#client{rcv_pid = Pid}, Pred) ->
 %%% BOSH XML elements
 %%%===================================================================
 
+-spec session_creation_body(Rid :: integer(), To :: binary()) -> exml:element().
 session_creation_body(Rid, To) ->
     session_creation_body(?DEFAULT_WAIT, <<"1.0">>, <<"en">>, Rid, To, nil).
 
+-spec session_creation_body(Wait :: integer(), Version :: binary(), Lang :: binary(),
+                            Rid :: integer(), To :: binary(), Sid :: binary() | nil) ->
+    exml:element().
 session_creation_body(Wait, Version, Lang, Rid, To, nil) ->
     empty_body(Rid, nil,
                [{<<"content">>, <<"text/xml; charset=utf-8">>},
@@ -135,7 +161,6 @@ session_creation_body(Wait, Version, Lang, Rid, To, nil) ->
                 {<<"wait">>, list_to_binary(integer_to_list(Wait))},
                 {<<"xml:lang">>, Lang},
                 {<<"to">>, To}]);
-
 session_creation_body(_Wait, _Version, Lang, Rid, To, Sid) ->
     empty_body(Rid, Sid,
                 [{<<"xmlns:xmpp">>, ?NS_BOSH},
@@ -143,13 +168,17 @@ session_creation_body(_Wait, _Version, Lang, Rid, To, Sid) ->
                  {<<"to">>, To},
                  {<<"xmpp:restart">>, <<"true">>}]).
 
+-spec session_termination_body(Rid :: integer(), Sid :: binary() | nil) -> exml:element().
 session_termination_body(Rid, Sid) ->
     Body = empty_body(Rid, Sid, [{<<"type">>, <<"terminate">>}]),
     Body#xmlel{children = [escalus_stanza:presence(<<"unavailable">>)]}.
 
+-spec empty_body(Rid :: integer(), Sid :: binary()) -> exml:element().
 empty_body(Rid, Sid) ->
     empty_body(Rid, Sid, []).
 
+-spec empty_body(Rid :: integer(), Sid :: binary() | nil, ExtraAttrs :: [exml:attr()]) ->
+    exml:element().
 empty_body(Rid, Sid, ExtraAttrs) ->
     #xmlel{name = <<"body">>,
            attrs = common_attrs(Rid, Sid) ++ ExtraAttrs}.
@@ -191,6 +220,7 @@ pack_rid(Rid) ->
 %%
 %% Otherwise, the non-matching request IDs will
 %% confuse the server and possibly cause errors.
+-spec send_raw(escalus:client(), exml:element()) -> ok.
 send_raw(#client{rcv_pid = Pid} = Transport, Body) ->
     gen_server:cast(Pid, {send_raw, Transport, Body}).
 
@@ -198,24 +228,32 @@ send_raw(#client{rcv_pid = Pid} = Transport, Body) ->
 %% the request ID won't be autoincremented on send.
 %% I.e. it is intended for resending packets which were
 %% already sent.
+-spec resend_raw(escalus:client(), exml:element()) -> ok.
 resend_raw(#client{rcv_pid = Pid} = Transport, Body) ->
     gen_server:cast(Pid, {resend_raw, Transport, Body}).
 
+-spec get_rid(escalus:client()) -> integer() | nil.
 get_rid(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_rid).
 
+-spec get_sid(escalus:client()) -> binary() | nil.
 get_sid(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_sid).
 
+-spec get_keepalive(escalus:client()) -> boolean().
 get_keepalive(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_keepalive).
 
+-spec set_keepalive(escalus:client(), boolean()) ->
+    {ok, OldKeepalive :: boolean(), NewKeepalive :: boolean()}.
 set_keepalive(#client{rcv_pid = Pid}, NewKeepalive) ->
     gen_server:call(Pid, {set_keepalive, NewKeepalive}).
 
+-spec mark_as_terminated(escalus:client()) -> {ok, marked_as_terminated}.
 mark_as_terminated(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, mark_as_terminated).
 
+-spec pause(escalus:client(), integer()) -> ok.
 pause(#client{rcv_pid = Pid} = Transport, Seconds) ->
     gen_server:cast(Pid, {pause, Transport, Seconds}).
 
@@ -228,9 +266,11 @@ pause(#client{rcv_pid = Pid} = Transport, Seconds) ->
 %%
 %% Sometimes it's necessary to intercept the whole BOSH wrapper
 %% not only the wrapped stanzas. That's when this mechanism proves useful.
+-spec get_active(escalus:client()) -> boolean().
 get_active(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_active).
 
+-spec set_active(escalus:client(), boolean()) -> ok.
 set_active(#client{rcv_pid = Pid}, Active) ->
     gen_server:call(Pid, {set_active, Active}).
 
@@ -238,8 +278,15 @@ set_active(#client{rcv_pid = Pid}, Active) ->
 recv(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, recv).
 
+-spec get_requests(escalus:client()) -> non_neg_integer().
 get_requests(#client{rcv_pid = Pid}) ->
     gen_server:call(Pid, get_requests).
+
+%% This flag makes client to fail on stream error,
+%% even if it arrives out of order (according to RIDs)
+-spec set_quickfail(escalus:client(), boolean()) -> ok.
+set_quickfail(#client{rcv_pid = Pid}, QuickfailFlag) ->
+    gen_server:call(Pid, {set_quickfail, QuickfailFlag}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -247,6 +294,7 @@ get_requests(#client{rcv_pid = Pid}) ->
 
 %% TODO: refactor all opt defaults taken from Args into a default_opts function,
 %%       so that we know what options the module actually expects
+-spec init(list()) -> {ok, state()}.
 init([Args, Owner]) ->
     Host = proplists:get_value(host, Args, <<"localhost">>),
     Port = proplists:get_value(port, Args, 5280),
@@ -257,7 +305,7 @@ init([Args, Owner]) ->
     HostStr = host_to_list(Host),
     OnReplyFun = proplists:get_value(on_reply, Args, fun(_) -> ok end),
     OnConnectFun = proplists:get_value(on_connect, Args, fun(_) -> ok end),
-    {MS, S, MMS} = now(),
+    {MS, S, MMS} = os:timestamp(),
     InitRid = MS * 1000000 * 1000000 + S * 1000000 + MMS,
     {ok, Parser} = exml_stream:new_parser(),
     {ok, Client} = fusco_cp:start_link({HostStr, Port, HTTPS},
@@ -270,10 +318,19 @@ init([Args, Owner]) ->
                 rid = InitRid,
                 keepalive = proplists:get_value(keepalive, Args, true),
                 wait = Wait,
+                requests = queue:new(),
+                pending_requests = queue:new(),
                 event_client = EventClient,
                 client = Client,
                 on_reply = OnReplyFun}}.
 
+-spec handle_call(term(), {pid(), term()}, state()) ->
+    {reply, term(), state()}
+    | {noreply, state()}
+    | {stop, normal, ok, state()}.
+handle_call({send, Transport, Elem}, _From, State) ->
+    NewState = wrap_and_send(Transport, Elem, State),
+    {reply, ok, NewState};
 
 handle_call(get_transport, _From, State) ->
     {reply, transport(State), State};
@@ -292,7 +349,7 @@ handle_call({set_keepalive, NewKeepalive}, _From,
      State#state{keepalive = NewKeepalive}};
 
 handle_call(mark_as_terminated, _From, #state{} = State) ->
-    {reply, {ok, marked_as_terminated}, State#state{terminated=true}};
+    {reply, {ok, marked_as_terminated}, State#state{terminated = true}};
 
 handle_call(get_active, _From, #state{active = Active} = State) ->
     {reply, Active, State};
@@ -304,61 +361,76 @@ handle_call(recv, _From, State) ->
     {reply, Reply, NS};
 
 handle_call(get_requests, _From, State) ->
-    {reply, length(State#state.requests), State};
+    {reply, queue:len(State#state.requests) + queue:len(State#state.pending_requests), State};
 
 handle_call({set_filter_pred, Pred}, _From, State) ->
     {reply, ok, State#state{filter_pred = Pred}};
 
-handle_call(stop, _From, #state{} = State) ->
-    StreamEnd = escalus_stanza:stream_end(),
-    {ok, _Reply, NewState} =
-    sync_send0(transport(State), exml:to_iolist(StreamEnd), State),
-    {stop, normal, ok, NewState}.
+handle_call({set_quickfail, QuickfailFlag}, _From, State) ->
+    {reply, ok, State#state{quickfail = QuickfailFlag}};
 
+handle_call(stop, _From, #state{ terminated = true } = State) ->
+    {stop, normal, ok, State};
+handle_call(stop, From, #state{ waiting_requesters = WaitingRequesters } = State) ->
+    StreamEnd = escalus_stanza:stream_end(),
+    Ref = make_ref(),
+    NewState = wrap_and_send(transport(State), exml:to_iolist(StreamEnd), Ref, State),
+    {noreply, NewState#state{ waiting_requesters = [{Ref, From} | WaitingRequesters] }}.
+
+-spec handle_cast(term(), state()) -> {noreply, state()} | {stop, normal, state()}.
 handle_cast(stop, State) ->
     {stop, normal, State};
-handle_cast({send, Transport, Elem}, State) ->
-    NewState = send0(Transport, Elem, State),
-    {noreply, NewState};
+
 handle_cast({send_raw, Transport, Body}, State) ->
     NewState = send(Transport, Body, State),
     {noreply, NewState};
+
 handle_cast({resend_raw, Transport, Body}, State) ->
-    NewState = send(Transport, Body, State#state.rid, State),
+    NewState = send(Transport, Body, make_ref(), State#state.rid, State),
     {noreply, NewState};
+
 handle_cast({pause, Transport, Seconds},
             #state{rid = Rid, sid = Sid} = State) ->
     NewState = send(Transport, pause_body(Rid, Sid, Seconds), State),
     {noreply, NewState};
+
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
     {noreply, State#state{parser = NewParser}}.
 
 
 %% Handle async HTTP request replies.
-handle_info({http_reply, Ref, Body, Transport}, S) ->
-    NewRequests = lists:keydelete(Ref, 1, S#state.requests),
-    {ok, #xmlel{attrs=Attrs} = XmlBody} = exml:parse(Body),
-    NS = handle_data(XmlBody, S#state{requests = NewRequests}),
-    NNS = case {detect_type(Attrs), NS#state.keepalive, NS#state.requests == []}
-          of
-              {streamend, _, _} -> close_requests(NS#state{terminated=true});
-              {_, false, _}     -> NS;
-              {_, true, true}   -> send(Transport,
-                                        empty_body(NS#state.rid, NS#state.sid),
-                                        NS);
-              {_, true, false}  -> NS
-    end,
-    {noreply, NNS};
+-spec handle_info(term(), state()) -> {noreply, state()}.
+handle_info(_, #state{ terminated = true } = S) ->
+    {noreply, S};
+handle_info({http_reply, Ref, Body, Transport} = HttpReply,
+            #state{ pending_replies = PendingReplies } = S0) ->
+    {ok, #xmlel{attrs = Attrs} = XmlBody} = exml:parse(Body),
+    NewS = case {queue:peek(S0#state.requests),
+                 S0#state.quickfail andalso detect_type(Attrs) == streamend} of
+               {_, true} ->
+                   S1 = handle_http_reply(Ref, XmlBody, Transport, S0),
+                   S1#state{ pending_replies = [] };
+               {{value, {Ref, _Rid, _Pid}}, _} ->
+                   {{value, {Ref, _Rid, _Pid}}, NewRequests} = queue:out(S0#state.requests),
+                   S1 = handle_http_reply(Ref, XmlBody, Transport,
+                                          S0#state{ requests = NewRequests }),
+                   lists:foreach(fun(PendingReply) -> self() ! PendingReply end,
+                                 S1#state.pending_replies),
+                   S1#state{ pending_replies = [] };
+               _ ->
+                   S0#state{ pending_replies = [HttpReply | PendingReplies] }
+           end,
+    {noreply, NewS};
 handle_info(_, State) ->
     {noreply, State}.
 
-
+-spec terminate(term(), state()) -> any().
 terminate(_Reason, #state{client = Client, parser = Parser}) ->
     fusco_cp:stop(Client),
     exml_stream:free_parser(Parser).
 
-
+-spec code_change(term(), state(), term()) -> {ok, state()}.
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
@@ -369,46 +441,82 @@ code_change(_OldVsn, State, _Extra) ->
 
 request(#client{socket = {Client, Path}}, Body, OnReplyFun) ->
     Headers = [{<<"Content-Type">>, <<"text/xml; charset=utf-8">>}],
-    Reply =
-        fusco_cp:request(Client, Path, "POST", Headers, exml:to_iolist(Body),
-                         2, infinity),
+    BodyIO = exml:to_iolist(Body),
+    Reply = fusco_cp:request(Client, Path, "POST", Headers, BodyIO, 2, infinity),
     OnReplyFun(Reply),
     {ok, {_Status, _Headers, RBody, _Size, _Time}} = Reply,
     {ok, RBody}.
 
-close_requests(#state{requests=Reqs} = S) ->
-    [exit(Pid, normal) || {_Ref, Pid} <- Reqs],
-    S#state{requests=[]}.
+close_requests(#state{requests = Reqs} = S) ->
+    [exit(Pid, normal) || {_Ref, _Rid, Pid} <- queue:to_list(Reqs)],
+    S#state{requests = queue:new(), pending_requests = queue:new()}.
+
+wrap_and_send(Transport, Elem, State) ->
+    wrap_and_send(Transport, Elem, make_ref(), State).
+
+wrap_and_send(Transport, Elem, Ref, State) ->
+    send(Transport, wrap_elem(Elem, State), Ref, State).
 
 send(Transport, Body, State) ->
-    send(Transport, Body, State#state.rid+1, State).
+    send(Transport, Body, make_ref(), State).
 
-send(_, _, _, #state{terminated = true} = S) ->
+send(Transport, Body, Ref, State) ->
+    send(Transport, Body, Ref, State#state.rid + 1, State).
+
+send(_Transport, _Body, _Ref, _NewRid, #state{ terminated = true } = S) ->
     %% Sending anything to a terminated session is pointless.
     %% We leave it in its current state to pick up any pending replies.
     S;
-send(Transport, Body, NewRid, #state{requests = Requests, on_reply = OnReplyFun} = S) ->
-    Ref = make_ref(),
+send(Transport, Body, Ref, NewRid, #state{ on_reply = OnReplyFun } = State) ->
+    AsyncReq = prep_request(Transport, Body, OnReplyFun, Ref),
+    start_request_or_enqueue(AsyncReq, State#state{ rid = NewRid }).
+
+prep_request(Transport, Body, OnReplyFun, Ref) ->
     Self = self(),
-    AsyncReq = fun() ->
-            {ok, Reply} = request(Transport, Body, OnReplyFun),
-            Self ! {http_reply, Ref, Reply, Transport}
-    end,
-    NewRequests = [{Ref, proc_lib:spawn_link(AsyncReq)} | Requests],
-    S#state{rid = NewRid, requests = NewRequests}.
+    % Call to send_raw may lead to this function, so we can't trust Rid from State,
+    % so we extract it from Body here, since this is the Rid the server will see
+    Rid = binary_to_integer(exml_query:attr(Body, <<"rid">>)),
+    {Ref, Rid,
+     fun() ->
+             {ok, Reply} = request(Transport, Body, OnReplyFun),
+             Self ! {http_reply, Ref, Reply, Transport}
+     end}.
 
-sync_send(_, _, S=#state{terminated = true}) ->
-    %% Sending anything to a terminated session is pointless. We're done.
-    {ok, already_terminated, S};
-sync_send(Transport, Body, S=#state{on_reply = OnReplyFun}) ->
-    {ok, Reply} = request(Transport, Body, OnReplyFun),
-    {ok, Reply, S#state{rid = S#state.rid+1}}.
+start_request_or_enqueue(AsyncReq, #state{ requests = Requests,
+                                           pending_requests = PendingRequests } = State) ->
+    case queue:len(Requests) >= ?MAX_CONCURRENT_REQUESTS of
+        true ->
+            State#state{ pending_requests = queue_insert_by_rid(AsyncReq, PendingRequests) };
+        false ->
+            start_async_request(AsyncReq, State)
+    end.
 
-send0(Transport, Elem, State) ->
-    send(Transport, wrap_elem(Elem, State), State).
+-spec start_async_request(async_req(), state()) -> state().
+start_async_request({Ref, Rid, ReqFun}, #state{ requests = Requests } = State) ->
+    NewRequests = queue_insert_by_rid({Ref, Rid, proc_lib:spawn(ReqFun)}, Requests),
+    State#state{ requests = NewRequests }.
 
-sync_send0(Transport, Elem, State) ->
-    sync_send(Transport, wrap_elem(Elem, State), State).
+handle_http_reply(Ref, #xmlel{ attrs = Attrs } = XmlBody, Transport, #state{} = S1) ->
+    S2 = case queue:out(S1#state.pending_requests) of
+             {empty, _} ->
+                 S1;
+             {{value, NextRequest}, NewPendingRequests} ->
+                 start_async_request(NextRequest, S1#state{ pending_requests = NewPendingRequests })
+         end,
+    S3 = handle_data(XmlBody, S2),
+    S4 = case {detect_type(Attrs), S3#state.keepalive, queue:len(S3#state.requests) == 0} of
+              {streamend, _, _} -> close_requests(S3#state{terminated = true});
+              {_, false, _}     -> S3;
+              {_, true, true}   -> send(Transport, empty_body(S3#state.rid, S3#state.sid), S3);
+              {_, true, false}  -> S3
+          end,
+    case lists:keytake(Ref, 1, S4#state.waiting_requesters) of
+        {value, {_, RequesterPid}, NewWaitingRequesters} ->
+            gen_server:reply(RequesterPid, ok),
+            S4#state{ waiting_requesters = NewWaitingRequesters };
+        false ->
+            S4
+    end.
 
 handle_data(#xmlel{} = Body, #state{} = State) ->
     NewState = case State#state.sid of
@@ -436,10 +544,8 @@ forward_to_owner(Stanzas, #state{owner = Owner,
         Owner ! {stanza, transport(S), Stanza}
     end, Stanzas),
     case lists:keyfind(xmlstreamend, 1, Stanzas) of
-        false ->
-            ok;
-        _ ->
-            gen_server:cast(self(), stop)
+        false -> ok;
+        _ -> gen_server:cast(self(), stop)
     end.
 
 store_reply(Body, #state{replies = Replies} = S) ->
@@ -496,11 +602,22 @@ detect_type(Attrs) ->
     Get = fun(A) -> proplists:get_value(A, Attrs) end,
     case {Get(<<"type">>), Get(<<"xmpp:version">>)} of
         {<<"terminate">>, _} -> streamend;
-        {_,       undefined} -> normal;
-        {_,         Version} -> {streamstart,Version}
+        {_, undefined} -> normal;
+        {_, Version} -> {streamstart, Version}
     end.
 
-host_to_list({_,_,_,_} = IP4) -> inet_parse:ntoa(IP4);
-host_to_list({_,_,_,_,_,_,_,_} = IP6) -> inet_parse:ntoa(IP6);
+host_to_list({_, _, _, _} = IP4) -> inet_parse:ntoa(IP4);
+host_to_list({_, _, _, _, _, _, _, _} = IP6) -> inet_parse:ntoa(IP6);
 host_to_list(BHost) when is_binary(BHost) -> binary_to_list(BHost);
 host_to_list(Host) when is_list(Host) -> Host.
+
+queue_insert_by_rid({_Ref, ReqRid, _} = Req, Queue) ->
+    case queue:out(Queue) of
+        {{value, {_, Rid, _} = Item}, Queue2} when Rid < ReqRid ->
+            queue:in_r(Item, queue_insert_by_rid(Req, Queue2));
+        {empty, _} ->
+            queue:in(Req, Queue);
+        _ ->
+            queue:in_r(Req, Queue)
+    end.
+

@@ -48,7 +48,8 @@
 
 %% Public types
 -export_type([user_name/0,
-              user_spec/0]).
+              user_spec/0,
+              named_user/0]).
 
 %% Public types
 -type user_name() :: atom().
