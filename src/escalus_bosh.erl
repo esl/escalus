@@ -564,12 +564,12 @@ detect_type(Attrs) ->
     Get = fun(A) -> proplists:get_value(A, Attrs) end,
     case {Get(<<"type">>), Get(<<"xmpp:version">>)} of
         {<<"terminate">>, _} -> streamend;
-        {_,       undefined} -> normal;
-        {_,         Version} -> {streamstart,Version}
+        {_, undefined} -> normal;
+        {_, Version} -> {streamstart, Version}
     end.
 
-host_to_list({_,_,_,_} = IP4) -> inet_parse:ntoa(IP4);
-host_to_list({_,_,_,_,_,_,_,_} = IP6) -> inet_parse:ntoa(IP6);
+host_to_list({_, _, _, _} = IP4) -> inet_parse:ntoa(IP4);
+host_to_list({_, _, _, _, _, _, _, _} = IP6) -> inet_parse:ntoa(IP6);
 host_to_list(BHost) when is_binary(BHost) -> binary_to_list(BHost);
 host_to_list(Host) when is_list(Host) -> Host.
 
