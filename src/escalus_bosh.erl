@@ -381,9 +381,8 @@ handle_call({set_quickfail, QuickfailFlag}, _From, State) ->
 handle_call(stop, _From, #state{ terminated = true } = State) ->
     {stop, normal, ok, State};
 handle_call(stop, From, #state{ waiting_requesters = WaitingRequesters } = State) ->
-    StreamEnd = escalus_stanza:stream_end(),
     Ref = make_ref(),
-    NewState = wrap_and_send(exml:to_iolist(StreamEnd), Ref, State),
+    NewState = wrap_and_send(escalus_stanza:stream_end(), Ref, State),
     {noreply, NewState#state{ waiting_requesters = [{Ref, From} | WaitingRequesters] }}.
 
 -spec handle_cast(term(), state()) -> {noreply, state()} | {stop, normal, state()}.

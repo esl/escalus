@@ -103,11 +103,11 @@ peek_stanzas(#client{rcv_pid = Pid}) ->
 has_stanzas(Client) ->
     peek_stanzas(Client) /= [].
 
--spec wait_for_stanzas(client(), non_neg_integer()) -> [xmlel:element()].
+-spec wait_for_stanzas(client(), non_neg_integer()) -> [exml:element()].
 wait_for_stanzas(Client, Count) ->
     wait_for_stanzas(Client, Count, ?WAIT_FOR_STANZA_TIMEOUT).
 
--spec wait_for_stanzas(client(), non_neg_integer(), non_neg_integer()) -> [xmlel:element()].
+-spec wait_for_stanzas(client(), non_neg_integer(), non_neg_integer()) -> [exml:element()].
 wait_for_stanzas(Client, Count, Timeout) ->
     Tref = erlang:send_after(Timeout, self(), TimeoutMsg={timeout, make_ref()}),
     Result = do_wait_for_stanzas(Client, Count, TimeoutMsg, []),
