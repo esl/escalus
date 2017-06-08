@@ -390,7 +390,7 @@ handle_cast(stop, State) ->
     {stop, normal, State};
 
 handle_cast({send_raw, Body}, State) ->
-    NewState = send(Body, State),
+    NewState = send_body(Body, State),
     {noreply, NewState};
 
 handle_cast({resend_raw, Body}, State) ->
