@@ -149,9 +149,9 @@ get_short_jid(#client{}=Recipient) ->
 get_short_jid(Username) when is_atom(Username) ->
     escalus_users:get_jid([], Username);
 get_short_jid(Jid) when is_list(Jid) ->
-    list_to_binary(Jid);
+    get_short_jid(list_to_binary(Jid));
 get_short_jid(Jid) when is_binary(Jid) ->
-    Jid.
+    regexp_get(Jid, <<"^([^@]*[@][^/]*)">>).
 
 -spec jid_to_lower(binary()) -> binary().
 jid_to_lower(Jid) ->
