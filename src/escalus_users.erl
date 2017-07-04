@@ -212,10 +212,10 @@ get_userspec(_Config, UserSpec) when is_list(UserSpec) ->
 -spec update_userspec(escalus:config(), atom(), atom(), any()) ->
       escalus:config().
 update_userspec(Config, UserName, Option, Value) ->
-    UserSpec = [{Option, Value}
-                | escalus_users:get_userspec(Config, UserName)],
+    UserSpec = escalus_users:get_userspec(Config, UserName),
+    NewUserSpec = lists:keystore(Option, 1, UserSpec, {Option, Value}),
     Users = escalus_config:get_config(escalus_users, Config),
-    NewUsers = lists:keystore(UserName, 1, Users, {UserName, UserSpec}),
+    NewUsers = lists:keystore(UserName, 1, Users, {UserName, NewUserSpec}),
     lists:keystore(escalus_users, 1, Config, {escalus_users, NewUsers}).
 
 -spec get_users(all | [user_name()] | {by_name, [user_name()]}) -> [named_user()].
