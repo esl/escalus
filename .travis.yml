@@ -6,9 +6,9 @@ notifications:
         email: mongoose-im@erlang-solutions.com
 
 otp_release:
-        - 19.0
+        - 20.0
+        - 19.3
         - 18.3
-        - 17.5
 
 sudo: false
 
