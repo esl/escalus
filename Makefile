@@ -67,23 +67,8 @@ dialyzer: erlang_plt deps_plt escalus_plt
 	@dialyzer --plts dialyzer/*.plt --no_check_plt \
 	--get_warnings ebin;
 
-MIM := deps/mongooseim
-MIM_REL := ${MIM}/rel/mongooseim
+mongooseim-start:
+	docker run -d -t -h mongooseim-escalus-test-1 --name mongooseim-escalus-test-1 -p 5222:5222 \
+		-v `pwd`/mongooseim-escalus-test-1:/member mongooseim/mongooseim:2.1.0beta2
 
-mongooseim-start: ${MIM_REL}
-	@${MIM_REL}/bin/mongooseimctl start && ${MIM_REL}/bin/mongooseimctl started \
-		|| (echo "$@ failed"; exit 4)
 
-mongooseim-stop: ${MIM_REL}
-	@${MIM_REL}/bin/mongooseimctl stop && ${MIM_REL}/bin/mongooseimctl stopped > /dev/null 2>&1 \
-		|| (echo "$@ failed"; exit 5)
-
-extra-deps: ${MIM}
-
-${MIM_REL}: ${MIM}
-	@cd ${MIM} && make rel > rel.log 2>&1 \
-		|| (echo "generating MongooseIM release failed"; cat rel.log; exit 6)
-
-${MIM}:
-	@ESCALUS_EXTRA_DEPS=mongooseim ./rebar get-deps > mim.log 2>&1 \
-		|| (echo "building MongooseIM failed"; cat mim.log; exit 7)
