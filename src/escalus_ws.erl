@@ -164,24 +164,40 @@ init([Args, Owner]) ->
     LegacyWS = get_legacy_ws(Args, false),
     EventClient = proplists:get_value(event_client, Args),
     SSL = proplists:get_value(ssl, Args, false),
-    WSOptions = [{ssl, SSL}],
-    {ok, Socket} = wsecli:start(Host, Port, Resource, WSOptions),
-    Pid = self(),
-    wsecli:on_open(Socket, fun() -> Pid ! opened end),
-    wsecli:on_error(Socket, fun(Reason) -> Pid ! {error, Reason} end),
-    wsecli:on_message(Socket, fun(Type, Data) -> Pid ! {Type, Data} end),
-    wsecli:on_close(Socket, fun(_) -> Pid ! tcp_closed end),
-    wait_for_socket_start(),
+    WSOptions = case SSL of
+                    true ->
+                        #{transport => ssl};
+                    _ ->
+                        #{transport => tcp}
+                end,
+    {ok, ConnPid} = gun:open(Host, Port, WSOptions),
+    {ok, http} = gun:await_up(ConnPid),
+    WSUpgradeHeaders = [{<<"sec-websocket-protocol">>, <<"xmpp">>}],
+    gun:ws_upgrade(ConnPid, Resource, WSUpgradeHeaders, #{protocols => [{<<"xmpp">>, gun_ws_handler}]}),
+    wait_for_ws_upgrade(ConnPid),
     ParserOpts = if
                      LegacyWS -> [];
                      true -> [{infinite_stream, true}, {autoreset, true}]
                  end,
     {ok, Parser} = exml_stream:new_parser(ParserOpts),
     {ok, #state{owner = Owner,
-                 socket = Socket,
+                socket = ConnPid,
                 parser = Parser,
                 legacy_ws = LegacyWS,
                 event_client = EventClient}}.
+
+wait_for_ws_upgrade(ConnPid) ->
+    receive
+        {gun_ws_upgrade, ConnPid, ok, Headers} ->
+            ok;
+        {gun_response, ConnPid, _, _, Status, Headers} ->
+            exit({ws_upgrade_failed, Status, Headers});
+        {gun_error, ConnPid, _StreamRef, Reason} ->
+            exit({ws_upgrade_failed, Reason})
+    after %% More clauses here as needed.
+          1000 ->
+            exit(ws_upgrade_timeout)
+    end.
 
 -spec handle_call(term(), {pid(), term()}, state()) ->
     {reply, term(), state()} | {stop, normal, ok, state()}.
@@ -197,9 +213,9 @@ handle_call({set_filter_pred, Pred}, _From, State) ->
     {reply, ok, State#state{filter_pred = Pred}};
 handle_call(kill_connection, _, S) ->
     {stop, normal, ok, S};
-handle_call(stop, _From, State) ->
+handle_call(stop, _From, #state{socket = ConnPid} = State) ->
     close_compression_streams(State#state.compress),
-    wait_until_closed(),
+    gun:ws_send(ConnPid, close),
     {stop, normal, ok, State}.
 
 -spec handle_cast(term(), state()) -> {noreply, state()}.
@@ -208,7 +224,7 @@ handle_cast({send, Elem}, State) ->
                {zlib, {_, Zout}} -> zlib:deflate(Zout, exml:to_iolist(Elem), sync);
                false -> exml:to_iolist(Elem)
            end,
-    wsecli:send(State#state.socket, Data),
+    gun:ws_send(State#state.socket, {text, Data}),
     {noreply, State};
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
@@ -219,17 +235,14 @@ handle_info(tcp_closed, State) ->
     {stop, normal, State};
 handle_info({error, Reason}, State) ->
     {stop, Reason, State};
-handle_info({text, Data}, State) ->
-    handle_data(list_to_binary(lists:flatten(Data)), State);
-handle_info({binary, Data}, State) ->
+handle_info({gun_ws, ConnPid, {text, Data}}, #state{socket = ConnPid} = State) ->
     handle_data(Data, State);
-handle_info(_, State) ->
+handle_info(Info, State) ->
     {noreply, State}.
 
 -spec terminate(term(), state()) -> term().
 terminate(Reason, #state{socket = Socket} = State) ->
-    common_terminate(Reason, State),
-    wsecli:stop(Socket).
+    common_terminate(Reason, State).
 
 -spec code_change(term(), state(), term()) -> {ok, state()}.
 code_change(_OldVsn, State, _Extra) ->
@@ -272,22 +285,6 @@ forward_to_owner(Stanzas, #state{owner = Owner,
 
 common_terminate(_Reason, #state{parser = Parser}) ->
     exml_stream:free_parser(Parser).
-
-wait_until_closed() ->
-    receive
-        tcp_closed ->
-            ok
-    after ?WAIT_FOR_SOCKET_CLOSE_TIMEOUT ->
-            ok
-    end.
-
-wait_for_socket_start() ->
-    receive
-        opened ->
-            ok
-    after ?HANDSHAKE_TIMEOUT ->
-            throw(handshake_timeout)
-    end.
 
 -spec get_port(list(), inet:port_number()) -> inet:port_number().
 get_port(Args, Default) ->
