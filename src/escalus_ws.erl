@@ -173,11 +173,12 @@ init([Args, Owner]) ->
     {ok, ConnPid} = gun:open(Host, Port, WSOptions),
     {ok, http} = gun:await_up(ConnPid),
     WSUpgradeHeaders = [{<<"sec-websocket-protocol">>, <<"xmpp">>}],
-    gun:ws_upgrade(ConnPid, Resource, WSUpgradeHeaders, #{protocols => [{<<"xmpp">>, gun_ws_handler}]}),
+    gun:ws_upgrade(ConnPid, Resource, WSUpgradeHeaders,
+                   #{protocols => [{<<"xmpp">>, gun_ws_handler}]}),
     wait_for_ws_upgrade(ConnPid),
-    ParserOpts = if
-                     LegacyWS -> [];
-                     true -> [{infinite_stream, true}, {autoreset, true}]
+    ParserOpts = case LegacyWS of
+                     true -> [];
+                     _ -> [{infinite_stream, true}, {autoreset, true}]
                  end,
     {ok, Parser} = exml_stream:new_parser(ParserOpts),
     {ok, #state{owner = Owner,
@@ -188,7 +189,7 @@ init([Args, Owner]) ->
 
 wait_for_ws_upgrade(ConnPid) ->
     receive
-        {gun_ws_upgrade, ConnPid, ok, Headers} ->
+        {gun_ws_upgrade, ConnPid, ok, _Headers} ->
             ok;
         {gun_response, ConnPid, _, _, Status, Headers} ->
             exit({ws_upgrade_failed, Status, Headers});
@@ -237,11 +238,11 @@ handle_info({error, Reason}, State) ->
     {stop, Reason, State};
 handle_info({gun_ws, ConnPid, {text, Data}}, #state{socket = ConnPid} = State) ->
     handle_data(Data, State);
-handle_info(Info, State) ->
+handle_info(_, State) ->
     {noreply, State}.
 
 -spec terminate(term(), state()) -> term().
-terminate(Reason, #state{socket = Socket} = State) ->
+terminate(Reason, State) ->
     common_terminate(Reason, State).
 
 -spec code_change(term(), state(), term()) -> {ok, state()}.
