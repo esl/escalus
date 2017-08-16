@@ -225,7 +225,12 @@ is_connected(#client{module = Mod, rcv_pid = Pid}) ->
 
 -spec stop(client()) -> ok | already_stopped.
 stop(#client{module = Mod, rcv_pid = Pid} = Client) ->
-    end_stream(Client),
+    case is_connected(Client) of
+        true ->
+            end_stream(Client);
+        _ ->
+            ok
+    end,
     Mod:stop(Pid).
 
 %% @doc Brutally kill the connection without terminating the XMPP stream.
