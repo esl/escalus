@@ -97,14 +97,8 @@ bind(Client = #client{props = Props0}) ->
         JID ->
             Props1 = lists:keystore(resource, 1, Props0,
                                     {resource, escalus_utils:get_resource(JID)}),
-            Props2 =
-            case proplists:get_value(auth_method, Props1) of
-                <<"SASL-ANON">> ->
-                    lists:keyreplace(username, 1, Props1,
-                                     {username, escalus_utils:get_username(JID)});
-                _ ->
-                    Props1
-            end,
+            Props2 = lists:keyreplace(username, 1, Props1,
+                                     {username, escalus_utils:get_username(JID)}),
             escalus_connection:maybe_set_jid(Client#client{props = Props2})
     end.
 
