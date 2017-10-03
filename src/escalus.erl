@@ -64,7 +64,7 @@ suite() ->
 
 -spec init_per_suite(config()) -> config().
 init_per_suite(Config) ->
-    ensure_started(escalus),
+    application:ensure_all_started(escalus),
     escalus_users:start(Config),
     escalus_fresh:start(Config),
     Config.
@@ -170,13 +170,3 @@ peek_stanzas(Client) ->
 override(Config, OverrideName, NewValue) ->
     escalus_overridables:override(Config, OverrideName, NewValue).
 
-ensure_started(App) ->
-    case application:start(App) of
-        {error, {not_started, NotStartedApp}} ->
-            ensure_started(NotStartedApp),
-            ensure_started(App);
-        ok ->
-            ok;
-        {error, {already_started, _}} ->
-            ok
-    end.

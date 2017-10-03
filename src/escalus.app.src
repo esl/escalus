@@ -10,7 +10,7 @@
                   exml,
                   fusco,
                   base16,
-                  wsecli,
+                  gun,
                   meck,
                   mustache,
                   uuid

@@ -51,7 +51,7 @@ auth_digest_md5(Conn, Props) ->
 -spec auth_sasl_scram_sha1(client(), user_spec()) -> ok.
 auth_sasl_scram_sha1(Conn, Props) ->
     Username = get_property(username, Props),
-    Nonce = base64:encode(crypto:rand_bytes(16)),
+    Nonce = base64:encode(crypto:strong_rand_bytes(16)),
     ClientFirstMessageBare = csvkv:format([{<<"n">>, Username},
                                            {<<"r">>, Nonce}],
                                           false),
@@ -124,7 +124,7 @@ md5_digest_response(ChallengeData, Props) ->
     Server = get_property(server, Props),
     Resource = get_property(resource, Props),
     Nonce = get_property(<<"nonce">>, ChallengeData),
-    CNonce = base16:encode(crypto:rand_bytes(16)),
+    CNonce = base16:encode(crypto:strong_rand_bytes(16)),
     Realm = proplists:get_value(<<"realm">>, ChallengeData, <<>>),
     QOP = get_property(<<"qop">>, ChallengeData),
     NC = <<"00000001">>,
