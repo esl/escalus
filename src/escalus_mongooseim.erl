@@ -22,6 +22,9 @@
          post_story/1,
          name/0]).
 
+%% for testing
+-export([check_metric_change/2]).
+
 -spec pre_story(escalus:config()) -> escalus:config().
 pre_story(Config) ->
     maybe_read_initial_metric_values(Config).
@@ -97,6 +100,16 @@ metric_type(Metric) ->
     [{_, Type, _} | _] = escalus_ejabberd:rpc(exometer, find_entries, [Metric]),
     Type.
 
+check_metric_change({{Metric, {MinChange, MaxChange}}, Before, After}, Acc) ->
+    Change = After - Before,
+    case {Change < MinChange, Change > MaxChange} of
+        {true, _} ->
+            [{Metric, {minimum_change, MinChange}, {before_story, Before}, {after_story, After}} | Acc];
+        {_, true} ->
+            [{Metric, {maximum_change, MinChange}, {before_story, Before}, {after_story, After}} | Acc];
+        {_, _} ->
+            Acc
+    end;
 check_metric_change({{Metric, Change}, Before, After}, Acc) when is_integer(Change) ->
     case Before + Change =:= After of
         true ->
@@ -104,7 +117,6 @@ check_metric_change({{Metric, Change}, Before, After}, Acc) when is_integer(Chan
         _ ->
             [{Metric, {expected_diff, Change}, {before_story, Before}, {after_story, After}} | Acc]
     end;
-
 check_metric_change({{Metric, changed}, Before, After}, Acc) ->
     case After of
         Before ->
