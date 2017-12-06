@@ -30,8 +30,8 @@
 %% Public API
 %%--------------------------------------------------------------------
 
-story(ConfigIn, ResourceCounts, Story) ->
-    ClientDescs = clients_from_resource_counts(ConfigIn, ResourceCounts),
+story(ConfigIn, ResourceSpecs, Story) ->
+    ClientDescs = clients_from_resource_specs(ConfigIn, ResourceSpecs),
     try
         Config = escalus_server:pre_story(ConfigIn),
         Clients = start_clients(Config, ClientDescs),
@@ -176,13 +176,13 @@ zip_shortest(_, _) ->
     [].
 
 %% ResourceCounts is a list of tuples: [{alice,2}, {bob,1}]
-clients_from_resource_counts(Config, ResourceCounts = [{_, _} | _]) ->
+clients_from_resource_specs(Config, ResourceSpecs = [{_, _} | _]) ->
     NamedSpecs = escalus_config:get_config(escalus_users, Config),
     [resources_per_spec(UserSpec, ResCount)
-     || { User, ResCount} <- ResourceCounts,
+     || { User, ResCount} <- ResourceSpecs,
         {_User, UserSpec} <- [lists:keyfind(User, 1, NamedSpecs)]];
 %% Old-style ResourceCounts: [2, 1]
-clients_from_resource_counts(Config, ResourceCounts) ->
+clients_from_resource_specs(Config, ResourceCounts) ->
     Deprecated = io_lib:format("DEPRECATED resource counts ~p (use [{alice, 1}, ...] or similar)",
                               [ResourceCounts]),
     escalus_compat:complain(Deprecated),
@@ -191,9 +191,11 @@ clients_from_resource_counts(Config, ResourceCounts) ->
      || {{_, UserSpec}, ResCount} <- zip_shortest(NamedSpecs,
                                                   ResourceCounts)].
 
-resources_per_spec(UserSpec, ResCount) ->
+resources_per_spec(UserSpec, ResCount) when is_integer(ResCount)->
     [{UserSpec, list_to_binary("res" ++ integer_to_list(N))}
-     || N <- lists:seq(1, ResCount)].
+     || N <- lists:seq(1, ResCount)];
+resources_per_spec(UserSpec, Res) when is_list(Res)->
+    [{UserSpec, list_to_binary(Res)}].
 
 apply_w_arity_check(Fun, Args) when is_function(Fun, 1) ->
     case length(Args) of
