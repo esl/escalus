@@ -22,6 +22,7 @@
 -export([is_message/1,
          is_chat_message/1,
          is_chat_message/2,
+         is_chat_message_from_to/4,
          is_forwarded_received_message/4,
          is_forwarded_sent_message/4,
          is_groupchat_message/1,
