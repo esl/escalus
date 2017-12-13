@@ -182,7 +182,7 @@ clients_from_resource_specs(Config, ResourceCounts) ->
                                                   ResourceCounts)].
 
 resources_per_spec(UserSpec, ResCount) when is_integer(ResCount)->
-    [{UserSpec, list_to_binary("res" ++ integer_to_list(N))}
+    [{UserSpec, list_to_binary("rEs" ++ integer_to_list(N))}
      || N <- lists:seq(1, ResCount)];
 resources_per_spec(UserSpec, Res) when is_list(Res)->
     [{UserSpec, list_to_binary(Res)}].
