@@ -294,6 +294,7 @@ maybe_forward_to_owner(_, State, Stanzas, Fun) ->
 get_connection_steps(UserSpec) ->
     case lists:keyfind(connection_steps, 1, UserSpec) of
         false -> default_connection_steps();
+        default_resume -> default_connection_steps(resume);
         {_, Steps} -> Steps
     end.
 
@@ -307,6 +308,11 @@ default_connection_steps() ->
      session,
      maybe_stream_management,
      maybe_use_carbons].
+
+default_connection_steps(resume) ->
+    lists:map(fun(maybe_stream_management) -> maybe_stream_resumption;
+                 (A) -> A end,
+              default_connection_steps()).
 
 -spec start_stream(client()) -> exml_stream:element().
 start_stream(#client{module = Mod, props = Props} = Client) ->
