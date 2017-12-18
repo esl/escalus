@@ -294,7 +294,7 @@ maybe_forward_to_owner(_, State, Stanzas, Fun) ->
 get_connection_steps(UserSpec) ->
     case lists:keyfind(connection_steps, 1, UserSpec) of
         false -> default_connection_steps();
-        default_resume -> default_connection_steps(resume);
+        {_, default_resume} -> default_connection_steps(resume);
         {_, Steps} -> Steps
     end.
 
