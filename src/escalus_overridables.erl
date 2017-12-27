@@ -41,7 +41,7 @@ override(Config, OverrideName, NewValue) ->
 %%==============================================================================
 
 get_mf(Config, OverrideName, Default) ->
-    case escalus_config:get_config(escalus_overrides, Config) of
+    case escalus_config:get_config(escalus_overrides, Config, undefined) of
         undefined ->
             Default;
         Hooks ->
