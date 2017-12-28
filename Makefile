@@ -68,7 +68,8 @@ dialyzer: erlang_plt deps_plt escalus_plt
 	--get_warnings ebin;
 
 mongooseim-start:
-	docker run -d -t -h mongooseim-escalus-test-1 --name mongooseim-escalus-test-1 -p 5222:5222 \
+	docker run --rm -d -t -h mongooseim-escalus-test-1 --name mongooseim-escalus-test-1 -p 5222:5222 \
 		-v `pwd`/mongooseim-escalus-test-1:/member mongooseim/mongooseim:2.1.0beta2
 
-
+mongooseim-stop:
+	docker stop mongooseim-escalus-test-1

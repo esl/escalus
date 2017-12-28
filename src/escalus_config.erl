@@ -42,7 +42,12 @@
 
 -spec get_config(key(), config()) -> any().
 get_config(Option, Config) ->
-    get_config(Option, Config, undefined).
+    case get_config(Option, Config, '!@#$%-fail-miserably-@#$%') of
+        '!@#$%-fail-miserably-@#$%' ->
+            error({not_found, Option}, [Option, Config]);
+        Value ->
+            Value
+    end.
 
 -spec get_config(key(), config(), any()) -> any().
 get_config(Option, Config, Default) ->
