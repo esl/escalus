@@ -20,12 +20,15 @@
 -module(escalus_ejabberd).
 
 -behaviour(escalus_user_db).
-
-%% escalus_user_db callbacks
 -export([start/1,
          stop/1,
          create_users/2,
          delete_users/2]).
+
+-behaviour(escalus_server).
+-export([pre_story/1,
+         post_story/1,
+         name/0]).
 
 -export([rpc/3,
          remote_display/1,
@@ -215,6 +218,16 @@ delete_users(Config, Users) ->
                           unregister_user(Config, UserSpec)
                   end, Users),
     Config.
+
+%%--------------------------------------------------------------------
+%% escalus_server callbacks
+%%--------------------------------------------------------------------
+
+pre_story(Config) -> Config.
+
+post_story(Config) -> Config.
+
+name() -> ?MODULE.
 
 %%--------------------------------------------------------------------
 %% Helpers
