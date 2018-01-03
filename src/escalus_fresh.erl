@@ -41,8 +41,8 @@ story_with_client_list(Config, UserSpecs, StoryFun) ->
 -spec story_with_config(config(), [userspec()], fun()) -> any().
 story_with_config(Config, UserSpecs, StoryFun) ->
     FreshConfig = create_users(Config, UserSpecs),
-    escalus:story(FreshConfig, UserSpecs,
-                  fun(Args) -> apply(StoryFun, [FreshConfig|Args]) end).
+    escalus_story:story_with_client_list(FreshConfig, UserSpecs,
+                                         fun(Args) -> apply(StoryFun, [FreshConfig | Args]) end).
 
 %% @doc
 %% Create fresh users for lower-level testing (NOT escalus:stories)
