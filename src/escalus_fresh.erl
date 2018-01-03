@@ -19,6 +19,9 @@
 story(Config, UserSpecs, StoryFun) ->
     escalus:story(create_users(Config, UserSpecs), UserSpecs, StoryFun).
 
+%% @doc
+%% See escalus_story:story/3 for the difference between
+%% story/3 and story_with_client_list/3.
 -spec story_with_client_list(config(), [userspec()], fun()) -> any().
 story_with_client_list(Config, UserSpecs, StoryFun) ->
     escalus_story:story_with_client_list(create_users(Config, UserSpecs), UserSpecs, StoryFun).
