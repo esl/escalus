@@ -18,6 +18,7 @@
 
 % Public API
 -export([story/3,
+         story_with_client_list/3,
          make_everyone_friends/1,
          make_everyone_friends/2,
          make_all_clients_friends/1,
@@ -31,13 +32,19 @@
 %%--------------------------------------------------------------------
 
 story(ConfigIn, ResourceCounts, Story) ->
+    story(ConfigIn, ResourceCounts, Story, []).
+
+story_with_client_list(ConfigIn, ResourceCounts, Story) ->
+    story(ConfigIn, ResourceCounts, Story, [clients_as_list]).
+
+story(ConfigIn, ResourceCounts, Story, Opts) ->
     ClientDescs = clients_from_resource_counts(ConfigIn, ResourceCounts),
     try
         Config = escalus_server:pre_story(ConfigIn),
         Clients = start_clients(Config, ClientDescs),
         ensure_all_clean(Clients),
         escalus_event:story_start(Config),
-        apply_w_arity_check(Story, Clients),
+        apply(Story, clients_as_arguments_or_list(Opts, Clients)),
         escalus_event:story_end(Config),
         post_story_checks(Config, Clients),
         escalus_server:post_story(Config),
@@ -195,10 +202,8 @@ resources_per_spec(UserSpec, ResCount) ->
     [{UserSpec, list_to_binary("res" ++ integer_to_list(N))}
      || N <- lists:seq(1, ResCount)].
 
-apply_w_arity_check(Fun, Args) when is_function(Fun, 1) ->
-    case length(Args) of
-        1 -> apply(Fun, Args);  %% Fun expects one logged-in user
-        _ -> apply(Fun, [Args]) %% Fun expects list of users
-    end;
-apply_w_arity_check(Fun, Args) when is_function(Fun) ->
-    apply(Fun, Args).
+clients_as_arguments_or_list(Opts, Clients) ->
+    case proplists:get_value(clients_as_list, Opts, false) of
+        false -> Clients;
+        true -> [Clients]
+    end.

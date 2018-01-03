@@ -1,6 +1,11 @@
 -module(escalus_fresh).
--export([story/3, story_with_config/3, create_users/2]).
--export([start/1, stop/1, clean/0]).
+-export([story/3,
+         story_with_client_list/3,
+         story_with_config/3,
+         create_users/2]).
+-export([start/1,
+         stop/1,
+         clean/0]).
 
 -type userspec() :: {atom(), integer()}.
 -type config() :: escalus:config().
@@ -13,6 +18,10 @@
 -spec story(config(), [userspec()], fun()) -> any().
 story(Config, UserSpecs, StoryFun) ->
     escalus:story(create_users(Config, UserSpecs), UserSpecs, StoryFun).
+
+-spec story_with_client_list(config(), [userspec()], fun()) -> any().
+story_with_client_list(Config, UserSpecs, StoryFun) ->
+    escalus_story:story_with_client_list(create_users(Config, UserSpecs), UserSpecs, StoryFun).
 
 %% @doc
 %% Run story with fresh users AND fresh config passed as first argument
