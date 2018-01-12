@@ -72,7 +72,16 @@ interpret_config_file_path(RelPath) ->
 rpc_call(Node, Module, Function, Args, TimeOut, Cookie) ->
     case is_ct_available() of
         true ->
-            ct_rpc:call(Node, Module, Function, Args, TimeOut, Cookie);
+            Result = ct_rpc:call(Node, Module, Function, Args, TimeOut, Cookie),
+            case Result of
+                {badrpc, Reason} ->
+                    ct:log("issue=rpc_call_failed "
+                            "node=~p function=~p:~p reason=~p",
+                           [Node, Module, Function, Reason]);
+                _ ->
+                    ok
+            end,
+            Result;
         false ->
             %% TODO: don't error out, should be easy to simulate ct_rpc:call/6
             error({escalus_error, common_test_unavailable})
