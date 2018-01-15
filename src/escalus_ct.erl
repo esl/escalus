@@ -75,7 +75,7 @@ rpc_call(Node, Module, Function, Args, TimeOut, Cookie) ->
             Result = ct_rpc:call(Node, Module, Function, Args, TimeOut, Cookie),
             case Result of
                 {badrpc, Reason} ->
-                    ct:log("issue=rpc_call_failed "
+                    ct:pal("issue=rpc_call_failed "
                             "node=~p function=~p:~p reason=~p",
                            [Node, Module, Function, Reason]);
                 _ ->
