@@ -91,6 +91,8 @@ write_events([], _) ->
 write_events(Events, OutFileName) ->
     {ok, FD} = file:open(OutFileName, [write]),
     BaseTime = base_time(Events),
+    file:write(FD, <<"<?xml-stylesheet type=\"text/xsl\" "
+                     "href=\"https://raw.githubusercontent.com/arcusfelis/xmlview/xvbrowser/xv-browser.xsl\"?>\n">>),
     file:write(FD, <<"<history xmlns:stream=\""
                      "http://etherx.jabber.org/streams\">">>),
     [ file:write(FD, exml:to_iolist(build_elem_event(BaseTime, E)))
