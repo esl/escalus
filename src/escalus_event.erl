@@ -91,14 +91,43 @@ write_events([], _) ->
 write_events(Events, OutFileName) ->
     {ok, FD} = file:open(OutFileName, [write]),
     BaseTime = base_time(Events),
+    %% What is ../../../.. ?
+    %% XML file is written into priv_dir
+    %% - which is log_private
+    %% - inside run.DATE_TIME
+    %% - inside ejabberd_tests.tests.something_SUITE.log
+    %% - inside ct_run.test@theta.DATE_TIME
+    %%
+    %% Absolute URL would not work, because of
+    %% Cross-Origin Resource Sharing (CORS) in Chrome.
+    ensure_xv_browser_copied(OutFileName),
     file:write(FD, <<"<?xml-stylesheet type=\"text/xsl\" "
-                     "href=\"https://raw.githubusercontent.com/esl/escalus/master/thirdparty/xmlview/xv-browser.xsl\"?>\n">>),
+                     "href=\"../../../../xv-browser.xsl\"?>\n">>),
     file:write(FD, <<"<history xmlns:stream=\""
                      "http://etherx.jabber.org/streams\">">>),
     [ file:write(FD, exml:to_iolist(build_elem_event(BaseTime, E)))
       ||  E <- collapse_incoming_events(filter_elements(Events)) ],
     file:write(FD, <<"</history>">>),
     file:close(FD).
+
+ensure_xv_browser_copied(OutFileName) ->
+    From = filename:join(code:lib_dir(escalus), "thirdparty/xmlview/xv-browser.xsl"),
+    %% To ct_reports root
+    To = filename:join(filename:dirname(OutFileName), "../../../../xv-browser.xsl"),
+    ensure_copied(From, To).
+
+ensure_copied(From, To) ->
+    case file:read_file_info(To) of
+        {ok, _} ->
+            ok;
+        _ -> %% File does not exist
+            case file:copy(From, To) of
+                {ok, _} ->
+                    ok;
+                {error, Reason} ->
+                    ct:fail({failed_to_copy, Reason, From, To})
+            end
+    end.
 
 filter_elements(Events) ->
     [E || E <- Events, not is_event_with_stream_border(E)].
