@@ -236,7 +236,7 @@ handle_call({upgrade_to_tls, SSLOpts}, _From, #state{socket = Socket} = State) -
             {ok, Parser} = exml_stream:new_parser(),
             {reply, Socket2,
              State#state{socket = Socket2, parser = Parser, ssl=true}};
-        {error, closed} = E ->
+        {error, _} = E ->
             {reply, E, State}
     end;
 handle_call(use_zlib, _, #state{parser = Parser} = State) ->
