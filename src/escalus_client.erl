@@ -38,7 +38,7 @@
 
 -export_type([client/0]).
 
--define(WAIT_FOR_STANZA_TIMEOUT, 1000).
+-define(WAIT_FOR_STANZA_TIMEOUT, 5000).
 
 -include("escalus.hrl").
 -include_lib("exml/include/exml.hrl").
