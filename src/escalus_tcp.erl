@@ -193,41 +193,20 @@ recv(Pid) ->
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
-
-%% TODO: refactor all opt defaults taken from Args into a default_opts function,
-%%       so that we know what options the module actually expects
 -spec init(list()) -> {ok, state()}.
-init([Args, Owner]) ->
-    Host = proplists:get_value(host, Args, <<"localhost">>),
-    Port = proplists:get_value(port, Args, 5222),
+init([Opts0, Owner]) ->
+    Opts1 = overwrite_default_opts(Opts0, ?DEFAULT_OPTS),
 
-    Address = host_to_inet(Host),
-    EventClient = proplists:get_value(event_client, Args),
-    Interface = proplists:get_value(iface, Args),
-    IsSSLConnection = proplists:get_value(ssl, Args, false),
+    % Optional options
+    IsSSLConnection = proplists:get_value(ssl, Opts1),
+    OnReplyFun = proplists:get_value(on_reply, Opts1),
+    OnRequestFun = proplists:get_value(on_request, Opts1),
+    SM = get_stream_management_opt(Opts1),
+    ParserOpts = proplists:get_value(parser_opts, Opts1),
+    % Mandatory options
+    EventClient = proplists:get_value(event_client, Opts1),
 
-    OnReplyFun = proplists:get_value(on_reply, Args, fun(_) -> ok end),
-    OnRequestFun = proplists:get_value(on_request, Args, fun(_) -> ok end),
-    OnConnectFun = proplists:get_value(on_connect, Args, fun(_) -> ok end),
-
-    SM = case {proplists:get_value(stream_management, Args, false),
-               proplists:get_value(manual_ack, Args, false)}
-         of
-             {false,_}          -> {false, 0, inactive};
-             {_, true}          -> {false, 0, inactive};
-             {true,false}       -> {true, 0, inactive}
-         end,
-
-
-    BasicOpts = [binary, {active, once}, {reuseaddr, true}, {nodelay, true}],
-    SocketOpts = case Interface of
-                     undefined -> BasicOpts;
-                     _         -> [{ip, iface_to_ip_address(Interface)}] ++ BasicOpts
-                 end,
-
-    {ok, Socket} = do_connect(IsSSLConnection, Address, Port, Args,
-                              SocketOpts, OnConnectFun),
-    ParserOpts = proplists:get_value(parser_opts, Args, []),
+    {ok, Socket} = do_connect(Opts1),
     {ok, Parser} = exml_stream:new_parser(ParserOpts),
     {ok, #state{owner = Owner,
                 socket = Socket,
@@ -480,9 +459,16 @@ close_compression_streams({zlib, {Zin, Zout}}) ->
         ok = zlib:close(Zout)
     end.
 
-do_connect(IsSSLConnection, Address, Port, Args, SocketOpts, OnConnectFun) ->
+do_connect(Opts) ->
+    IsSSLConn = proplists:get_value(ssl, Opts),
+    OnConnectFun = proplists:get_value(on_connect, Opts),
+    Host = proplists:get_value(host, Opts),
+    Address = host_to_inet(Host),
+    Port = proplists:get_value(port, Opts),
+    SocketOpts = get_socket_opts(Opts),
+    SSLOpts = proplists:get_value(ssl_opts, Opts),
     TimeB = os:timestamp(),
-    Reply = maybe_ssl_connection(IsSSLConnection, Address, Port, SocketOpts, Args),
+    Reply = maybe_ssl_connection(IsSSLConn, Address, Port, SocketOpts, SSLOpts),
     TimeA = os:timestamp(),
     ConnectionTime = timer:now_diff(TimeA, TimeB),
     case Reply of
@@ -493,8 +479,59 @@ do_connect(IsSSLConnection, Address, Port, Args, SocketOpts, OnConnectFun) ->
     end,
     Reply.
 
-maybe_ssl_connection(true, Address, Port, Opts, Args) ->
-    SSLOpts = proplists:get_value(ssl_opts, Args, []),
-    ssl:connect(Address, Port, Opts ++ SSLOpts);
-maybe_ssl_connection(_, Address, Port, Opts, _) ->
-    gen_tcp:connect(Address, Port, Opts).
+maybe_ssl_connection(true, Address, Port, SocketOpts, SSLOpts) ->
+    ssl:connect(Address, Port, SocketOpts ++ SSLOpts);
+maybe_ssl_connection(_, Address, Port, SocketOpts, _) ->
+    gen_tcp:connect(Address, Port, SocketOpts).
+
+%%===================================================================
+%%% Init options parsing helpers
+%%%===================================================================
+-spec get_interface_opt([proplists:property()]) ->
+    [{ip, inet:socket_address()}].
+get_interface_opt(Opts) ->
+    case proplists:get_value(iface, Opts) of
+         undefined -> [];
+         Interface -> [{ip, iface_to_ip_address(Interface)}]
+    end.
+
+-spec get_stream_management_opt([proplists:property()]) ->
+    {boolean(), 0, inactive}.
+get_stream_management_opt(Opts) ->
+    SM = proplists:get_value(stream_management, Opts),
+    MA = proplists:get_value(manual_ack, Opts),
+    case {SM, MA} of
+        {false,_}    -> {false, 0, inactive};
+        {_, true}    -> {false, 0, inactive};
+        {true,false} -> {true, 0, inactive}
+    end.
+
+-spec overwrite_default_opts(GivenOpts :: [proplists:property()],
+                             DefaultOpts :: [proplists:property()]) ->
+    [proplists:property()].
+overwrite_default_opts([], Opts) ->
+    Opts;
+
+overwrite_default_opts([{Key, _Val} = NewEntry | T], DefaultOpts0) ->
+    DefaultOpts1 = proplists:delete(Key, DefaultOpts0),
+    [NewEntry | overwrite_default_opts(T, DefaultOpts1)].
+
+
+-spec get_socket_opts([proplists:propety()]) -> [gen_tcp:connect_option()].
+get_socket_opts(Opts) ->
+    % ip option, for backward compatibility reasons may be crafted from
+    % iface option. Passed iface parameter becomes ip paremeter for SocketOpts.
+    % However, if ip parameter is already defined in socket_opts, it is not
+    % considered:
+    %  [
+    %   {ifface, {1,2,3,4}},
+    %   {socket_opts, [ {ip, {5,6,7,8}} ]
+    %  ]
+    %  results in passing {ip, {5,6,7,8}} as gen_tcp parameter
+    %
+    SocketOpts = proplists:get_value(socket_opts, Opts),
+
+    case proplists:is_defined(ip, SocketOpts) of
+        true -> SocketOpts;
+        false -> get_interface_opt(Opts) ++ SocketOpts
+    end.
