@@ -54,6 +54,24 @@
 
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 200).
 -define(SERVER, ?MODULE).
+-define(DEFAULT_OPTS, [
+                       {host, <<"localhost">>},
+                       {port, 5222},
+                       {ssl, false},
+                       {stream_management, false},
+                       {manual_ack, false},
+                       {on_reply,fun(_) -> ok end},
+                       {on_request,fun(_) -> ok end},
+                       {on_connect,fun(_) -> ok end},
+                       {socket_opts, ?DEFAULT_SOCKET_OPTS},
+                       {ssl_opts, []},
+                       {parser_opts, []}
+                      ]).
+-define(DEFAULT_SOCKET_OPTS, [binary,
+                              {active, once},
+                              {reuseaddr, true},
+                              {nodelay, true}
+                             ]).
 -include("escalus_tcp.hrl").
 
 -type state() :: #state{}.
