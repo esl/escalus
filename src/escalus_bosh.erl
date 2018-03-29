@@ -363,8 +363,14 @@ handle_call(mark_as_terminated, _From, #state{} = State) ->
 
 handle_call(get_active, _From, #state{active = Active} = State) ->
     {reply, Active, State};
-handle_call({set_active, Active}, _From, State) ->
-    {reply, ok, State#state{active = Active}};
+handle_call({set_active, Active}, _From, #state{replies = Replies} = State) ->
+    NewState = if
+                   Active ->
+                       [handle_body(Body, State) || Body <- Replies],
+                       State#state{active = Active, replies = []};
+                   true -> State#state{active = Active}
+               end,
+    {reply, ok, NewState};
 
 handle_call(recv, _From, State) ->
     {Reply, NS} = handle_recv(State),
@@ -531,16 +537,19 @@ handle_data(#xmlel{} = Body, #state{} = State) ->
         _ ->
             State
     end,
-    Stanzas = unwrap_elem(Body),
     case State#state.active of
         true ->
-            escalus_connection:maybe_forward_to_owner(NewState#state.filter_pred,
-                                                      NewState, Stanzas,
-                                                      fun forward_to_owner/2),
+            handle_body(Body, NewState),
             NewState;
         false ->
             store_reply(Body, NewState)
     end.
+
+handle_body(#xmlel{} = Body, #state{} = State) ->
+    Stanzas = unwrap_elem(Body),
+    escalus_connection:maybe_forward_to_owner(State#state.filter_pred,
+                                              State, Stanzas,
+                                              fun forward_to_owner/2).
 
 forward_to_owner(Stanzas, #state{owner = Owner,
                                  event_client = EventClient}) ->
@@ -558,13 +567,14 @@ store_reply(Body, #state{replies = Replies} = S) ->
 
 handle_recv(#state{replies = []} = S) ->
     {empty, S};
-handle_recv(#state{replies = [Reply | Replies]} = S) ->
-    case Reply of
-        #xmlstreamend{} ->
+handle_recv(#state{replies = [#xmlel{name = <<"body">>, attrs = Attrs} = Body | Replies]} = S) ->
+    Type = detect_type(Attrs),
+    case Type of
+        streamend ->
             gen_server:cast(self(), stop);
         _ -> ok
     end,
-    {Reply, S#state{replies = Replies}}.
+    {Body, S#state{replies = Replies}}.
 
 wrap_elem(#xmlstreamstart{attrs = Attrs},
           #state{rid = Rid, sid = Sid, wait = Wait}) ->
