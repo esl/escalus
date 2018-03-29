@@ -3,7 +3,7 @@
          story_with_client_list/3,
          story_with_config/3,
          create_users/2,
-         given_fresh_spec/2,
+         given_fresh_specs/2,
          get_fresh_spec/2]).
 -export([start/1,
          stop/1,
@@ -52,7 +52,8 @@ story_with_config(Config, UserSpecs, StoryFun) ->
 %% The side effect is the creation of XMPP users on a server.
 -spec create_users(config(), [userspec()]) -> config().
 create_users(Config, UserSpecs) ->
-    FreshSpecs = given_fresh_spec(Config, UserSpecs),
+    Suffix = fresh_suffix(),
+    FreshSpecs = given_fresh_specs(Config, UserSpecs, Suffix),
     FreshConfig = escalus_users:create_users(Config, FreshSpecs),
     %% The line below is not needed if we don't want to support cleaning
     ets:insert(nasty_global_table(), {Suffix, FreshConfig}),
@@ -63,8 +64,12 @@ create_users(Config, UserSpecs) ->
 %% It is useful when testing some lower level parts of the protocol
 %% i.e. some stream features. It is side-effect free.
 -spec given_fresh_specs(config(), [userspec()]) -> [config()].
-given_fresh_spec(Config, UserSpecs) ->
+given_fresh_specs(Config, UserSpecs) ->
     Suffix = fresh_suffix(),
+    given_fresh_specs(Config, UserSpecs, Suffix).
+
+-spec given_fresh_specs(config(), [userspec()], binary()) -> [config()].
+given_fresh_specs(Config, UserSpecs, Suffix) ->
     FreshSpecs = fresh_specs(Config, UserSpecs, Suffix),
     case length(FreshSpecs) == length(UserSpecs) of
         false ->
@@ -75,9 +80,9 @@ given_fresh_spec(Config, UserSpecs) ->
 
 %% @doc
 %% Creates a fresh spec for a user and returns it.
-get_fresh_spec(config(), userspec()) -> escalus_users:user_spec().
+-spec get_fresh_spec(config(), userspec()) -> escalus_users:user_spec().
 get_fresh_spec(Config, {UserName, _Resources} = UserSpec) ->
-    Config2 = given_fresh_spec(Config, [UserSpec]),
+    Config2 = given_fresh_specs(Config, [UserSpec]),
     escalus_users:get_userspec(Config2, UserName).
 
 
