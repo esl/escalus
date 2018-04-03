@@ -63,12 +63,12 @@ create_users(Config, UserSpecs) ->
 %% Creates a fresh spec without creating XMPP users on a server.
 %% It is useful when testing some lower level parts of the protocol
 %% i.e. some stream features. It is side-effect free.
--spec given_fresh_specs(config(), [userspec()]) -> [config()].
+-spec given_fresh_specs(config(), [userspec()]) -> config().
 given_fresh_specs(Config, UserSpecs) ->
     Suffix = fresh_suffix(),
     given_fresh_specs(Config, UserSpecs, Suffix).
 
--spec given_fresh_specs(config(), [userspec()], binary()) -> [config()].
+-spec given_fresh_specs(config(), [userspec()], binary()) -> config().
 given_fresh_specs(Config, UserSpecs, Suffix) ->
     FreshSpecs = fresh_specs(Config, UserSpecs, Suffix),
     case length(FreshSpecs) == length(UserSpecs) of
