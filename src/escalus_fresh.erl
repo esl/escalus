@@ -80,10 +80,12 @@ freshen_specs(Config, UserSpecs, Suffix) ->
 
 %% @doc
 %% Creates a fresh spec for a user and returns it.
--spec get_fresh_spec(config(), userspec()) -> escalus_users:user_spec().
+-spec get_fresh_spec(config(), userspec() | atom()) -> escalus_users:user_spec().
 get_fresh_spec(Config, {UserName, _Resources} = UserSpec) ->
     Config2 = freshen_specs(Config, [UserSpec]),
-    escalus_users:get_userspec(Config2, UserName).
+    escalus_users:get_userspec(Config2, UserName);
+get_fresh_spec(Config, UserName) when is_atom(UserName) ->
+    get_fresh_spec(Config, {UserName, 1}).
 
 
 %%% Stateful API
