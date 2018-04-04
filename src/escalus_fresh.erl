@@ -4,13 +4,13 @@
          story_with_config/3,
          create_users/2,
          freshen_specs/2,
-         get_fresh_spec/2,
-         create_and_get_fresh_user/2]).
+         freshen_spec/2,
+         create_fresh_user/2]).
 -export([start/1,
          stop/1,
          clean/0]).
 
--type userspec() :: {atom(), integer()}.
+-type user_res() :: {atom(), integer()}.
 -type config() :: escalus:config().
 
 %% @doc
@@ -18,14 +18,14 @@
 %% The genererated fresh usernames will consist of the predefined {username, U} value
 %% prepended to a unique, per-story suffix.
 %% {username, <<"alice">>} -> {username, <<"alice32.632506">>}
--spec story(config(), [userspec()], fun()) -> any().
+-spec story(config(), [user_res()], fun()) -> any().
 story(Config, UserSpecs, StoryFun) ->
     escalus:story(create_users(Config, UserSpecs), UserSpecs, StoryFun).
 
 %% @doc
 %% See escalus_story:story/3 for the difference between
 %% story/3 and story_with_client_list/3.
--spec story_with_client_list(config(), [userspec()], fun()) -> any().
+-spec story_with_client_list(config(), [user_res()], fun()) -> any().
 story_with_client_list(Config, UserSpecs, StoryFun) ->
     escalus_story:story_with_client_list(create_users(Config, UserSpecs), UserSpecs, StoryFun).
 
@@ -41,7 +41,7 @@ story_with_client_list(Config, UserSpecs, StoryFun) ->
 %% fresh_story_with_config(C,[..],fun(FreshConfig, Alice, Bob) ->
 %%
 %% and any queries rewritten to use FreshConfig within this scope
--spec story_with_config(config(), [userspec()], fun()) -> any().
+-spec story_with_config(config(), [user_res()], fun()) -> any().
 story_with_config(Config, UserSpecs, StoryFun) ->
     FreshConfig = create_users(Config, UserSpecs),
     escalus_story:story_with_client_list(FreshConfig, UserSpecs,
@@ -51,7 +51,7 @@ story_with_config(Config, UserSpecs, StoryFun) ->
 %% Create fresh users for lower-level testing (NOT escalus:stories)
 %% The users are created and the config updated with their fresh usernames.
 %% The side effect is the creation of XMPP users on a server.
--spec create_users(config(), [userspec()]) -> config().
+-spec create_users(config(), [user_res()]) -> config().
 create_users(Config, UserSpecs) ->
     Suffix = fresh_suffix(),
     FreshSpecs = freshen_specs(Config, UserSpecs, Suffix),
@@ -61,41 +61,42 @@ create_users(Config, UserSpecs) ->
     FreshConfig.
 
 %% @doc
+%% freshen_spec/2 and freshen_specs/2
 %% Creates a fresh spec without creating XMPP users on a server.
 %% It is useful when testing some lower level parts of the protocol
 %% i.e. some stream features. It is side-effect free.
--spec freshen_specs(config(), [userspec()]) -> config().
+-spec freshen_specs(config(), [user_res()]) -> [escalus_users:user_spec()].
 freshen_specs(Config, UserSpecs) ->
     Suffix = fresh_suffix(),
     freshen_specs(Config, UserSpecs, Suffix).
 
--spec freshen_specs(config(), [userspec()], binary()) -> config().
+-spec freshen_spec(config(), escalus_users:user_name() | user_res()) -> escalus_users:user_spec().
+freshen_spec(Config, {UserName, Res} = UserSpec) ->
+    [FreshSpec] = freshen_specs(Config, [{UserName, 1}]),
+    FreshSpec;
+freshen_spec(Config, UserName) ->
+    freshen_spec(Config, {UserName, 1}).
+
+
+-spec freshen_specs(config(), [user_res()], binary()) -> [escalus_users:user_spec()].
 freshen_specs(Config, UserSpecs, Suffix) ->
     FreshSpecs = fresh_specs(Config, UserSpecs, Suffix),
     case length(FreshSpecs) == length(UserSpecs) of
         false ->
             error("failed to get required users");
         true ->
-            FreshSpecs
+            lists:map(fun({_Name, Specs}) -> Specs end,
+                      FreshSpecs)
     end.
 
 %% @doc
-%% Creates a fresh spec for a user but DOES NOT create a user.
--spec get_fresh_spec(config(), userspec() | atom()) -> escalus_users:user_spec().
-get_fresh_spec(Config, {UserName, _Resources} = UserSpec) ->
-    Config2 = freshen_specs(Config, [UserSpec]),
-    escalus_users:get_userspec(Config2, UserName);
-get_fresh_spec(Config, UserName) when is_atom(UserName) ->
-    get_fresh_spec(Config, {UserName, 1}).
-
-%% @doc
-%% Creates a fresh user for a username and returns its spec.
--spec create_and_get_fresh_user(config(), userspec() | atom()) -> escalus_users:user_spec().
-create_and_get_fresh_user(Config, {UserName, _Resource} = UserSpec) ->
+%% Creates a fresh user along with XMPP user on a server.
+-spec create_fresh_user(config(), user_res() | atom()) -> escalus_users:user_spec().
+create_fresh_user(Config, {UserName, _Resource} = UserSpec) ->
     Config2 = create_users(Config, [UserSpec]),
     escalus_users:get_userspec(Config2, UserName);
-create_and_get_fresh_user(Config, UserName) when is_atom(UserName) ->
-    create_and_get_fresh_user(Config, {UserName, 1}).
+create_fresh_user(Config, UserName) when is_atom(UserName) ->
+    create_fresh_user(Config, {UserName, 1}).
 
 
 %%% Stateful API
