@@ -68,7 +68,8 @@ create_users(Config, UserSpecs) ->
 -spec freshen_specs(config(), [user_res()]) -> [escalus_users:user_spec()].
 freshen_specs(Config, UserSpecs) ->
     Suffix = fresh_suffix(),
-    freshen_specs(Config, UserSpecs, Suffix).
+    lists:map(fun({UserName, Spec}) -> Spec end,
+              freshen_specs(Config, UserSpecs, Suffix)).
 
 -spec freshen_spec(config(), escalus_users:user_name() | user_res()) -> escalus_users:user_spec().
 freshen_spec(Config, {UserName, Res} = UserSpec) ->
@@ -78,15 +79,14 @@ freshen_spec(Config, UserName) ->
     freshen_spec(Config, {UserName, 1}).
 
 
--spec freshen_specs(config(), [user_res()], binary()) -> [escalus_users:user_spec()].
+-spec freshen_specs(config(), [user_res()], binary()) -> [escalus_users:named_user()].
 freshen_specs(Config, UserSpecs, Suffix) ->
     FreshSpecs = fresh_specs(Config, UserSpecs, Suffix),
     case length(FreshSpecs) == length(UserSpecs) of
         false ->
             error("failed to get required users");
         true ->
-            lists:map(fun({_Name, Specs}) -> Specs end,
-                      FreshSpecs)
+            FreshSpecs
     end.
 
 %% @doc
