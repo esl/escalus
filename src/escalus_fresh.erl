@@ -4,7 +4,8 @@
          story_with_config/3,
          create_users/2,
          freshen_specs/2,
-         get_fresh_spec/2]).
+         get_fresh_spec/2,
+         create_and_get_fresh_user/2]).
 -export([start/1,
          stop/1,
          clean/0]).
@@ -79,13 +80,22 @@ freshen_specs(Config, UserSpecs, Suffix) ->
     end.
 
 %% @doc
-%% Creates a fresh spec for a user and returns it.
+%% Creates a fresh spec for a user but DOES NOT create a user.
 -spec get_fresh_spec(config(), userspec() | atom()) -> escalus_users:user_spec().
 get_fresh_spec(Config, {UserName, _Resources} = UserSpec) ->
-    Config2 = create_users(Config, [UserSpec]),
+    Config2 = freshen_specs(Config, [UserSpec]),
     escalus_users:get_userspec(Config2, UserName);
 get_fresh_spec(Config, UserName) when is_atom(UserName) ->
     get_fresh_spec(Config, {UserName, 1}).
+
+%% @doc
+%% Creates a fresh user for a username and returns its spec.
+-spec create_and_get_fresh_user(config(), userspec() | atom()) -> escalus_users:user_spec().
+create_and_get_fresh_user(Config, {UserName, _Resource} = UserSpec) ->
+    Config2 = create_users(Config, [UserSpec]),
+    escalus_users:get_userspec(Config2, UserName);
+create_and_get_fresh_user(Config, UserName) when is_atom(UserName) ->
+    create_and_get_fresh_user(Config, {UserName, 1}).
 
 
 %%% Stateful API
