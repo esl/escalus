@@ -28,6 +28,7 @@
          peek_stanzas/1, has_stanzas/1,
          wait_for_stanzas/2, wait_for_stanzas/3,
          wait_for_stanza/1, wait_for_stanza/2,
+         send_iq_and_wait_for_result/2, send_iq_and_wait_for_result/3,
          is_client/1,
          full_jid/1,
          short_jid/1,
@@ -149,6 +150,38 @@ send(Client, Packet) ->
 send_and_wait(Client, Packet) ->
     ok = send(Client, Packet),
     wait_for_stanza(Client).
+
+-spec send_iq_and_wait_for_result(client(), exml:element()) -> exml:element() | no_return().
+send_iq_and_wait_for_result(Client, Iq) ->
+    send_iq_and_wait_for_result(Client, Iq, ?WAIT_FOR_STANZA_TIMEOUT).
+
+-spec send_iq_and_wait_for_result(client(), exml:element(), non_neg_integer()) ->
+    exml:element() | no_return().
+send_iq_and_wait_for_result(Client, #xmlel{name = <<"iq">>} = Req, Timeout) ->
+    ok = send(Client, Req),
+    Resp = #xmlel{name = RespName} = wait_for_stanza(Client, Timeout),
+    RespType = exml_query:attr(Resp, <<"type">>, undefined),
+    RespId = exml_query:attr(Resp, <<"id">>),
+    ReqId = exml_query:attr(Req, <<"id">>),
+    case {RespName, RespType, RespId == ReqId} of
+        {<<"iq">>, <<"result">>, true} ->
+            Resp;
+        {<<"iq">>, <<"result">>, false} ->
+            raise_invalid_iq_resp_error(received_invalid_iq_result_id, ReqId, RespId, Req, Resp);
+        {<<"iq">>, _, _} ->
+            raise_invalid_iq_resp_error(received_invalid_iq_stanza_type, <<"result">>, RespType,
+                                        Req, Resp);
+        {_, _, _} ->
+            raise_invalid_iq_resp_error(received_invalid_stanza, <<"iq">>, RespName, Req, Resp)
+    end.
+
+-spec raise_invalid_iq_resp_error(atom(), term(), term(), exml:element(), exml:element()) ->
+    no_return().
+raise_invalid_iq_resp_error(Reason, Expected, Received, Req, Resp) ->
+    error({Reason, [{expected, Expected},
+                    {received, Received},
+                    {request, Req},
+                    {response, Resp}]}).
 
 -spec is_client(term()) -> boolean().
 is_client(#client{}) ->
