@@ -378,7 +378,7 @@ forward_to_owner(Stanzas0, #state{owner = Owner,
 
     lists:foreach(fun(Stanza) ->
         escalus_event:incoming_stanza(EventClient, Stanza),
-        Owner ! {stanza, self(), Stanza}
+        Owner ! escalus_connection:stanza_msg(Stanza, #{})
     end, StanzasNoRs),
 
     case lists:keyfind(xmlstreamend, 1, StanzasNoRs) of

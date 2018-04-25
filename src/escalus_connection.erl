@@ -18,6 +18,7 @@
          send/2,
          get_stanza/2,
          get_stanza/3,
+         get_stanza_safe/2,
          get_sm_h/1,
          set_sm_h/2,
          set_filter_predicate/2,
@@ -28,6 +29,8 @@
          use_zlib/1,
          upgrade_to_tls/1,
          start_stream/1]).
+
+-export([stanza_msg/2]).
 
 %% Behaviour helpers
 -export([maybe_forward_to_owner/4]).
@@ -47,7 +50,7 @@
 %% Private
 -export([connection_step/2]).
 
--define(TIMEOUT, 1000).
+-define(TIMEOUT, 5000).
 
 %%%===================================================================
 %%% Behaviour callback
@@ -68,6 +71,8 @@
 -callback use_zlib(pid()) -> ok.
 -callback upgrade_to_tls(pid(), proplists:proplist()) -> ok.
 -callback set_filter_predicate(pid(), filter_pred()) -> ok.
+
+-type stanza_msg() :: {stanza, pid(), exml:element(), map()}.
 
 
 %%%===================================================================
@@ -177,25 +182,35 @@ get_stanza(Conn, Name) ->
     get_stanza(Conn, Name, ?TIMEOUT).
 
 -spec get_stanza(client(), any(), timeout()) -> exml_stream:element().
-get_stanza(#client{rcv_pid = Pid, jid = Jid}, Name, Timeout) ->
+get_stanza(Client, Name, Timeout) ->
+    case get_stanza_safe(Client, Timeout) of
+        {error, timeout} ->
+            throw({timeout, Name});
+        Stanza ->
+            Stanza
+    end.
+
+-spec get_stanza_safe(client(), timeout()) ->
+    {error, timeout} | exml:element().
+get_stanza_safe(#client{rcv_pid = Pid, jid = Jid}, Timeout) ->
     receive
-        {stanza, Pid, Stanza} ->
+        {stanza, Pid, Stanza, _} ->
             escalus_ct:log_stanza(Jid, in, Stanza),
             Stanza
     after Timeout ->
-            throw({timeout, Name})
+              {error, timeout}
     end.
 
 get_stream_end(#client{rcv_pid = Pid, jid = Jid}, Timeout) ->
     receive
-        {stanza, Pid, Stanza = #xmlel{name = <<"close">>}} ->
+        {stanza, Pid, Stanza = #xmlel{name = <<"close">>}, _} ->
             escalus_ct:log_stanza(Jid, in, Stanza),
             Stanza;
-        {stanza, Pid, Stanza = #xmlstreamend{}} ->
+        {stanza, Pid, Stanza = #xmlstreamend{}, _} ->
             escalus_ct:log_stanza(Jid, in, Stanza),
             Stanza
     after Timeout ->
-            throw({timeout, stream_end})
+              throw({timeout, stream_end})
     end.
 
 
@@ -286,6 +301,9 @@ maybe_forward_to_owner(FilterPred, State, Stanzas, Fun)
 maybe_forward_to_owner(_, State, Stanzas, Fun) ->
     Fun(Stanzas, State).
 
+-spec stanza_msg(Stanza :: exml:element(), Metadata :: map()) -> stanza_msg().
+stanza_msg(Stanza, Metadata) ->
+    {stanza, self(), Stanza, Metadata}.
 
 %%%===================================================================
 %%% Helpers

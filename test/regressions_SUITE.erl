@@ -109,7 +109,7 @@ actually_has_stanzas(_, []) ->
     true;
 actually_has_stanzas([], [_|_]) ->
     false;
-actually_has_stanzas([{stanza, _, P} | MTail], [P | PTail]) ->
+actually_has_stanzas([{stanza, _, P, _} | MTail], [P | PTail]) ->
     actually_has_stanzas(MTail, PTail);
 actually_has_stanzas([_ | MTail], [P | PTail]) ->
     actually_has_stanzas(MTail, [P | PTail]).

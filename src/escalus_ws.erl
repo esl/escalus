@@ -281,7 +281,7 @@ forward_to_owner(Stanzas, #state{owner = Owner,
                                  event_client = EventClient}) ->
     lists:foreach(fun(Stanza) ->
                           escalus_event:incoming_stanza(EventClient, Stanza),
-                          Owner ! {stanza, self(), Stanza}
+                          Owner ! escalus_connection:stanza_msg(Stanza, #{})
                   end, Stanzas).
 
 common_terminate(_Reason, #state{parser = Parser}) ->
