@@ -19,6 +19,7 @@
          get_stanza/2,
          get_stanza/3,
          get_stanza_safe/2,
+         get_stanza_with_metadata/3,
          get_sm_h/1,
          set_sm_h/2,
          set_filter_predicate/2,
@@ -33,7 +34,7 @@
 -export([stanza_msg/2]).
 
 %% Behaviour helpers
--export([maybe_forward_to_owner/4]).
+-export([maybe_forward_to_owner/5]).
 
 %% Public Types
 -type client() :: #client{}.
@@ -186,17 +187,26 @@ get_stanza(Client, Name, Timeout) ->
     case get_stanza_safe(Client, Timeout) of
         {error, timeout} ->
             throw({timeout, Name});
-        Stanza ->
+        {Stanza, _} ->
             Stanza
     end.
 
+-spec get_stanza_with_metadata(client(), any(), timeout()) -> {exml_stream:element(), map()}.
+get_stanza_with_metadata(Client, Name, Timeout) ->
+    case get_stanza_safe(Client, Timeout) of
+        {error, timeout} ->
+            throw({timeout, Name});
+        StanzaWithMetadata ->
+            StanzaWithMetadata
+    end.
+
 -spec get_stanza_safe(client(), timeout()) ->
-    {error, timeout} | exml:element().
+    {error, timeout} | {exml:element(), map()}.
 get_stanza_safe(#client{rcv_pid = Pid, jid = Jid}, Timeout) ->
     receive
-        {stanza, Pid, Stanza, _} ->
+        {stanza, Pid, Stanza, Metadata} ->
             escalus_ct:log_stanza(Jid, in, Stanza),
-            Stanza
+            {Stanza, Metadata}
     after Timeout ->
               {error, timeout}
     end.
@@ -285,21 +295,21 @@ do_wait_for_close(Client, N) ->
 
 
 -spec maybe_forward_to_owner(filter_pred(), term(), [exml:element()],
-                             fun(([exml:element()], term()) -> term()))
+                             fun(([exml:element()], term(), integer()) -> term()), integer())
         -> term().
-maybe_forward_to_owner(none, State, _Stanzas, _Fun) ->
+maybe_forward_to_owner(none, State, _Stanzas, _Fun, _Timestamp) ->
     State;
-maybe_forward_to_owner(FilterPred, State, Stanzas, Fun)
+maybe_forward_to_owner(FilterPred, State, Stanzas, Fun, Timestamp)
     when is_function(FilterPred) ->
     AllowedStanzas = lists:filter(FilterPred, Stanzas),
     case AllowedStanzas of
         [] ->
             State;
         _ ->
-            Fun(AllowedStanzas, State)
+            Fun(AllowedStanzas, State, Timestamp)
     end;
-maybe_forward_to_owner(_, State, Stanzas, Fun) ->
-    Fun(Stanzas, State).
+maybe_forward_to_owner(_, State, Stanzas, Fun, Timestamp) ->
+    Fun(Stanzas, State, Timestamp).
 
 -spec stanza_msg(Stanza :: exml:element(), Metadata :: map()) -> stanza_msg().
 stanza_msg(Stanza, Metadata) ->

@@ -15,7 +15,8 @@ all() ->
      %% can't run with current build system, see test for the rationale
      %% catch_assert_false,
      catch_escalus_user_verify_creation,
-     test_peek_stanzas].
+     test_peek_stanzas,
+     test_get_stanza_with_metadata].
 
 suite() ->
     escalus:suite().
@@ -94,6 +95,21 @@ test_peek_stanzas(Config) ->
           end),
     escalus:delete_users(Config, escalus:get_users([alice])).
 
+test_get_stanza_with_metadata(Config) ->
+    escalus:create_users(Config, escalus:get_users([alice])),
+    story(Config, [{alice, 1}],
+          fun (Alice) ->
+                  %% given
+                  Msg = <<"Haha, I'm talkin' to myself">>,
+                  %% when
+                  escalus:send(Alice, escalus_stanza:chat_to(Alice, Msg)),
+                  timer:sleep(50),
+                  %% then
+                  {Stanza, Metadata} = escalus_connection:get_stanza_with_metadata(Alice, msg_to_self, 5000),
+                  ?a(erlang:is_map(Metadata)),
+                  ?a(maps:is_key(recv_timestamp, Metadata))
+          end),
+    escalus:delete_users(Config, escalus:get_users([alice])).
 %%--------------------------------------------------------------------
 %% Helpers
 %%--------------------------------------------------------------------

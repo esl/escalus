@@ -389,7 +389,7 @@ wait_for_result(Client) ->
     case escalus_connection:get_stanza_safe(Client, 5000) of
         {error, timeout} ->
             {error, timeout, exml:escape_cdata(<<"timeout">>)};
-        Stanza ->
+        {Stanza, _} ->
             case response_type(Stanza) of
                 result ->
                     {ok, result, Stanza};
