@@ -399,7 +399,7 @@ wait_for_result(#client{rcv_pid = Pid}) ->
                     {error, bad_response, Stanza}
             end
     after 3000 ->
-            {error, timeout, exml:escape_cdata(<<"timeout">>)}
+            {error, timeout, #xmlcdata{content = <<"timeout">>}}
     end.
 
 response_type(#xmlel{name = <<"iq">>} = IQ) ->

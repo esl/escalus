@@ -72,9 +72,8 @@ auth_sasl_scram_sha1(Conn, Props) ->
 
     AuthReply = escalus_connection:get_stanza(Conn, auth_reply),
     case AuthReply of
-        #xmlel{name = <<"success">>, children = [CData]} ->
-            Unescaped = exml:unescape_cdata(CData),
-            V = get_property(<<"v">>, csvkv:parse(base64:decode(Unescaped))),
+        #xmlel{name = <<"success">>, children = [#xmlcdata{content = CData}]} ->
+            V = get_property(<<"v">>, csvkv:parse(base64:decode(CData))),
             Decoded = base64:decode(V),
             ok = scram_sha1_validate_server(SaltedPassword, AuthMessage,
                                             Decoded);
@@ -104,8 +103,8 @@ auth_sasl_oauth(Conn, Props) ->
     AuthReply = escalus_connection:get_stanza(Conn, auth_reply),
     NewProps = case AuthReply of
                    #xmlel{name = <<"success">>, children = ChildrenRecvd} ->
-                       ([ {oauth_returned_token, base64:decode(exml:unescape_cdata(CData))}
-                          || CData <- ChildrenRecvd ]
+                       ([ {oauth_returned_token, base64:decode(CData)}
+                          || #xmlcdata{content = CData} <- ChildrenRecvd ]
                         ++ Props);
                    #xmlel{name = <<"failure">>} ->
                        throw({auth_failed, AuthReply})
@@ -199,8 +198,8 @@ get_challenge(Conn, Descr) ->
 get_challenge(Conn, Descr, DecodeCsvkv) ->
     Challenge = escalus_connection:get_stanza(Conn, Descr),
     case Challenge of
-        #xmlel{name = <<"challenge">>, children=[CData]} ->
-            ChallengeData = base64:decode(exml:unescape_cdata(CData)),
+        #xmlel{name = <<"challenge">>, children=[#xmlcdata{content = CData}]} ->
+            ChallengeData = base64:decode(CData),
             case DecodeCsvkv of
                 true ->
                     csvkv:parse(ChallengeData);
