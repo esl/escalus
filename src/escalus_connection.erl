@@ -75,6 +75,10 @@
 
 -type stanza_msg() :: {stanza, pid(), exml:element(), map()}.
 
+-type metadata() :: map().
+%%-type metadata() :: #{recv_timestamp := integer()}.
+%%    Above line works only on Erlang 19 or newer, that's why it's commented
+%%    as long as we support Erlang 18
 
 %%%===================================================================
 %%% Public API
@@ -191,7 +195,8 @@ get_stanza(Client, Name, Timeout) ->
             Stanza
     end.
 
--spec get_stanza_with_metadata(client(), any(), timeout()) -> {exml_stream:element(), map()}.
+-spec get_stanza_with_metadata(client(), any(), timeout()) ->
+    {exml_stream:element(), metadata()}.
 get_stanza_with_metadata(Client, Name, Timeout) ->
     case get_stanza_safe(Client, Timeout) of
         {error, timeout} ->
