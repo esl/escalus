@@ -15,9 +15,6 @@
          get_config/1,
          log_stanza/3]).
 
-%% What about that?
--export([rpc_call/6]).
-
 -define(APPNAME, escalus).
 
 -spec add_log_link(any(), any(), any()) -> ok | false.
@@ -68,30 +65,6 @@ interpret_config_file_path(RelPath) ->
         _ ->
             error({escalus_error, beam_not_loaded})
     end.
-
-%% TODO: This is CT-free! Move out of escalus_ct.
-rpc_call(Node, Module, Function, Args, TimeOut, Cookie) ->
-    call_with_cookie_match(Node, Module, Function, Args, TimeOut, Cookie).
-
-%% Copied from ct_rpc and renamed.
-call_with_cookie_match(Node, Module, Function, Args, TimeOut, Cookie) when is_atom(Node) ->
-    Cookie0 = set_the_cookie(Cookie),
-    Result = case rpc:call(Node, Module, Function, Args, TimeOut) of
-                 {badrpc, Reason} ->
-                     error({badrpc, Reason}, [Node, Module, Function, Args, TimeOut, Cookie]);
-                 R ->
-                     R
-             end,
-    _ = set_the_cookie(Cookie0),
-    Result.
-
-%% Copied from ct_rpc.
-set_the_cookie([]) ->
-    [];
-set_the_cookie(Cookie) ->
-    Cookie0 = erlang:get_cookie(),
-    erlang:set_cookie(node(),Cookie),
-    Cookie0.
 
 -spec log_stanza(undefined | binary(), in | out, exml_stream:element()) -> ok.
 log_stanza(undefined, _, _) -> ok;

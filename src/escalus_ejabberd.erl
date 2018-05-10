@@ -58,7 +58,7 @@
 rpc(M, F, A) ->
     Node = escalus_ct:get_config(ejabberd_node),
     Cookie = escalus_ct:get_config(ejabberd_cookie),
-    escalus_ct:rpc_call(Node, M, F, A, 3000, Cookie).
+    escalus_rpc:call(Node, M, F, A, 3000, Cookie).
 
 remote_display(String) ->
     Line = [$\n, [$- || _ <- String], $\n],
