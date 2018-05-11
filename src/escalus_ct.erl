@@ -113,7 +113,7 @@ do_log_stanza(Jid, Direction, Stanza) ->
                 ct:fail(Error)
         end,
     ct:print(stanza_log, "~s~n~s", [ReportString, PrettyStanza]),
-    ct:log(stanza_log, "~s~n~s", [ReportString, exml:escape_attr(PrettyStanza)]).
+    ct:log(stanza_log, "~s~n~s", [ReportString, PrettyStanza]).
 
 %% ------------- Common Test hack! -------------
 %% There is a bug in Common Test since 18.3, which causes links to be printed inside <pre/>.
@@ -152,4 +152,3 @@ ct_log_timestamp({MS, S, US}) ->
     lists:flatten(io_lib:format("~4.10.0B-~2.10.0B-~2.10.0B "
                                 "~2.10.0B:~2.10.0B:~2.10.0B.~3.10.0B",
                                 [Year, Month, Day, Hour, Min, Sec, MilliSec])).
-

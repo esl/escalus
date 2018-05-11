@@ -388,7 +388,7 @@ get_defined_option(Config, Name, Short, Long) ->
 wait_for_result(Client) ->
     case escalus_connection:get_stanza_safe(Client, 5000) of
         {error, timeout} ->
-            {error, timeout, exml:escape_cdata(<<"timeout">>)};
+            {error, timeout, #xmlcdata{content = <<"timeout">>}};
         {Stanza, _} ->
             case response_type(Stanza) of
                 result ->
