@@ -15,7 +15,7 @@
 %% @doc Emulate `ct_rpc:call/6' but do not rely on Common Test.
 %% `call/6' takes a `Cookie' as the last parameter,
 %% so that nodes with different cookies can be easily called.
-%% %% However, this function is not safe (and neither is the original `ct_rpc:call/6')
+%% However, this function is not safe (and neither is the original `ct_rpc:call/6')
 %% in a concurrent environment as it gets/sets the cookie
 %% with `erlang:get_cookie/0' and `erlang:set_cookie/1'.
 %% Interleaving these calls in concurrent processes is prone to race conditions.
