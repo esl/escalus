@@ -19,9 +19,9 @@ interleave_msgs_and_rs_test() ->
     State = #state{owner = self(),
                    sm_state = {true, 0, active},
                    event_client = self()},
-    SecondState = escalus_tcp:forward_to_owner(FirstStanzas, State),
+    SecondState = escalus_tcp:forward_to_owner(FirstStanzas, State, os:system_time(micro_seconds)),
     #state{sm_state = SMState} =
-        escalus_tcp:forward_to_owner(SecondStanzas, SecondState),
+        escalus_tcp:forward_to_owner(SecondStanzas, SecondState, os:system_time(micro_seconds)),
     ?assertEqual({true, 3, active}, SMState),
     meck:unload(escalus_event),
     meck:unload(gen_tcp).

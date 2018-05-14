@@ -385,9 +385,11 @@ get_defined_option(Config, Name, Short, Long) ->
                                          | {ok, conflict, exml:element()}
                                          | {error, Error, exml:cdata()}
       when Error :: 'failed_to_register' | 'bad_response' | 'timeout'.
-wait_for_result(#client{rcv_pid = Pid}) ->
-    receive
-        {stanza, Pid, Stanza} ->
+wait_for_result(Client) ->
+    case escalus_connection:get_stanza_safe(Client, 5000) of
+        {error, timeout} ->
+            {error, timeout, #xmlcdata{content = <<"timeout">>}};
+        {Stanza, _} ->
             case response_type(Stanza) of
                 result ->
                     {ok, result, Stanza};
@@ -398,8 +400,6 @@ wait_for_result(#client{rcv_pid = Pid}) ->
                 _ ->
                     {error, bad_response, Stanza}
             end
-    after 3000 ->
-            {error, timeout, #xmlcdata{content = <<"timeout">>}}
     end.
 
 response_type(#xmlel{name = <<"iq">>} = IQ) ->

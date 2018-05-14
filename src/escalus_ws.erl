@@ -255,6 +255,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 handle_data(Data, State = #state{parser = Parser,
                                  compress = Compress}) ->
+    Timestamp = os:system_time(micro_seconds),
     {ok, NewParser, Stanzas} =
         case Compress of
             false ->
@@ -267,7 +268,7 @@ handle_data(Data, State = #state{parser = Parser,
     escalus_connection:maybe_forward_to_owner(NewState#state.filter_pred,
                                               NewState,
                                               Stanzas,
-                                              fun forward_to_owner/2),
+                                              fun forward_to_owner/3, Timestamp),
     case lists:filter(fun is_stream_end/1, Stanzas) of
         [] -> {noreply, NewState};
         _ -> {stop, normal, NewState}
@@ -278,10 +279,11 @@ is_stream_end(#xmlstreamend{}) -> true;
 is_stream_end(_) -> false.
 
 forward_to_owner(Stanzas, #state{owner = Owner,
-                                 event_client = EventClient}) ->
+                                 event_client = EventClient}, Timestamp) ->
     lists:foreach(fun(Stanza) ->
                           escalus_event:incoming_stanza(EventClient, Stanza),
-                          Owner ! {stanza, self(), Stanza}
+                          Owner ! escalus_connection:stanza_msg(Stanza,
+                                                                #{recv_timestamp => Timestamp})
                   end, Stanzas).
 
 common_terminate(_Reason, #state{parser = Parser}) ->
