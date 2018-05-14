@@ -15,9 +15,6 @@
          get_config/1,
          log_stanza/3]).
 
-%% What about that?
--export([rpc_call/6]).
-
 -define(APPNAME, escalus).
 
 -spec add_log_link(any(), any(), any()) -> ok | false.
@@ -67,24 +64,6 @@ interpret_config_file_path(RelPath) ->
             filename:join([ProjectDir, RelPath]);
         _ ->
             error({escalus_error, beam_not_loaded})
-    end.
-
-rpc_call(Node, Module, Function, Args, TimeOut, Cookie) ->
-    case is_ct_available() of
-        true ->
-            Result = ct_rpc:call(Node, Module, Function, Args, TimeOut, Cookie),
-            case Result of
-                {badrpc, Reason} ->
-                    ct:pal("issue=rpc_call_failed "
-                            "node=~p function=~p:~p reason=~p",
-                           [Node, Module, Function, Reason]);
-                _ ->
-                    ok
-            end,
-            Result;
-        false ->
-            %% TODO: don't error out, should be easy to simulate ct_rpc:call/6
-            error({escalus_error, common_test_unavailable})
     end.
 
 -spec log_stanza(undefined | binary(), in | out, exml_stream:element()) -> ok.
