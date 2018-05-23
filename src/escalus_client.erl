@@ -121,7 +121,6 @@ do_wait_for_stanzas(#client{event_client=EventClient, jid=Jid, rcv_pid=Pid} = Cl
             do_wait_for_stanzas(Client, 0, Timeout, Acc);
         {Stanza, _} ->
             escalus_event:pop_incoming_stanza(EventClient, Stanza),
-            escalus_ct:log_stanza(Jid, in, Stanza),
             do_wait_for_stanzas(Client, Count - 1, Timeout, [Stanza|Acc])
         %% FIXME: stream error
     end.
