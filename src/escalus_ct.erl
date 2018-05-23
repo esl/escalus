@@ -85,7 +85,7 @@ do_log_stanza(Jid, Direction, Stanza) ->
     ReportString = io_lib:format("~s ~p", [Jid, Direction]),
     PrettyStanza =
         try
-            list_to_binary(exml:to_pretty_iolist(Stanza))
+            iolist_to_binary(exml:to_pretty_iolist(Stanza))
         catch error:Error ->
                 ct:pal(error, "Cannot convert stanza to iolist: ~s~n~p",
                        [ReportString, Stanza]),
