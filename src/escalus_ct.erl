@@ -85,14 +85,13 @@ do_log_stanza(Jid, Direction, Stanza) ->
     ReportString = io_lib:format("~s ~p", [Jid, Direction]),
     PrettyStanza =
         try
-            list_to_binary(exml:to_pretty_iolist(Stanza))
+            iolist_to_binary(exml:to_pretty_iolist(Stanza))
         catch error:Error ->
                 ct:pal(error, "Cannot convert stanza to iolist: ~s~n~p",
                        [ReportString, Stanza]),
                 ct:fail(Error)
         end,
-    ct:print(stanza_log, "~s~n~s", [ReportString, PrettyStanza]),
-    ct:log(stanza_log, "~s~n~s", [ReportString, PrettyStanza]).
+    ct:pal(stanza_log, "~s~n~s", [ReportString, PrettyStanza]).
 
 %% ------------- Common Test hack! -------------
 %% There is a bug in Common Test since 18.3, which causes links to be printed inside <pre/>.
