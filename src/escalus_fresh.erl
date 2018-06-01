@@ -57,7 +57,7 @@ story_with_config(Config, UserSpecs, StoryFun) ->
 %% The side effect is the creation of XMPP users on a server.
 -spec create_users(escalus:config(), [escalus_users:resource_spec()]) -> escalus:config().
 create_users(Config, UserSpecs) ->
-    Suffix = fresh_suffix(),
+    Suffix = fresh_suffix(Config),
     FreshSpecs = freshen_specs(Config, UserSpecs, Suffix),
     FreshConfig = escalus_users:create_users(Config, FreshSpecs),
     %% The line below is not needed if we don't want to support cleaning
@@ -72,7 +72,7 @@ create_users(Config, UserSpecs) ->
 -spec freshen_specs(escalus:config(), [escalus_users:resource_spec()]) -> R when
       R :: [escalus_users:user_spec()].
 freshen_specs(Config, UserSpecs) ->
-    Suffix = fresh_suffix(),
+    Suffix = fresh_suffix(Config),
     lists:map(fun({_UserName, Spec}) -> Spec end,
               freshen_specs(Config, UserSpecs, Suffix)).
 
@@ -86,6 +86,10 @@ freshen_spec(Config, {UserName, _Res} = _UserSpec) ->
 freshen_spec(Config, UserName) when is_atom(UserName) ->
     freshen_spec(Config, {UserName, 1}).
 
+fresh_suffix(Config) ->
+    CaseNameSuffix = case_name_suffix(Config),
+    IntSuffix = fresh_int_suffix(),
+    <<CaseNameSuffix/binary, IntSuffix/binary>>.
 
 -spec freshen_specs(escalus:config(), [escalus_users:resource_spec()], binary()) -> R when
       R :: [escalus_users:named_user()].
@@ -200,10 +204,20 @@ select(UserResources, FullSpecs) ->
     lists:filter(fun({Name, _}) -> lists:member(Name, UserNames) end,
                  FullSpecs).
 
-fresh_suffix() ->
+fresh_int_suffix() ->
     {_, S, US} = erlang:now(),
     L = lists:flatten([integer_to_list(S rem 100), ".", integer_to_list(US)]),
     list_to_binary(L).
+
+case_name_suffix(Config) ->
+    CaseName = proplists:get_value(tc_name, Config, unnamed),
+    case CaseName of
+        unnamed ->
+            <<"_unnamed_">>;
+        Name when is_atom(Name) ->
+            N = atom_to_binary(Name, unicode),
+            <<"_",N/binary,"_">>
+    end.
 
 
 tag(L) -> lists:zip(lists:seq(1, length(L)), L).
