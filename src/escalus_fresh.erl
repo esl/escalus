@@ -158,7 +158,18 @@ pmap(F, L) when is_function(F, 1), is_list(L) ->
 tag(L) -> lists:zip(lists:seq(1, length(L)), L).
 untag(L) -> [ Val || {_Ord, Val} <- lists:sort(L) ].
 reply(Ord, {Ref, Pid}, Val) -> Pid ! {Ref, {Ord, Val}}.
-worker(TaskId, Fun, {Ord, Item}) -> fun() -> reply(Ord, TaskId, catch(Fun(Item))) end.
+worker(TaskId, Fun, {Ord, Item}) ->
+    fun() ->
+        Reply = try Fun(Item)
+                catch Class:Reason ->
+                    Stacktrace = erlang:get_stacktrace(),
+                    escalus_ct:log_error("issue=pmap_failed reason=~p:~p~n"
+                                         " stacktrace=~p",
+                                         [Class, Reason, Stacktrace]),
+                    {error, {Class, Reason}}
+                end,
+        reply(Ord, TaskId, Reply)
+    end.
 collect(_TaskId, 0, Acc) -> untag(Acc);
 collect({Ref, _} = TaskId, N, Acc) ->
     receive {Ref, Val} -> collect(TaskId, N-1, [Val|Acc])

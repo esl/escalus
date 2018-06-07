@@ -13,7 +13,8 @@
 -export([add_log_link/3,
          fail/1,
          get_config/1,
-         log_stanza/3]).
+         log_stanza/3,
+         log_error/2]).
 
 -define(APPNAME, escalus).
 
@@ -130,3 +131,6 @@ ct_log_timestamp({MS, S, US}) ->
     lists:flatten(io_lib:format("~4.10.0B-~2.10.0B-~2.10.0B "
                                 "~2.10.0B:~2.10.0B:~2.10.0B.~3.10.0B",
                                 [Year, Month, Day, Hour, Min, Sec, MilliSec])).
+
+log_error(Format, Args) ->
+    ct:pal(error, Format, Args).
