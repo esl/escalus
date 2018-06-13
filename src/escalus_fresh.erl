@@ -150,27 +150,25 @@ fresh_suffix() ->
     list_to_binary(L).
 
 tracer_fun(Workers) ->
-    ct:pal("Workers (~p alive): ~p", [length(
-                                        maps:keys(
-                                          alive(Workers)
-                                         )
-                                       ), Workers]),
     receive
         {start, Ref, Item} ->
-            tracer_fun(Workers#{Ref => {Item, alive}});
+            ct:pal("got start ~p", [Ref]),
+            tracer_fun(Workers#{Ref => #{item => Item, state => alive}});
         {stop, Ref, Reason} ->
-            #{Ref := {Item, alive}} = Workers,
-            tracer_fun(Workers#{Ref => {Item, dead}});
-        get_alive ->
+            ct:pal("got stop ~p", [Ref]),
+            #{Ref := #{item := Item}} = Workers,
+            tracer_fun(Workers#{Ref => #{item => Item, state => dead, death_reason => Reason}});
+        print_status ->
             ct:pal("Workers (~p alive): ~p", [length(
                                                 maps:keys(
                                                   alive(Workers)
                                                  )
                                                ), Workers])
+
     end.
 
 alive(Workers) ->
-    maps:filter(fun(_, {_, IsAlive}) -> IsAlive =:= alive end,
+    maps:filter(fun(_, #{state := IsAlive}) -> IsAlive =:= alive end,
                 Workers).
 
 
@@ -192,10 +190,10 @@ worker(TaskId, Fun, {Ord, Item}, Tracer) ->
                     escalus_ct:log_error("issue=pmap_failed reason=~p:~p~n"
                                          " stacktrace=~p",
                                          [Class, Reason, Stacktrace]),
-                    Tracer ! {stop, TaskId, {Class, Reason, Stacktrace}},
                     {error, {Class, Reason}}
                 end,
-        Tracer ! {stop, TaskId, ok},
+        Tracer ! {stop, TaskId, Reply},
+        Tracer ! print_status,
         reply(Ord, TaskId, Reply)
     end.
 collect(_TaskId, 0, Acc) -> untag(Acc);
