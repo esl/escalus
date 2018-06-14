@@ -163,7 +163,8 @@ tracer_fun(Workers) ->
                                                 maps:keys(
                                                   alive(Workers)
                                                  )
-                                               ), Workers])
+                                               ), Workers]),
+            tracer_fun(Workers)
 
     end.
 
@@ -183,7 +184,7 @@ untag(L) -> [ Val || {_Ord, Val} <- lists:sort(L) ].
 reply(Ord, {Ref, Pid}, Val) -> Pid ! {Ref, {Ord, Val}}.
 worker(TaskId, Fun, {Ord, Item}, Tracer) ->
     fun() ->
-        Tracer ! {start, TaskId, Item},
+        Tracer ! {start, Ord, Item},
         Reply = try Fun(Item)
                 catch Class:Reason ->
                     Stacktrace = erlang:get_stacktrace(),
@@ -192,8 +193,12 @@ worker(TaskId, Fun, {Ord, Item}, Tracer) ->
                                          [Class, Reason, Stacktrace]),
                     {error, {Class, Reason}}
                 end,
-        Tracer ! {stop, TaskId, Reply},
-        Tracer ! print_status,
+        Tracer ! {stop, Ord, Reply},
+        case Reply of
+            ok -> ok;
+            _ ->
+                Tracer ! print_status
+        end,
         reply(Ord, TaskId, Reply)
     end.
 collect(_TaskId, 0, Acc) -> untag(Acc);
