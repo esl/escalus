@@ -110,7 +110,7 @@ stop(_) ->
 clean() ->
     wpool:start_sup_pool(unregister_pool, [{workers, 10}]),
     L = ets:tab2list(nasty_global_table()),
-    [wpool:cast(unregister_pool, {?MODULE, delete_users, [El]}, available_worker) || El <- tag(L)]
+    [wpool:cast(unregister_pool, {?MODULE, delete_users, [El]}, available_worker) || El <- tag(L)],
     ets:delete_all_objects(nasty_global_table()),
     ok.
 
