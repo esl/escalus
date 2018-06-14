@@ -149,17 +149,42 @@ fresh_suffix() ->
     L = lists:flatten([integer_to_list(S rem 100), ".", integer_to_list(US)]),
     list_to_binary(L).
 
+tracer_fun(Workers) ->
+    receive
+        {start, Ref, Item} ->
+            ct:pal("got start ~p", [Ref]),
+            tracer_fun(Workers#{Ref => #{item => Item, state => alive}});
+        {stop, Ref, Reason} ->
+            ct:pal("got stop ~p", [Ref]),
+            #{Ref := #{item := Item}} = Workers,
+            tracer_fun(Workers#{Ref => #{item => Item, state => dead, death_reason => Reason}});
+        print_status ->
+            ct:pal("Workers (~p alive): ~p", [length(
+                                                maps:keys(
+                                                  alive(Workers)
+                                                 )
+                                               ), Workers]),
+            tracer_fun(Workers)
+
+    end.
+
+alive(Workers) ->
+    maps:filter(fun(_, #{state := IsAlive}) -> IsAlive =:= alive end,
+                Workers).
+
 
 %%
 pmap(F, L) when is_function(F, 1), is_list(L) ->
+    WorkerTracer = spawn(fun() -> tracer_fun(#{}) end),
     TaskId = {make_ref(), self()},
-    [spawn(worker(TaskId, F, El)) || El <- tag(L)],
+    [spawn(worker(TaskId, F, El, WorkerTracer)) || El <- tag(L)],
     collect(TaskId, length(L), []).
 tag(L) -> lists:zip(lists:seq(1, length(L)), L).
 untag(L) -> [ Val || {_Ord, Val} <- lists:sort(L) ].
 reply(Ord, {Ref, Pid}, Val) -> Pid ! {Ref, {Ord, Val}}.
-worker(TaskId, Fun, {Ord, Item}) ->
+worker(TaskId, Fun, {Ord, Item}, Tracer) ->
     fun() ->
+        Tracer ! {start, Ord, Item},
         Reply = try Fun(Item)
                 catch Class:Reason ->
                     Stacktrace = erlang:get_stacktrace(),
@@ -168,6 +193,12 @@ worker(TaskId, Fun, {Ord, Item}) ->
                                          [Class, Reason, Stacktrace]),
                     {error, {Class, Reason}}
                 end,
+        Tracer ! {stop, Ord, Reply},
+        case Reply of
+            ok -> ok;
+            _ ->
+                Tracer ! print_status
+        end,
         reply(Ord, TaskId, Reply)
     end.
 collect(_TaskId, 0, Acc) -> untag(Acc);
