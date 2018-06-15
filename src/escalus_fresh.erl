@@ -113,35 +113,25 @@ clean() ->
                                            {overrun_warning, 3000}]),
     L = tag(ets:tab2list(nasty_global_table())),
     [wpool:cast(unregister_pool, {?MODULE, work_on_deleting_users, [Ord, Item, self()]}, available_worker) || {Ord, Item} <- L],
-    ok = collect(lists:map(fun({Ord, _Item}) -> Ord end, L)),
+    ok = collect(L),
     ets:delete_all_objects(nasty_global_table()),
     ok.
 
 collect([]) ->
     ok;
-collect(Ids) ->
+collect(OrdItems) ->
     receive
         {done, Id} ->
-            ct:pal("Got from worker ~p", [Id]),
-            collect(lists:delete(Id, Ids))
+            collect(lists:filter(fun({Ord, _Item}) -> Ord =/= Id end, OrdItems))
     after 5000 ->
-              error({timeout_when_unregistering, {unregistered, length(Ids)}})
+              error({timeout_when_unregistering, {amount, length(OrdItems)}, {unregistered_items, OrdItems}})
     end.
 
 %%% Internals
 nasty_global_table() -> escalus_fresh_db.
 
-work_on_deleting_users(Ord, Item, CollectingPid) ->
-    work_on_deleting_users(Ord, Item, CollectingPid, 3, []).
-
-work_on_deleting_users(Ord, {_Suffix, Conf} = Item, CollectingPid, Retries, Story) when Retries > 0 ->
-    ct:pal("Deleting users... ~p", [Ord]),
-    try do_delete_users(Conf) of
-        _ -> ok
-    catch Class:Error ->
-              ct:pal("(~p) ~p:~p", [Ord, Class, Error]),
-              work_on_deleting_users(Ord, Item, CollectingPid, Retries, [{Class, Error} | Story])
-    end,
+work_on_deleting_users(Ord, {_Suffix, Conf} = Item, CollectingPid) ->
+    do_delete_users(Conf),
     CollectingPid ! {done, Ord},
     ok.
 
