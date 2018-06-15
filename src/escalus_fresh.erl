@@ -124,7 +124,7 @@ collect(OrdItems) ->
         {done, Id} ->
             collect(lists:filter(fun({Ord, _Item}) -> Ord =/= Id end, OrdItems))
     after 5000 ->
-              error({timeout_when_unregistering, {amount, length(OrdItems)}, {unregistered_items, OrdItems}})
+              error({timeout_when_unregistering, {amount, length(OrdItems)}, {unregistered_items, untag(OrdItems)}})
     end.
 
 %%% Internals
@@ -173,3 +173,4 @@ fresh_suffix() ->
 
 
 tag(L) -> lists:zip(lists:seq(1, length(L)), L).
+untag(L) -> [ Val || {_Ord, Val} <- lists:sort(L) ].
