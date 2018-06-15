@@ -120,6 +120,7 @@ clean() ->
 nasty_global_table() -> escalus_fresh_db.
 
 delete_users({_Suffix, Conf}) ->
+    ct:pal("Deleting users..."),
     Plist = proplists:get_value(escalus_users, Conf),
     escalus_users:delete_users(Conf, Plist),
     ok.
