@@ -120,28 +120,39 @@ clean() ->
     [wpool:cast(unregister_pool,
                 {?MODULE, work_on_deleting_users, [Ord, Item, self()]})
      || {Ord, Item} <- L],
-    ok = collect(L),
+    ok = collect(L, []),
     ets:delete_all_objects(nasty_global_table()),
     ok.
 
-collect([]) ->
-    ok;
-collect(OrdItems) ->
+collect([], []) -> ok;
+collect([], Failed) ->
+    error({unregistering_failed,
+           {amount, length(Failed)},
+           {unregistered_items, untag(Failed)}});
+collect(Pending, Failed) ->
     receive
         {done, Id} ->
-            collect(lists:filter(fun({Ord, _Item}) -> Ord =/= Id end, OrdItems))
+            NewPending = lists:keydelete(Id, 1, Pending), % lists:filter(fun({Ord, _Item}) -> Ord =/= Id end, Pending),
+            collect(NewPending, Failed);
+        {error, Id, Error} ->
+            {Id, Item} = lists:keyfind(Id, 1, Pending),
+            NewPending = lists:keydelete(Id, 1, Pending),
+            collect(NewPending, [{Id, Item, Error} | Failed])
     after ?MIN_UNREGISTER_TEMPO ->
-              error({timeout_when_unregistering,
-                     {amount, length(OrdItems)},
-                     {unregistered_items, untag(OrdItems)}})
+              collect([], Failed ++ lists:map(fun({Ord, Item}) -> {Ord, Item, timeout} end, Pending))
     end.
 
 %%% Internals
 nasty_global_table() -> escalus_fresh_db.
 
 work_on_deleting_users(Ord, {_Suffix, Conf} = Item, CollectingPid) ->
-    do_delete_users(Conf),
-    CollectingPid ! {done, Ord},
+    try do_delete_users(Conf) of
+        _ ->
+            CollectingPid ! {done, Ord}
+    catch
+        Class:Error ->
+            CollectingPid ! {error, Ord, {Class, Error}}
+    end,
     ok.
 
 do_delete_users(Conf) ->
@@ -182,4 +193,4 @@ fresh_suffix() ->
 
 
 tag(L) -> lists:zip(lists:seq(1, length(L)), L).
-untag(L) -> [ Val || {_Ord, Val} <- lists:sort(L) ].
+untag(L) -> [ {Val, Error} || {_Ord, Val, Error} <- lists:sort(L) ].
