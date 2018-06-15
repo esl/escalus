@@ -5,6 +5,7 @@
          create_users/2,
          freshen_specs/2,
          freshen_spec/2,
+         work_on_deleting_users/3, % used by wpool worker
          create_fresh_user/2]).
 -export([start/1,
          stop/1,
@@ -109,21 +110,45 @@ stop(_) ->
     nasty_global_table() ! bye.
 clean() ->
     wpool:start_sup_pool(unregister_pool, [{workers, 10},
-                                           {overrun_warning, 3000},
-                                           {one_for_one, 3, 2}]), % if it dies 3 times in last 2 seconds, we fail
-    L = ets:tab2list(nasty_global_table()),
-    [wpool:cast(unregister_pool, {?MODULE, delete_users, [El]}, available_worker) || El <- tag(L)],
+                                           {overrun_warning, 3000}]),
+    L = tag(ets:tab2list(nasty_global_table())),
+    [wpool:cast(unregister_pool, {?MODULE, work_on_deleting_users, [Ord, Item, self()]}, available_worker) || {Ord, Item} <- L],
+    ok = collect(lists:map(fun({Ord, _Item}) -> Ord end, L)),
     ets:delete_all_objects(nasty_global_table()),
     ok.
+
+collect([]) ->
+    ok;
+collect(Ids) ->
+    receive
+        {done, Id} ->
+            ct:pal("Got from worker ~p", [Id]),
+            collect(lists:delete(Id, Ids))
+    after 5000 ->
+              error({timeout_when_unregistering, {unregistered, length(Ids)}})
+    end.
 
 %%% Internals
 nasty_global_table() -> escalus_fresh_db.
 
-delete_users({_Suffix, Conf}) ->
-    ct:pal("Deleting users..."),
-    Plist = proplists:get_value(escalus_users, Conf),
-    escalus_users:delete_users(Conf, Plist),
+work_on_deleting_users(Ord, Item, CollectingPid) ->
+    work_on_deleting_users(Ord, Item, CollectingPid, 3, []).
+
+work_on_deleting_users(Ord, {_Suffix, Conf} = Item, CollectingPid, Retries, Story) when Retries > 0 ->
+    ct:pal("Deleting users... ~p", [Ord]),
+    try do_delete_users(Conf) of
+        _ -> ok
+    catch Class:Error ->
+              ct:pal("(~p) ~p:~p", [Ord, Class, Error]),
+              work_on_deleting_users(Ord, Item, CollectingPid, Retries, [{Class, Error} | Story])
+    end,
+    CollectingPid ! {done, Ord},
     ok.
+
+do_delete_users(Conf) ->
+    Plist = proplists:get_value(escalus_users, Conf),
+    escalus_users:delete_users(Conf, Plist).
+
 
 ensure_table_present(T) ->
     RunDB = fun() -> ets:new(T, [named_table, public]),
@@ -157,28 +182,4 @@ fresh_suffix() ->
     list_to_binary(L).
 
 
-%%
-pmap(F, L) when is_function(F, 1), is_list(L) ->
-    TaskId = {make_ref(), self()},
-    [spawn(worker(TaskId, F, El)) || El <- tag(L)],
-    collect(TaskId, length(L), []).
 tag(L) -> lists:zip(lists:seq(1, length(L)), L).
-untag(L) -> [ Val || {_Ord, Val} <- lists:sort(L) ].
-reply(Ord, {Ref, Pid}, Val) -> Pid ! {Ref, {Ord, Val}}.
-worker(TaskId, Fun, {Ord, Item}) ->
-    fun() ->
-        Reply = try Fun(Item)
-                catch Class:Reason ->
-                    Stacktrace = erlang:get_stacktrace(),
-                    escalus_ct:log_error("issue=pmap_failed reason=~p:~p~n"
-                                         " stacktrace=~p",
-                                         [Class, Reason, Stacktrace]),
-                    {error, {Class, Reason}}
-                end,
-        reply(Ord, TaskId, Reply)
-    end.
-collect(_TaskId, 0, Acc) -> untag(Acc);
-collect({Ref, _} = TaskId, N, Acc) ->
-    receive {Ref, Val} -> collect(TaskId, N-1, [Val|Acc])
-    after 5000 -> error({partial_results, Acc})
-    end.
