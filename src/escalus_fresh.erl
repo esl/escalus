@@ -11,6 +11,11 @@
          stop/1,
          clean/0]).
 
+-define(UNREGISTER_WORKERS, 10).
+-define(WORKER_OVERRUN_TIME, 3000).
+-define(MIN_UNREGISTER_TEMPO, 5000).
+
+
 -type user_res() :: {atom(), integer()}.
 -type config() :: escalus:config().
 
@@ -109,11 +114,11 @@ stop(_) ->
     wpool:stop(),
     nasty_global_table() ! bye.
 clean() ->
-    wpool:start_sup_pool(unregister_pool, [{workers, 10},
-                                           {overrun_warning, 3000}]),
+    wpool:start_sup_pool(unregister_pool, [{workers, ?UNREGISTER_WORKERS},
+                                           {overrun_warning, ?WORKER_OVERRUN_TIME}]),
     L = tag(ets:tab2list(nasty_global_table())),
     [wpool:cast(unregister_pool,
-                {?MODULE, work_on_deleting_users, [Ord, Item, self()]}),
+                {?MODULE, work_on_deleting_users, [Ord, Item, self()]})
      || {Ord, Item} <- L],
     ok = collect(L),
     ets:delete_all_objects(nasty_global_table()),
@@ -125,7 +130,7 @@ collect(OrdItems) ->
     receive
         {done, Id} ->
             collect(lists:filter(fun({Ord, _Item}) -> Ord =/= Id end, OrdItems))
-    after 5000 ->
+    after ?MIN_UNREGISTER_TEMPO ->
               error({timeout_when_unregistering,
                      {amount, length(OrdItems)},
                      {unregistered_items, untag(OrdItems)}})
