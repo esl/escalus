@@ -112,7 +112,9 @@ clean() ->
     wpool:start_sup_pool(unregister_pool, [{workers, 10},
                                            {overrun_warning, 3000}]),
     L = tag(ets:tab2list(nasty_global_table())),
-    [wpool:cast(unregister_pool, {?MODULE, work_on_deleting_users, [Ord, Item, self()]}, available_worker) || {Ord, Item} <- L],
+    [wpool:cast(unregister_pool,
+                {?MODULE, work_on_deleting_users, [Ord, Item, self()]}),
+     || {Ord, Item} <- L],
     ok = collect(L),
     ets:delete_all_objects(nasty_global_table()),
     ok.
@@ -124,7 +126,9 @@ collect(OrdItems) ->
         {done, Id} ->
             collect(lists:filter(fun({Ord, _Item}) -> Ord =/= Id end, OrdItems))
     after 5000 ->
-              error({timeout_when_unregistering, {amount, length(OrdItems)}, {unregistered_items, untag(OrdItems)}})
+              error({timeout_when_unregistering,
+                     {amount, length(OrdItems)},
+                     {unregistered_items, untag(OrdItems)}})
     end.
 
 %%% Internals
@@ -142,7 +146,7 @@ do_delete_users(Conf) ->
 
 ensure_table_present(T) ->
     RunDB = fun() -> ets:new(T, [named_table, public]),
-                      receive bye -> ok end end,
+                     receive bye -> ok end end,
     case ets:info(T) of
         undefined ->
             P = spawn(RunDB),
