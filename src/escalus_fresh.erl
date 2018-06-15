@@ -108,7 +108,9 @@ stop(_) ->
     wpool:stop(),
     nasty_global_table() ! bye.
 clean() ->
-    wpool:start_sup_pool(unregister_pool, [{workers, 10}]),
+    wpool:start_sup_pool(unregister_pool, [{workers, 10},
+                                           {overrun_warning, 3000},
+                                           {one_for_one, 3, 2}]), % if it dies 3 times in last 2 seconds, we fail
     L = ets:tab2list(nasty_global_table()),
     [wpool:cast(unregister_pool, {?MODULE, delete_users, [El]}, available_worker) || El <- tag(L)],
     ets:delete_all_objects(nasty_global_table()),
