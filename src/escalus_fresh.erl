@@ -112,6 +112,7 @@ start(_Config) ->
     ensure_table_present(nasty_global_table()).
 stop(_) ->
     nasty_global_table() ! bye.
+-spec clean() -> no_return() | ok.
 clean() ->
     wpool:start_sup_pool(unregister_pool, [{workers, ?UNREGISTER_WORKERS},
                                            {overrun_warning, ?WORKER_OVERRUN_TIME}]),
@@ -119,15 +120,22 @@ clean() ->
     [wpool:cast(unregister_pool,
                 {?MODULE, work_on_deleting_users, [Ord, Item, self()]})
      || {Ord, Item} <- L],
-    ok = collect(L, []),
-    ets:delete_all_objects(nasty_global_table()),
-    ok.
+    case collect(L, []) of
+        ok ->
+            ets:delete_all_objects(nasty_global_table()),
+            ok;
+        {error, Log} ->
+            error(Log)
+    end.
 
+
+-spec collect([{Ord :: non_neg_integer(), Item :: tuple()}],
+              [{Ord :: non_neg_integer(), Item :: tuple(), Error :: any()}]) -> {error, any()} | ok.
 collect([], []) -> ok;
 collect([], Failed) ->
-    error({unregistering_failed,
-           {amount, length(Failed)},
-           {unregistered_items, untag(Failed)}});
+    {error, {unregistering_failed,
+             {amount, length(Failed)},
+             {unregistered_items, untag(Failed)}}};
 collect(Pending, Failed) ->
     receive
         {done, Id} ->
