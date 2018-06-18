@@ -146,7 +146,7 @@ collect_deletion_results(Pending, Failed) ->
             NewPending = lists:keydelete(Id, 1, Pending),
             collect_deletion_results(NewPending, [{Id, Item, Error} | Failed])
     after ?MIN_UNREGISTER_TEMPO ->
-              collect_deletion_results([], Failed ++ lists:map(fun({Ord, Item}) -> {Ord, Item, timeout} end, Pending))
+              collect_deletion_results([], Failed ++ lists:map(fun({Ord, Item}) -> {Ord, Item, timeout_tempo} end, Pending))
     end.
 
 %%% Internals
