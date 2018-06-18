@@ -131,7 +131,7 @@ collect([], Failed) ->
 collect(Pending, Failed) ->
     receive
         {done, Id} ->
-            NewPending = lists:keydelete(Id, 1, Pending), % lists:filter(fun({Ord, _Item}) -> Ord =/= Id end, Pending),
+            NewPending = lists:keydelete(Id, 1, Pending),
             collect(NewPending, Failed);
         {error, Id, Error} ->
             {Id, Item} = lists:keyfind(Id, 1, Pending),
