@@ -120,7 +120,7 @@ clean() ->
     [wpool:cast(unregister_pool,
                 {?MODULE, work_on_deleting_users, [Ord, Item, self()]})
      || {Ord, Item} <- L],
-    case collect(L, []) of
+    case collect_deletion_results(L, []) of
         ok ->
             ets:delete_all_objects(nasty_global_table()),
             ok;
@@ -129,24 +129,24 @@ clean() ->
     end.
 
 
--spec collect([{Ord :: non_neg_integer(), Item :: tuple()}],
+-spec collect_deletion_results([{Ord :: non_neg_integer(), Item :: tuple()}],
               [{Ord :: non_neg_integer(), Item :: tuple(), Error :: any()}]) -> {error, any()} | ok.
-collect([], []) -> ok;
-collect([], Failed) ->
+collect_deletion_results([], []) -> ok;
+collect_deletion_results([], Failed) ->
     {error, {unregistering_failed,
              {amount, length(Failed)},
              {unregistered_items, untag(Failed)}}};
-collect(Pending, Failed) ->
+collect_deletion_results(Pending, Failed) ->
     receive
         {done, Id} ->
             NewPending = lists:keydelete(Id, 1, Pending),
-            collect(NewPending, Failed);
+            collect_deletion_results(NewPending, Failed);
         {error, Id, Error} ->
             {Id, Item} = lists:keyfind(Id, 1, Pending),
             NewPending = lists:keydelete(Id, 1, Pending),
-            collect(NewPending, [{Id, Item, Error} | Failed])
+            collect_deletion_results(NewPending, [{Id, Item, Error} | Failed])
     after ?MIN_UNREGISTER_TEMPO ->
-              collect([], Failed ++ lists:map(fun({Ord, Item}) -> {Ord, Item, timeout} end, Pending))
+              collect_deletion_results([], Failed ++ lists:map(fun({Ord, Item}) -> {Ord, Item, timeout} end, Pending))
     end.
 
 %%% Internals
