@@ -55,10 +55,13 @@
 %%% Business API
 %%%
 
-rpc(M, F, A) ->
+rpc(M, F, A, Timeout) ->
     Node = escalus_ct:get_config(ejabberd_node),
     Cookie = escalus_ct:get_config(ejabberd_cookie),
-    escalus_rpc:call(Node, M, F, A, 3000, Cookie).
+    escalus_rpc:call(Node, M, F, A, Timeout, Cookie).
+
+rpc(M, F, A) ->
+    rpc(M, F, A, 3000).
 
 remote_display(String) ->
     Line = [$\n, [$- || _ <- String], $\n],
@@ -244,7 +247,7 @@ unregister_user(Config, UserSpec) ->
     USP = [unify_str_arg(Arg, StrFormat) ||
            Arg <- escalus_users:get_usp(Config, UserSpec)],
     [U, S, _P] = USP,
-    rpc(ejabberd_admin, unregister, [U, S]).
+    rpc(ejabberd_admin, unregister, [U, S], 30000).
 
 default_get_remote_sessions() ->
     rpc(ejabberd_sm, get_full_session_list, []).

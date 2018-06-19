@@ -13,7 +13,7 @@
 
 -define(UNREGISTER_WORKERS, 10).
 -define(WORKER_OVERRUN_TIME, 3000).
--define(MIN_UNREGISTER_TEMPO, 5000).
+-define(MIN_UNREGISTER_TEMPO, 30000).
 
 
 -type user_res() :: {atom(), integer()}.
@@ -153,8 +153,9 @@ collect_deletion_results(Pending, Failed) ->
 nasty_global_table() -> escalus_fresh_db.
 
 work_on_deleting_users(Ord, {_Suffix, Conf} = Item, CollectingPid) ->
-    try do_delete_users(Conf) of
-        _ ->
+    try timer:tc(fun do_delete_users/1, [Conf]) of
+        {Time, _} ->
+            ct:pal("Elapsed time: ~p ms", [Time / 1000]),
             CollectingPid ! {done, Ord}
     catch
         Class:Error ->
