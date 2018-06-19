@@ -13,7 +13,7 @@
 
 -define(UNREGISTER_WORKERS, 10).
 -define(WORKER_OVERRUN_TIME, 3000).
--define(MIN_UNREGISTER_TEMPO, 30000).
+-define(MIN_UNREGISTER_TEMPO, 5000).
 
 
 -type user_res() :: {atom(), integer()}.
@@ -149,12 +149,14 @@ collect_deletion_results(Pending, Failed) ->
               collect_deletion_results([], Failed ++ lists:map(fun({Ord, Item}) -> {Ord, Item, timeout_tempo} end, Pending))
     end.
 
+
 %%% Internals
 nasty_global_table() -> escalus_fresh_db.
 
 work_on_deleting_users(Ord, {_Suffix, Conf} = Item, CollectingPid) ->
     try timer:tc(fun do_delete_users/1, [Conf]) of
         {Time, _} ->
+            dump_to_file(Time / 1000),
             ct:pal("Elapsed time: ~p ms", [Time / 1000]),
             CollectingPid ! {done, Ord}
     catch
@@ -162,6 +164,10 @@ work_on_deleting_users(Ord, {_Suffix, Conf} = Item, CollectingPid) ->
             CollectingPid ! {error, Ord, {Class, Error}}
     end,
     ok.
+
+dump_to_file(Time) ->
+    Bytes = io_lib:fwrite("~p\n", [Time]),
+    file:write_file("benchmark.csv", Bytes, [append]).
 
 do_delete_users(Conf) ->
     Plist = proplists:get_value(escalus_users, Conf),
