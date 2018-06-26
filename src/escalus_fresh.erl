@@ -13,7 +13,7 @@
 
 -define(UNREGISTER_WORKERS, 10).
 -define(WORKER_OVERRUN_TIME, 3000).
--define(MIN_UNREGISTER_TEMPO, 5000).
+-define(MIN_UNREGISTER_TEMPO, 20000).
 
 
 -type user_res() :: {atom(), integer()}.
