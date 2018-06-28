@@ -75,10 +75,7 @@
 
 -type stanza_msg() :: {stanza, pid(), exml:element(), map()}.
 
--type metadata() :: map().
-%%-type metadata() :: #{recv_timestamp := integer()}.
-%%    Above line works only on Erlang 19 or newer, that's why it's commented
-%%    as long as we support Erlang 18
+-type metadata() :: #{recv_timestamp := integer()}.
 
 %%%===================================================================
 %%% Public API
