@@ -27,7 +27,7 @@ rebar:
 	wget https://github.com/rebar/rebar/releases/download/2.2.0/rebar
 	chmod u+x rebar
 
-OTP_APPS = kernel stdlib crypto common_test ssl erts public_key
+OTP_APPS = kernel stdlib crypto common_test ssl erts public_key common_test
 deps := $(wildcard deps/*/ebin)
 
 dialyzer/erlang.plt:
