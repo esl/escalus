@@ -27,3 +27,11 @@
         event_client :: any(),
         props :: list()
        }).
+
+-record(extaddress, {
+          type = to :: to | cc | bcc | replyto | replyroom | noreply | ofrom,
+          desc :: binary() | undefined,
+          jid :: binary() | undefined,
+          uri :: binary() | undefined,
+          node :: binary() | undefined
+         }).
