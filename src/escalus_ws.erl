@@ -164,11 +164,12 @@ init([Args, Owner]) ->
     LegacyWS = get_legacy_ws(Args, false),
     EventClient = proplists:get_value(event_client, Args),
     SSL = proplists:get_value(ssl, Args, false),
+    %% Disable http2 in protocols
     WSOptions = case SSL of
                     true ->
-                        #{transport => ssl};
+                        #{transport => ssl, protocols => [http]};
                     _ ->
-                        #{transport => tcp}
+                        #{transport => tcp, protocols => [http]}
                 end,
     {ok, ConnPid} = gun:open(Host, Port, WSOptions),
     {ok, http} = gun:await_up(ConnPid),
