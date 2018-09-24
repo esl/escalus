@@ -89,10 +89,10 @@ auth_sasl_anon(Conn, Props) ->
 
 -spec auth_sasl_external(client(), user_spec()) -> ok.
 auth_sasl_external(Conn, Props) ->
-    {server, ThisServer} = get_property(endpoint, Props),
-    Stanza = escalus_stanza:auth(<<"EXTERNAL">>, [base64_cdata(ThisServer)]),
+    RequestedName = get_requested_name(Props),
+    Stanza = escalus_stanza:auth(<<"EXTERNAL">>, [RequestedName]),
     ok = escalus_connection:send(Conn, Stanza),
-    wait_for_success(ThisServer, Conn).
+    wait_for_success(RequestedName, Conn).
 
 -spec auth_sasl_oauth(client(), user_spec()) -> {ok, user_spec()}.
 auth_sasl_oauth(Conn, Props) ->
@@ -227,6 +227,14 @@ get_property(PropName, Proplist) ->
             Value;
         false ->
             throw({missing_property, PropName})
+    end.
+
+get_requested_name(Props) ->
+    case lists:keyfind(requested_name, 1, Props) of
+        false ->
+            #xmlcdata{content = <<"=">>};
+        {requested_name, Value} ->
+            base64_cdata(Value)
     end.
 
 %%--------------------------------------------------------------------
