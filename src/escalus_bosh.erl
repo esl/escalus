@@ -310,22 +310,15 @@ set_quickfail(#client{rcv_pid = Pid}, QuickfailFlag) ->
 %%       so that we know what options the module actually expects
 -spec init(list()) -> {ok, state()}.
 init([Args, Owner]) ->
-    Host = proplists:get_value(host, Args, <<"localhost">>),
-    Port = proplists:get_value(port, Args, 5280),
     Path = proplists:get_value(path, Args, <<"/http-bind">>),
     Wait = proplists:get_value(bosh_wait, Args, ?DEFAULT_WAIT),
-    HTTPS = proplists:get_value(ssl, Args, false),
     EventClient = proplists:get_value(event_client, Args),
-    HostStr = host_to_list(Host),
     OnReplyFun = proplists:get_value(on_reply, Args, fun(_) -> ok end),
     OnConnectFun = proplists:get_value(on_connect, Args, fun(_) -> ok end),
     {MS, S, MMS} = os:timestamp(),
     InitRid = MS * 1000000 * 1000000 + S * 1000000 + MMS,
     {ok, Parser} = exml_stream:new_parser(),
-    {ok, Client} = fusco_cp:start_link({HostStr, Port, HTTPS},
-                                       [{on_connect, OnConnectFun}],
-                                       %% Max two connections as per BOSH rfc
-                                       2),
+    {ok, Client} = escalus_bosh_gun:start_link([{on_connect, OnConnectFun} | Args]),
     {ok, #state{owner = Owner,
                 url = Path,
                 parser = Parser,
@@ -433,7 +426,7 @@ handle_info(_, State) ->
 
 -spec terminate(term(), state()) -> any().
 terminate(_Reason, #state{client = Client, parser = Parser}) ->
-    fusco_cp:stop(Client),
+    escalus_bosh_gun:stop(Client),
     exml_stream:free_parser(Parser).
 
 -spec code_change(term(), state(), term()) -> {ok, state()}.
@@ -448,10 +441,9 @@ code_change(_OldVsn, State, _Extra) ->
 request(Client, Path, Body, OnReplyFun) ->
     Headers = [{<<"Content-Type">>, <<"text/xml; charset=utf-8">>}],
     BodyIO = exml:to_iolist(Body),
-    Reply = fusco_cp:request(Client, Path, "POST", Headers, BodyIO, 2, infinity),
+    Reply = escalus_bosh_gun:request(Client, Path, Headers, BodyIO),
     OnReplyFun(Reply),
-    {ok, {_Status, _Headers, RBody, _Size, _Time}} = Reply,
-    {ok, RBody}.
+    Reply.
 
 close_requests(#state{requests = Reqs} = S) ->
     [exit(Pid, normal) || {_Ref, _Rid, Pid} <- queue:to_list(Reqs)],
@@ -603,11 +595,6 @@ detect_type(Attrs) ->
         {_, undefined} -> normal;
         {_, Version} -> {streamstart, Version}
     end.
-
-host_to_list({_, _, _, _} = IP4) -> inet:ntoa(IP4);
-host_to_list({_, _, _, _, _, _, _, _} = IP6) -> inet:ntoa(IP6);
-host_to_list(BHost) when is_binary(BHost) -> binary_to_list(BHost);
-host_to_list(Host) when is_list(Host) -> Host.
 
 queue_insert_by_rid({_Ref, ReqRid, _} = Req, Queue) ->
     case queue:out(Queue) of
