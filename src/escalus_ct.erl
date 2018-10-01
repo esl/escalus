@@ -13,10 +13,8 @@
 -export([add_log_link/3,
          fail/1,
          get_config/1,
-         log_stanza/3]).
-
-%% What about that?
--export([rpc_call/6]).
+         log_stanza/3,
+         log_error/2]).
 
 -define(APPNAME, escalus).
 
@@ -69,24 +67,6 @@ interpret_config_file_path(RelPath) ->
             error({escalus_error, beam_not_loaded})
     end.
 
-rpc_call(Node, Module, Function, Args, TimeOut, Cookie) ->
-    case is_ct_available() of
-        true ->
-            Result = ct_rpc:call(Node, Module, Function, Args, TimeOut, Cookie),
-            case Result of
-                {badrpc, Reason} ->
-                    ct:pal("issue=rpc_call_failed "
-                            "node=~p function=~p:~p reason=~p",
-                           [Node, Module, Function, Reason]);
-                _ ->
-                    ok
-            end,
-            Result;
-        false ->
-            %% TODO: don't error out, should be easy to simulate ct_rpc:call/6
-            error({escalus_error, common_test_unavailable})
-    end.
-
 -spec log_stanza(undefined | binary(), in | out, exml_stream:element()) -> ok.
 log_stanza(undefined, _, _) -> ok;
 log_stanza(Jid, Direction, Stanza) ->
@@ -106,14 +86,13 @@ do_log_stanza(Jid, Direction, Stanza) ->
     ReportString = io_lib:format("~s ~p", [Jid, Direction]),
     PrettyStanza =
         try
-            list_to_binary(exml:to_pretty_iolist(Stanza))
+            iolist_to_binary(exml:to_pretty_iolist(Stanza))
         catch error:Error ->
                 ct:pal(error, "Cannot convert stanza to iolist: ~s~n~p",
                        [ReportString, Stanza]),
                 ct:fail(Error)
         end,
-    ct:print(stanza_log, "~s~n~s", [ReportString, PrettyStanza]),
-    ct:log(stanza_log, "~s~n~s", [ReportString, exml:escape_attr(PrettyStanza)]).
+    ct:pal(stanza_log, "~s~n~s", [ReportString, PrettyStanza]).
 
 %% ------------- Common Test hack! -------------
 %% There is a bug in Common Test since 18.3, which causes links to be printed inside <pre/>.
@@ -153,3 +132,5 @@ ct_log_timestamp({MS, S, US}) ->
                                 "~2.10.0B:~2.10.0B:~2.10.0B.~3.10.0B",
                                 [Year, Month, Day, Hour, Min, Sec, MilliSec])).
 
+log_error(Format, Args) ->
+    ct:pal(error, Format, Args).

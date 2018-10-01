@@ -72,9 +72,8 @@ auth_sasl_scram_sha1(Conn, Props) ->
 
     AuthReply = escalus_connection:get_stanza(Conn, auth_reply),
     case AuthReply of
-        #xmlel{name = <<"success">>, children = [CData]} ->
-            Unescaped = exml:unescape_cdata(CData),
-            V = get_property(<<"v">>, csvkv:parse(base64:decode(Unescaped))),
+        #xmlel{name = <<"success">>, children = [#xmlcdata{content = CData}]} ->
+            V = get_property(<<"v">>, csvkv:parse(base64:decode(CData))),
             Decoded = base64:decode(V),
             ok = scram_sha1_validate_server(SaltedPassword, AuthMessage,
                                             Decoded);
@@ -90,10 +89,10 @@ auth_sasl_anon(Conn, Props) ->
 
 -spec auth_sasl_external(client(), user_spec()) -> ok.
 auth_sasl_external(Conn, Props) ->
-    {server, ThisServer} = get_property(endpoint, Props),
-    Stanza = escalus_stanza:auth(<<"EXTERNAL">>, [base64_cdata(ThisServer)]),
+    RequestedName = get_requested_name(Props),
+    Stanza = escalus_stanza:auth(<<"EXTERNAL">>, [RequestedName]),
     ok = escalus_connection:send(Conn, Stanza),
-    wait_for_success(ThisServer, Conn).
+    wait_for_success(RequestedName, Conn).
 
 -spec auth_sasl_oauth(client(), user_spec()) -> {ok, user_spec()}.
 auth_sasl_oauth(Conn, Props) ->
@@ -104,8 +103,8 @@ auth_sasl_oauth(Conn, Props) ->
     AuthReply = escalus_connection:get_stanza(Conn, auth_reply),
     NewProps = case AuthReply of
                    #xmlel{name = <<"success">>, children = ChildrenRecvd} ->
-                       ([ {oauth_returned_token, base64:decode(exml:unescape_cdata(CData))}
-                          || CData <- ChildrenRecvd ]
+                       ([ {oauth_returned_token, base64:decode(CData)}
+                          || #xmlcdata{content = CData} <- ChildrenRecvd ]
                         ++ Props);
                    #xmlel{name = <<"failure">>} ->
                        throw({auth_failed, AuthReply})
@@ -199,8 +198,8 @@ get_challenge(Conn, Descr) ->
 get_challenge(Conn, Descr, DecodeCsvkv) ->
     Challenge = escalus_connection:get_stanza(Conn, Descr),
     case Challenge of
-        #xmlel{name = <<"challenge">>, children=[CData]} ->
-            ChallengeData = base64:decode(exml:unescape_cdata(CData)),
+        #xmlel{name = <<"challenge">>, children=[#xmlcdata{content = CData}]} ->
+            ChallengeData = base64:decode(CData),
             case DecodeCsvkv of
                 true ->
                     csvkv:parse(ChallengeData);
@@ -228,6 +227,14 @@ get_property(PropName, Proplist) ->
             Value;
         false ->
             throw({missing_property, PropName})
+    end.
+
+get_requested_name(Props) ->
+    case lists:keyfind(requested_name, 1, Props) of
+        false ->
+            #xmlcdata{content = <<"=">>};
+        {requested_name, Value} ->
+            base64_cdata(Value)
     end.
 
 %%--------------------------------------------------------------------

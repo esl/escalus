@@ -366,7 +366,7 @@ handle_call(get_active, _From, #state{active = Active} = State) ->
 handle_call({set_active, Active}, _From, #state{replies = Replies} = State) ->
     NewState = if
                    Active ->
-                       [handle_body(Body, State) || Body <- Replies],
+                       [handle_body(Body, State, Timestamp) || {Body, Timestamp} <- Replies],
                        State#state{active = Active, replies = []};
                    true -> State#state{active = Active}
                end,
@@ -417,15 +417,16 @@ handle_info(_, #state{ terminated = true } = S) ->
     {noreply, S};
 handle_info({http_reply, Ref, Body, _Transport} = HttpReply,
             #state{ pending_replies = PendingReplies } = S0) ->
+    Timestamp = os:system_time(micro_seconds),
     {ok, #xmlel{attrs = Attrs} = XmlBody} = exml:parse(Body),
     NewS = case {queue:peek(S0#state.requests),
                  S0#state.quickfail andalso detect_type(Attrs) == streamend} of
                {_, true} ->
-                   S1 = handle_http_reply(Ref, XmlBody, S0),
+                   S1 = handle_http_reply(Ref, XmlBody, S0, Timestamp),
                    S1#state{ pending_replies = [] };
                {{value, {Ref, _Rid, _Pid}}, _} ->
                    {{value, {Ref, _Rid, _Pid}}, NewRequests} = queue:out(S0#state.requests),
-                   S1 = handle_http_reply(Ref, XmlBody, S0#state{ requests = NewRequests }),
+                   S1 = handle_http_reply(Ref, XmlBody, S0#state{ requests = NewRequests }, Timestamp),
                    lists:foreach(fun(PendingReply) -> self() ! PendingReply end,
                                  S1#state.pending_replies),
                    S1#state{ pending_replies = [] };
@@ -507,14 +508,14 @@ start_async_request({Ref, Rid, ReqFun}, #state{ requests = Requests } = State) -
     NewRequests = queue_insert_by_rid({Ref, Rid, proc_lib:spawn(ReqFun)}, Requests),
     State#state{ requests = NewRequests }.
 
-handle_http_reply(Ref, #xmlel{ attrs = Attrs } = XmlBody, #state{} = S1) ->
+handle_http_reply(Ref, #xmlel{ attrs = Attrs } = XmlBody, #state{} = S1, Timestamp) ->
     S2 = case queue:out(S1#state.pending_requests) of
              {empty, _} ->
                  S1;
              {{value, NextRequest}, NewPendingRequests} ->
                  start_async_request(NextRequest, S1#state{ pending_requests = NewPendingRequests })
          end,
-    S3 = handle_data(XmlBody, S2),
+    S3 = handle_data(XmlBody, S2, Timestamp),
     S4 = case {detect_type(Attrs), S3#state.keepalive, queue:len(S3#state.requests) == 0} of
               {streamend, _, _} -> close_requests(S3#state{terminated = true});
               {_, false, _}     -> S3;
@@ -529,7 +530,7 @@ handle_http_reply(Ref, #xmlel{ attrs = Attrs } = XmlBody, #state{} = S1) ->
             S4
     end.
 
-handle_data(#xmlel{} = Body, #state{} = State) ->
+handle_data(#xmlel{} = Body, #state{} = State, Timestamp) ->
     NewState = case State#state.sid of
         %% First reply for this transport, set sid
         nil ->
@@ -539,35 +540,36 @@ handle_data(#xmlel{} = Body, #state{} = State) ->
     end,
     case State#state.active of
         true ->
-            handle_body(Body, NewState),
+            handle_body(Body, NewState, Timestamp),
             NewState;
         false ->
-            store_reply(Body, NewState)
+            store_reply(Body, NewState, Timestamp)
     end.
 
-handle_body(#xmlel{} = Body, #state{} = State) ->
+handle_body(#xmlel{} = Body, #state{} = State, Timestamp) ->
     Stanzas = unwrap_elem(Body),
     escalus_connection:maybe_forward_to_owner(State#state.filter_pred,
                                               State, Stanzas,
-                                              fun forward_to_owner/2).
+                                              fun forward_to_owner/3,
+                                              Timestamp).
 
 forward_to_owner(Stanzas, #state{owner = Owner,
-                                 event_client = EventClient}) ->
+                                 event_client = EventClient}, Timestamp) ->
     lists:foreach(fun(Stanza) ->
         escalus_event:incoming_stanza(EventClient, Stanza),
-        Owner ! {stanza, self(), Stanza}
+        Owner ! escalus_connection:stanza_msg(Stanza, #{recv_timestamp => Timestamp})
     end, Stanzas),
     case lists:keyfind(xmlstreamend, 1, Stanzas) of
         false -> ok;
         _ -> gen_server:cast(self(), stop)
     end.
 
-store_reply(Body, #state{replies = Replies} = S) ->
-    S#state{replies = Replies ++ [Body]}.
+store_reply(Body, #state{replies = Replies} = S, Timestamp) ->
+    S#state{replies = Replies ++ [{Body, Timestamp}]}.
 
 handle_recv(#state{replies = []} = S) ->
     {empty, S};
-handle_recv(#state{replies = [#xmlel{name = <<"body">>, attrs = Attrs} = Body | Replies]} = S) ->
+handle_recv(#state{replies = [{#xmlel{name = <<"body">>, attrs = Attrs} = Body, _}| Replies]} = S) ->
     Type = detect_type(Attrs),
     case Type of
         streamend ->

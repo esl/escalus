@@ -41,6 +41,8 @@
          wait_for_stanza/2,
          wait_for_stanzas/2,
          wait_for_stanzas/3,
+         send_iq_and_wait_for_result/2,
+         send_iq_and_wait_for_result/3,
          peek_stanzas/1]).
 
 -export_type([client/0,
@@ -164,6 +166,12 @@ wait_for_stanzas(Client, Count, Timeout) ->
 
 peek_stanzas(Client) ->
     escalus_client:peek_stanzas(Client).
+
+send_iq_and_wait_for_result(Client, Iq) ->
+    escalus_client:send_iq_and_wait_for_result(Client, Iq).
+
+send_iq_and_wait_for_result(Client, Iq, Timeout) ->
+    escalus_client:send_iq_and_wait_for_result(Client, Iq, Timeout).
 
 %% Other functions
 

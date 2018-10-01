@@ -28,6 +28,7 @@
          peek_stanzas/1, has_stanzas/1,
          wait_for_stanzas/2, wait_for_stanzas/3,
          wait_for_stanza/1, wait_for_stanza/2,
+         send_iq_and_wait_for_result/2, send_iq_and_wait_for_result/3,
          is_client/1,
          full_jid/1,
          short_jid/1,
@@ -92,7 +93,7 @@ kill(#client{module = escalus_tcp, rcv_pid = Pid}) ->
 -spec peek_stanzas(client()) -> [exml:element()].
 peek_stanzas(#client{rcv_pid = Pid}) ->
     {messages, Msgs} = process_info(self(), messages),
-    lists:flatmap(fun ({stanza, StanzaPid, Stanza}) when Pid == StanzaPid ->
+    lists:flatmap(fun ({stanza, StanzaPid, Stanza, _}) when Pid == StanzaPid ->
                           [Stanza];
                       %% FIXME: stream error
                       (_) ->
@@ -109,23 +110,19 @@ wait_for_stanzas(Client, Count) ->
 
 -spec wait_for_stanzas(client(), non_neg_integer(), non_neg_integer()) -> [exml:element()].
 wait_for_stanzas(Client, Count, Timeout) ->
-    Tref = erlang:send_after(Timeout, self(), TimeoutMsg={timeout, make_ref()}),
-    Result = do_wait_for_stanzas(Client, Count, TimeoutMsg, []),
-    erlang:cancel_timer(Tref),
-    Result.
+    do_wait_for_stanzas(Client, Count, Timeout, []).
 
 do_wait_for_stanzas(_Client, 0, _TimeoutMsg, Acc) ->
     lists:reverse(Acc);
 do_wait_for_stanzas(#client{event_client=EventClient, jid=Jid, rcv_pid=Pid} = Client,
-                    Count, TimeoutMsg, Acc) ->
-    receive
-        {stanza, Pid, Stanza} ->
+                    Count, Timeout, Acc) ->
+    case escalus_connection:get_stanza_safe(Client, Timeout) of
+        {error,  timeout} ->
+            do_wait_for_stanzas(Client, 0, Timeout, Acc);
+        {Stanza, _} ->
             escalus_event:pop_incoming_stanza(EventClient, Stanza),
-            escalus_ct:log_stanza(Jid, in, Stanza),
-            do_wait_for_stanzas(Client, Count - 1, TimeoutMsg, [Stanza|Acc]);
+            do_wait_for_stanzas(Client, Count - 1, Timeout, [Stanza|Acc])
         %% FIXME: stream error
-        TimeoutMsg ->
-            do_wait_for_stanzas(Client, 0, TimeoutMsg, Acc)
     end.
 
 -spec wait_for_stanza(client()) -> exml:element().
@@ -149,6 +146,38 @@ send(Client, Packet) ->
 send_and_wait(Client, Packet) ->
     ok = send(Client, Packet),
     wait_for_stanza(Client).
+
+-spec send_iq_and_wait_for_result(client(), exml:element()) -> exml:element() | no_return().
+send_iq_and_wait_for_result(Client, Iq) ->
+    send_iq_and_wait_for_result(Client, Iq, ?WAIT_FOR_STANZA_TIMEOUT).
+
+-spec send_iq_and_wait_for_result(client(), exml:element(), non_neg_integer()) ->
+    exml:element() | no_return().
+send_iq_and_wait_for_result(Client, #xmlel{name = <<"iq">>} = Req, Timeout) ->
+    ok = send(Client, Req),
+    Resp = #xmlel{name = RespName} = wait_for_stanza(Client, Timeout),
+    RespType = exml_query:attr(Resp, <<"type">>, undefined),
+    RespId = exml_query:attr(Resp, <<"id">>),
+    ReqId = exml_query:attr(Req, <<"id">>),
+    case {RespName, RespType, RespId == ReqId} of
+        {<<"iq">>, <<"result">>, true} ->
+            Resp;
+        {<<"iq">>, <<"result">>, false} ->
+            raise_invalid_iq_resp_error(received_invalid_iq_result_id, ReqId, RespId, Req, Resp);
+        {<<"iq">>, _, _} ->
+            raise_invalid_iq_resp_error(received_invalid_iq_stanza_type, <<"result">>, RespType,
+                                        Req, Resp);
+        {_, _, _} ->
+            raise_invalid_iq_resp_error(received_invalid_stanza, <<"iq">>, RespName, Req, Resp)
+    end.
+
+-spec raise_invalid_iq_resp_error(atom(), term(), term(), exml:element(), exml:element()) ->
+    no_return().
+raise_invalid_iq_resp_error(Reason, Expected, Received, Req, Resp) ->
+    error({Reason, [{expected, Expected},
+                    {received, Received},
+                    {request, Req},
+                    {response, Resp}]}).
 
 -spec is_client(term()) -> boolean().
 is_client(#client{}) ->

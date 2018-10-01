@@ -904,7 +904,7 @@ validate_context(Ctx) ->
     [ {Key, argument_to_string(Value)} || {Key, Value} <- Ctx ].
 
 argument_to_string({Name, Value}) ->
-    ?b2l(?io2b([Name, "='", exml:escape_attr(Value), "'"]));
+    ?b2l(?io2b([Name, "=\"", Value, "\""]));
 argument_to_string(E = #xmlel{}) ->
     ?b2l(?io2b(exml:to_iolist(E)));
 argument_to_string(E) when is_binary(E) -> ?b2l(E);

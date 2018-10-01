@@ -20,12 +20,15 @@
 -module(escalus_ejabberd).
 
 -behaviour(escalus_user_db).
-
-%% escalus_user_db callbacks
 -export([start/1,
          stop/1,
          create_users/2,
          delete_users/2]).
+
+-behaviour(escalus_server).
+-export([pre_story/1,
+         post_story/1,
+         name/0]).
 
 -export([rpc/3,
          remote_display/1,
@@ -52,10 +55,13 @@
 %%% Business API
 %%%
 
-rpc(M, F, A) ->
+rpc(M, F, A, Timeout) ->
     Node = escalus_ct:get_config(ejabberd_node),
     Cookie = escalus_ct:get_config(ejabberd_cookie),
-    escalus_ct:rpc_call(Node, M, F, A, 3000, Cookie).
+    escalus_rpc:call(Node, M, F, A, Timeout, Cookie).
+
+rpc(M, F, A) ->
+    rpc(M, F, A, 3000).
 
 remote_display(String) ->
     Line = [$\n, [$- || _ <- String], $\n],
@@ -217,6 +223,16 @@ delete_users(Config, Users) ->
     Config.
 
 %%--------------------------------------------------------------------
+%% escalus_server callbacks
+%%--------------------------------------------------------------------
+
+pre_story(Config) -> Config.
+
+post_story(Config) -> Config.
+
+name() -> ?MODULE.
+
+%%--------------------------------------------------------------------
 %% Helpers
 %%--------------------------------------------------------------------
 
@@ -231,7 +247,7 @@ unregister_user(Config, UserSpec) ->
     USP = [unify_str_arg(Arg, StrFormat) ||
            Arg <- escalus_users:get_usp(Config, UserSpec)],
     [U, S, _P] = USP,
-    rpc(ejabberd_admin, unregister, [U, S]).
+    rpc(ejabberd_admin, unregister, [U, S], 30000).
 
 default_get_remote_sessions() ->
     rpc(ejabberd_sm, get_full_session_list, []).

@@ -18,6 +18,8 @@
          send/2,
          get_stanza/2,
          get_stanza/3,
+         get_stanza_safe/2,
+         get_stanza_with_metadata/3,
          get_sm_h/1,
          set_sm_h/2,
          set_filter_predicate/2,
@@ -29,8 +31,10 @@
          upgrade_to_tls/1,
          start_stream/1]).
 
+-export([stanza_msg/2]).
+
 %% Behaviour helpers
--export([maybe_forward_to_owner/4]).
+-export([maybe_forward_to_owner/5]).
 
 %% Public Types
 -type client() :: #client{}.
@@ -47,7 +51,7 @@
 %% Private
 -export([connection_step/2]).
 
--define(TIMEOUT, 1000).
+-define(TIMEOUT, 5000).
 
 %%%===================================================================
 %%% Behaviour callback
@@ -69,6 +73,9 @@
 -callback upgrade_to_tls(pid(), proplists:proplist()) -> ok.
 -callback set_filter_predicate(pid(), filter_pred()) -> ok.
 
+-type stanza_msg() :: {stanza, pid(), exml:element(), map()}.
+
+-type metadata() :: #{recv_timestamp := integer()}.
 
 %%%===================================================================
 %%% Public API
@@ -177,25 +184,45 @@ get_stanza(Conn, Name) ->
     get_stanza(Conn, Name, ?TIMEOUT).
 
 -spec get_stanza(client(), any(), timeout()) -> exml_stream:element().
-get_stanza(#client{rcv_pid = Pid, jid = Jid}, Name, Timeout) ->
-    receive
-        {stanza, Pid, Stanza} ->
-            escalus_ct:log_stanza(Jid, in, Stanza),
+get_stanza(Client, Name, Timeout) ->
+    case get_stanza_safe(Client, Timeout) of
+        {error, timeout} ->
+            throw({timeout, Name});
+        {Stanza, _} ->
             Stanza
+    end.
+
+-spec get_stanza_with_metadata(client(), any(), timeout()) ->
+    {exml_stream:element(), metadata()}.
+get_stanza_with_metadata(Client, Name, Timeout) ->
+    case get_stanza_safe(Client, Timeout) of
+        {error, timeout} ->
+            throw({timeout, Name});
+        StanzaWithMetadata ->
+            StanzaWithMetadata
+    end.
+
+-spec get_stanza_safe(client(), timeout()) ->
+    {error, timeout} | {exml:element(), map()}.
+get_stanza_safe(#client{rcv_pid = Pid, jid = Jid}, Timeout) ->
+    receive
+        {stanza, Pid, Stanza, Metadata} ->
+            escalus_ct:log_stanza(Jid, in, Stanza),
+            {Stanza, Metadata}
     after Timeout ->
-            throw({timeout, Name})
+              {error, timeout}
     end.
 
 get_stream_end(#client{rcv_pid = Pid, jid = Jid}, Timeout) ->
     receive
-        {stanza, Pid, Stanza = #xmlel{name = <<"close">>}} ->
+        {stanza, Pid, Stanza = #xmlel{name = <<"close">>}, _} ->
             escalus_ct:log_stanza(Jid, in, Stanza),
             Stanza;
-        {stanza, Pid, Stanza = #xmlstreamend{}} ->
+        {stanza, Pid, Stanza = #xmlstreamend{}, _} ->
             escalus_ct:log_stanza(Jid, in, Stanza),
             Stanza
     after Timeout ->
-            throw({timeout, stream_end})
+              throw({timeout, stream_end})
     end.
 
 
@@ -270,22 +297,25 @@ do_wait_for_close(Client, N) ->
 
 
 -spec maybe_forward_to_owner(filter_pred(), term(), [exml:element()],
-                             fun(([exml:element()], term()) -> term()))
+                             fun(([exml:element()], term(), integer()) -> term()), integer())
         -> term().
-maybe_forward_to_owner(none, State, _Stanzas, _Fun) ->
+maybe_forward_to_owner(none, State, _Stanzas, _Fun, _Timestamp) ->
     State;
-maybe_forward_to_owner(FilterPred, State, Stanzas, Fun)
+maybe_forward_to_owner(FilterPred, State, Stanzas, Fun, Timestamp)
     when is_function(FilterPred) ->
     AllowedStanzas = lists:filter(FilterPred, Stanzas),
     case AllowedStanzas of
         [] ->
             State;
         _ ->
-            Fun(AllowedStanzas, State)
+            Fun(AllowedStanzas, State, Timestamp)
     end;
-maybe_forward_to_owner(_, State, Stanzas, Fun) ->
-    Fun(Stanzas, State).
+maybe_forward_to_owner(_, State, Stanzas, Fun, Timestamp) ->
+    Fun(Stanzas, State, Timestamp).
 
+-spec stanza_msg(Stanza :: exml:element(), Metadata :: map()) -> stanza_msg().
+stanza_msg(Stanza, Metadata) ->
+    {stanza, self(), Stanza, Metadata}.
 
 %%%===================================================================
 %%% Helpers

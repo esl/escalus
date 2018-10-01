@@ -362,6 +362,7 @@ handle_data(Socket, Data, #state{parser      = Parser,
                                  compress    = Compress,
                                  on_reply    = OnReplyFun,
                                  filter_pred = Filter} = State) ->
+    Timestamp = os:system_time(micro_seconds),
     set_active_opt(State, current_opt),
     OnReplyFun({erlang:byte_size(Data)}),
     {ok, NewParser, Stanzas} =
@@ -374,7 +375,7 @@ handle_data(Socket, Data, #state{parser      = Parser,
     end,
     FwdState = State#state{parser = NewParser, sent_stanzas = []},
     NewState = escalus_connection:maybe_forward_to_owner(Filter, FwdState, Stanzas,
-                                                         fun forward_to_owner/2),
+                                                         fun forward_to_owner/3, Timestamp),
     %% set active option if nothing is forwarded to owner pid
     case NewState#state.sent_stanzas of
         [] -> set_active_opt(NewState, at_least_once);
@@ -384,13 +385,13 @@ handle_data(Socket, Data, #state{parser      = Parser,
 
 forward_to_owner(Stanzas0, #state{owner = Owner,
                                   sm_state = SM0,
-                                  event_client = EventClient} = State) ->
+                                  event_client = EventClient} = State, Timestamp) ->
     {SM1, AckRequests, StanzasNoRs} = separate_ack_requests(SM0, Stanzas0),
     reply_to_ack_requests(SM1, AckRequests, State),
 
     lists:foreach(fun(Stanza) ->
         escalus_event:incoming_stanza(EventClient, Stanza),
-        Owner ! {stanza, self(), Stanza}
+        Owner ! escalus_connection:stanza_msg(Stanza, #{recv_timestamp => Timestamp})
     end, StanzasNoRs),
 
     case lists:keyfind(xmlstreamend, 1, StanzasNoRs) of
