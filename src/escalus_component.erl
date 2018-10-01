@@ -116,7 +116,7 @@ handle_cast(_Request, State) ->
 
 
 -spec handle_info(any(), state()) -> {'noreply', state(), timeout()}.
-handle_info({stanza, Pid, Stanza}, #component_state{client     = #client{rcv_pid = Pid},
+handle_info({stanza, Pid, Stanza, _}, #component_state{client     = #client{rcv_pid = Pid},
                                                     module     = M,
                                                     user_state = S} = State) ->
     {ok, NewS} = M:process_stanza(Stanza, State#component_state.client, S),

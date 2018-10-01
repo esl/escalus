@@ -56,13 +56,15 @@ test_msg(_Config) ->
     [{alice, Cfg}] = Users = escalus:get_users([alice]),
     escalus_users:create_users([], Users),
     {ok, Alice, _Features} = escalus_connection:start(Cfg),
-    Msg = escalus_stanza:chat_to(?COMPONENT_JID, <<"Hi!">>),
-    escalus:send(Alice, Msg),
-    escalus:assert(is_chat_message_from_to,
-                   [?COMPONENT_JID,
-                    escalus_client:full_jid(Alice),
-                    <<"Hi!">>],
-                   escalus:wait_for_stanza(Alice)).
+    [begin
+         Msg = escalus_stanza:chat_to(?COMPONENT_JID, Text),
+         escalus:send(Alice, Msg),
+         escalus:assert(is_chat_message_from_to,
+                        [?COMPONENT_JID,
+                         escalus_client:full_jid(Alice),
+                         Text],
+                        escalus:wait_for_stanza(Alice))
+     end || Text <- [<<"Hi!">>, <<"I'm">>, <<"Alice">>]].
 
 test_handle_info(Config) ->
     Pid = proplists:get_value(component_pid, Config),
