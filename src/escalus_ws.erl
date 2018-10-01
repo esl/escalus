@@ -164,14 +164,16 @@ init([Args, Owner]) ->
     LegacyWS = get_legacy_ws(Args, false),
     EventClient = proplists:get_value(event_client, Args),
     SSL = proplists:get_value(ssl, Args, false),
+    SSLOpts = proplists:get_value(ssl_opts, Args, []),
     %% Disable http2 in protocols
-    WSOptions = case SSL of
+    TransportOpts = case SSL of
                     true ->
-                        #{transport => tls, protocols => [http]};
+                        #{transport => tls, protocols => [http],
+                          transport_opts => SSLOpts};
                     _ ->
                         #{transport => tcp, protocols => [http]}
                 end,
-    {ok, ConnPid} = gun:open(Host, Port, WSOptions),
+    {ok, ConnPid} = gun:open(Host, Port, TransportOpts),
     {ok, http} = gun:await_up(ConnPid),
     WSUpgradeHeaders = [{<<"sec-websocket-protocol">>, <<"xmpp">>}],
     StreamRef = gun:ws_upgrade(ConnPid, Resource, WSUpgradeHeaders,
