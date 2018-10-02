@@ -363,13 +363,8 @@ handle_call(mark_as_terminated, _From, #state{} = State) ->
 
 handle_call(get_active, _From, #state{active = Active} = State) ->
     {reply, Active, State};
-handle_call({set_active, Active}, _From, #state{replies = Replies} = State) ->
-    NewState = if
-                   Active ->
-                       [handle_body(Body, State, Timestamp) || {Body, Timestamp} <- Replies],
-                       State#state{active = Active, replies = []};
-                   true -> State#state{active = Active}
-               end,
+handle_call({set_active, Active}, _From, State) ->
+    NewState = handle_set_active(Active, State),
     {reply, ok, NewState};
 
 handle_call(recv, _From, State) ->
@@ -566,6 +561,14 @@ forward_to_owner(Stanzas, #state{owner = Owner,
 
 store_reply(Body, #state{replies = Replies} = S, Timestamp) ->
     S#state{replies = Replies ++ [{Body, Timestamp}]}.
+
+handle_set_active(Active, #state{replies = Replies} = State) ->
+    case Active of
+        true ->
+            [handle_body(Body, State, Timestamp) || {Body, Timestamp} <- Replies],
+            State#state{active = Active, replies = []};
+        _ -> State#state{active = Active}
+    end.
 
 handle_recv(#state{replies = []} = S) ->
     {empty, S};
