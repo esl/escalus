@@ -28,17 +28,6 @@
 start_link(Args) ->
     gen_server:start_link(?MODULE, [Args], []).
 
-get_client(Pool) ->
-    try
-        gen_server:call(Pool, get_client)
-    catch
-        exit:{timeout, _} ->
-            {error, timeout}
-    end.
-
-free_client(Pool, Client) ->
-    gen_server:cast(Pool, {free_client, Client}).
-
 stop(Pool) ->
     gen_server:cast(Pool, stop).
 
@@ -53,21 +42,13 @@ request(Pool, Path, Hdrs, Body) ->
             Reply
     end.
 
-wait_for_response(Client, StreamRef) ->
-    case gun:await(Client, StreamRef) of
-        {response, fin, _Status, _Headers} ->
-            no_data;
-        {response, nofin, _Status, _Headers} ->
-            gun:await_body(Client, StreamRef)
-    end.
-
 %% doc
 %% The function returns timeout = 0
 %% to immediatally set a timeout message to self
 %% in order to initialise the first connection just after
 %% the init function finishes
 -spec init([any()]) -> {ok, state(), 0}.
-init(Args) ->
+init([Args]) ->
     process_flag(trap_exit, true),
     Port = proplists:get_value(port, Args, 5280),
     Host = proplists:get_value(host, Args, <<"localhost">>),
@@ -79,14 +60,6 @@ init(Args) ->
                 busy = [],
                 queue = queue:new()
                }, 0}.
-
-gun_options(Args) ->
-    case proplists:get_value(ssl, Args, false) of
-        true ->
-            #{transport => tls};
-        _ ->
-            #{}
-    end.
 
 handle_call(get_client, _From, State = #state{free = [Client | Free],
                                               busy = Busy}) ->
@@ -153,8 +126,37 @@ connect({Host, Port}, Options) ->
     %% TODO call OnConnectFun
     {ok, Pid}.
 
+%% Helper functions
+
 host_to_list({_, _, _, _} = IP4) -> inet:ntoa(IP4);
 host_to_list({_, _, _, _, _, _, _, _} = IP6) -> inet:ntoa(IP6);
 host_to_list(BHost) when is_binary(BHost) -> binary_to_list(BHost);
 host_to_list(Host) when is_list(Host) -> Host.
+
+get_client(Pool) ->
+    try
+        gen_server:call(Pool, get_client)
+    catch
+        exit:{timeout, _} ->
+            {error, timeout}
+    end.
+
+free_client(Pool, Client) ->
+    gen_server:cast(Pool, {free_client, Client}).
+
+wait_for_response(Client, StreamRef) ->
+    case gun:await(Client, StreamRef) of
+        {response, fin, _Status, _Headers} ->
+            no_data;
+        {response, nofin, _Status, _Headers} ->
+            gun:await_body(Client, StreamRef)
+    end.
+
+gun_options(Args) ->
+    case proplists:get_value(ssl, Args, false) of
+        true ->
+            #{transport => tls};
+        _ ->
+            #{}
+    end.
 
