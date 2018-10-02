@@ -167,16 +167,16 @@ init([Args, Owner]) ->
     %% Disable http2 in protocols
     WSOptions = case SSL of
                     true ->
-                        #{transport => ssl, protocols => [http]};
+                        #{transport => tls, protocols => [http]};
                     _ ->
                         #{transport => tcp, protocols => [http]}
                 end,
     {ok, ConnPid} = gun:open(Host, Port, WSOptions),
     {ok, http} = gun:await_up(ConnPid),
     WSUpgradeHeaders = [{<<"sec-websocket-protocol">>, <<"xmpp">>}],
-    gun:ws_upgrade(ConnPid, Resource, WSUpgradeHeaders,
-                   #{protocols => [{<<"xmpp">>, gun_ws_handler}]}),
-    wait_for_ws_upgrade(ConnPid),
+    StreamRef = gun:ws_upgrade(ConnPid, Resource, WSUpgradeHeaders,
+                               #{protocols => [{<<"xmpp">>, gun_ws_h}]}),
+    wait_for_ws_upgrade(ConnPid, StreamRef),
     ParserOpts = case LegacyWS of
                      true -> [];
                      _ -> [{infinite_stream, true}, {autoreset, true}]
@@ -188,9 +188,9 @@ init([Args, Owner]) ->
                 legacy_ws = LegacyWS,
                 event_client = EventClient}}.
 
-wait_for_ws_upgrade(ConnPid) ->
+wait_for_ws_upgrade(ConnPid, StreamRef) ->
     receive
-        {gun_ws_upgrade, ConnPid, ok, _Headers} ->
+        {gun_upgrade, ConnPid, StreamRef, [<<"websocket">>], _} ->
             ok;
         {gun_response, ConnPid, _, _, Status, Headers} ->
             exit({ws_upgrade_failed, Status, Headers});
@@ -237,7 +237,7 @@ handle_info(tcp_closed, State) ->
     {stop, normal, State};
 handle_info({error, Reason}, State) ->
     {stop, Reason, State};
-handle_info({gun_ws, ConnPid, {text, Data}}, #state{socket = ConnPid} = State) ->
+handle_info({gun_ws, ConnPid, _StreamRef, {text, Data}}, #state{socket = ConnPid} = State) ->
     handle_data(Data, State);
 handle_info(_, State) ->
     {noreply, State}.
