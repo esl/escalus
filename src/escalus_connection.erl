@@ -203,7 +203,7 @@ get_stanza_with_metadata(Client, Name, Timeout) ->
     end.
 
 -spec get_stanza_safe(client(), timeout()) ->
-    {error, timeout} | {exml:element(), map()}.
+    {error, timeout} | {exml_stream:element(), map()}.
 get_stanza_safe(#client{rcv_pid = Pid, jid = Jid}, Timeout) ->
     receive
         {stanza, Pid, Stanza, Metadata} ->

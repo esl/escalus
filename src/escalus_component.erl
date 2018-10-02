@@ -29,6 +29,7 @@
          handle_call/3,
          handle_cast/2,
          handle_info/2,
+         code_change/3,
          terminate/2]).
 
 %% timeout definitions
@@ -143,6 +144,9 @@ terminate(Reason, #component_state{client = C, module = M, user_state = S}) ->
         true -> M:terminate(Reason, S)
     end.
 
+-spec code_change(term(), term(), term()) -> {ok, term()}.
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% internal functions, code below is taken from MIM's component_SUITE module
