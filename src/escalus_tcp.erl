@@ -40,8 +40,7 @@
 
 %% Low level API
 -export([get_active/1,
-         set_active/2,
-         recv/1]).
+         set_active/2]).
 
 -ifdef(EUNIT_TEST).
 -compile(export_all).
@@ -180,13 +179,10 @@ assert_stream_end(Rep, _) -> error("Not a valid stream end", [Rep]).
 get_active(Pid) ->
     gen_server:call(Pid, get_active).
 
--spec set_active(pid(), boolean()) -> ok.
+-spec set_active(pid(), boolean() | once) -> ok.
 set_active(Pid, Active) ->
     gen_server:call(Pid, {set_active, Active}).
 
--spec recv(pid()) -> exml_stream:element() | empty.
-recv(Pid) ->
-    gen_server:call(Pid, recv).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -246,12 +242,9 @@ handle_call(get_compress, _From, #state{compress = Compress} = State) ->
 handle_call(get_ssl, _From, #state{ssl = Ssl} = State) ->
     {reply, Ssl, State};
 handle_call({set_active, Active}, _From, State) ->
-    {reply, ok, State#state{active = Active}};
+    {reply, ok, set_active_opt(State,Active)};
 handle_call({set_filter_pred, Pred}, _From, State) ->
     {reply, ok, State#state{filter_pred = Pred}};
-handle_call(recv, _From, State) ->
-    {Reply, NS} = handle_recv(State),
-    {reply, Reply, NS};
 handle_call(kill_connection, _, #state{socket = Socket, ssl = SSL} = S) ->
     case SSL of
         true -> ssl:close(Socket);
@@ -289,12 +282,10 @@ handle_cast(stop, State) ->
     {stop, normal, State}.
 
 -spec handle_info(term(), state()) -> {noreply, state()} | {stop, term(), state()}.
-handle_info({tcp, Socket, Data}, State) ->
-    inet:setopts(Socket, [{active, once}]),
+handle_info({tcp, Socket, Data}, #state{socket = Socket, ssl = false} = State) ->
     NewState = handle_data(Socket, Data, State),
     {noreply, NewState};
-handle_info({ssl, Socket, Data}, State) ->
-    ssl:setopts(Socket, [{active, once}]),
+handle_info({ssl, Socket, Data}, #state{socket = Socket, ssl = true} = State) ->
     NewState = handle_data(Socket, Data, State),
     {noreply, NewState};
 handle_info({tcp_closed, Socket}, #state{socket = Socket} = State) ->
@@ -345,28 +336,50 @@ default_socket_options() ->
 %%%===================================================================
 %%% Helpers
 %%%===================================================================
-handle_data(Socket, Data, #state{parser = Parser,
-                                 socket = Socket,
-                                 compress = Compress,
-                                 on_reply = OnReplyFun} = State) ->
+set_active_opt(#state{ssl = SSL, socket = Soc} = State, Act) when is_boolean(Act) ->
+    set_active_opt(SSL, Soc, Act),
+    State#state{active = Act};
+set_active_opt(#state{ssl = SSL, socket = Soc, active = Act} = State, current_opt) ->
+    set_active_opt(SSL, Soc, Act),
+    State;
+set_active_opt(#state{ssl = SSL, socket = Soc} = State, once) ->
+    set_active_opt(SSL, Soc, true),
+    State#state{active = false};
+set_active_opt(#state{ssl = SSL, socket = Soc} = State, at_least_once) ->
+    set_active_opt(SSL, Soc, true),
+    State.
+
+
+set_active_opt(true, Socket, true) ->
+    ssl:setopts(Socket, [{active, once}]);
+set_active_opt(false, Socket, true) ->
+    inet:setopts(Socket, [{active, once}]);
+set_active_opt(_,_,_) ->
+    ok.
+
+handle_data(Socket, Data, #state{parser      = Parser,
+                                 socket      = Socket,
+                                 compress    = Compress,
+                                 on_reply    = OnReplyFun,
+                                 filter_pred = Filter} = State) ->
     Timestamp = os:system_time(micro_seconds),
+    set_active_opt(State, current_opt),
     OnReplyFun({erlang:byte_size(Data)}),
     {ok, NewParser, Stanzas} =
-        case Compress of
-            false ->
-                exml_stream:parse(Parser, Data);
-            {zlib, {Zin,_}} ->
-                Decompressed = iolist_to_binary(zlib:inflate(Zin, Data)),
-                exml_stream:parse(Parser, Decompressed)
-        end,
-    NewState = State#state{parser = NewParser},
-    case State#state.active of
-        true ->
-            escalus_connection:maybe_forward_to_owner(NewState#state.filter_pred,
-                                                      NewState, Stanzas,
-                                                      fun forward_to_owner/3, Timestamp);
+    case Compress of
         false ->
-            store_reply(Stanzas, NewState)
+            exml_stream:parse(Parser, Data);
+        {zlib, {Zin, _}} ->
+            Decompressed = iolist_to_binary(zlib:inflate(Zin, Data)),
+            exml_stream:parse(Parser, Decompressed)
+    end,
+    FwdState = State#state{parser = NewParser, sent_stanzas = []},
+    NewState = escalus_connection:maybe_forward_to_owner(Filter, FwdState, Stanzas,
+                                                         fun forward_to_owner/3, Timestamp),
+    %% set active option if nothing is forwarded to owner pid
+    case NewState#state.sent_stanzas of
+        [] -> set_active_opt(NewState, at_least_once);
+        _ -> NewState
     end.
 
 
@@ -375,7 +388,6 @@ forward_to_owner(Stanzas0, #state{owner = Owner,
                                   event_client = EventClient} = State, Timestamp) ->
     {SM1, AckRequests, StanzasNoRs} = separate_ack_requests(SM0, Stanzas0),
     reply_to_ack_requests(SM1, AckRequests, State),
-    NewState = State#state{sm_state=SM1},
 
     lists:foreach(fun(Stanza) ->
         escalus_event:incoming_stanza(EventClient, Stanza),
@@ -386,22 +398,9 @@ forward_to_owner(Stanzas0, #state{owner = Owner,
         false -> ok;
         _     -> gen_server:cast(self(), stop)
     end,
-    NewState#state{replies = StanzasNoRs}.
 
-store_reply(Stanzas, #state{replies = Replies} = S) ->
-    S#state{replies = Replies ++ Stanzas}.
+    State#state{sm_state = SM1, sent_stanzas = StanzasNoRs}.
 
-%% @doc this looks like it's only used in esl/escalus_tests bosh_SUITE
-%% Maybe it can be removed?
-handle_recv(#state{replies = []} = S) ->
-    {empty, S};
-handle_recv(#state{replies = [Reply | Replies]} = S) ->
-    case Reply of
-        #xmlstreamend{} ->
-            gen_server:cast(self(), stop);
-        _ -> ok
-    end,
-    {Reply, S#state{replies = Replies}}.
 
 separate_ack_requests({false, H0, A}, Stanzas) ->
     %% Don't keep track of H
