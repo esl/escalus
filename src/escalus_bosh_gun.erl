@@ -52,8 +52,9 @@ init([Args]) ->
     process_flag(trap_exit, true),
     Port = proplists:get_value(port, Args, 5280),
     Host = proplists:get_value(host, Args, <<"localhost">>),
+    GunOpts = gun_options(Args),
     {ok, #state{destination = {host_to_list(Host), Port},
-                options = gun_options(Args),
+                options = GunOpts,
                 total = 0,
                 max = 2,
                 free = [],
@@ -153,10 +154,12 @@ wait_for_response(Client, StreamRef) ->
     end.
 
 gun_options(Args) ->
+    SSLOpts = proplists:get_value(ssl_opts, Args, []),
     case proplists:get_value(ssl, Args, false) of
-        true ->
-            #{transport => tls};
-        _ ->
-            #{}
-    end.
+    true ->
+        #{transport => tls,
+          transport_opts => SSLOpts};
+    _ ->
+        #{}
+end.
 
