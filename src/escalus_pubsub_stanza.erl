@@ -28,8 +28,9 @@
          get_node_subscriptions/3,
          set_subscriptions/4,
 
-         publish/3, publish/5,
+         publish/3, publish/4, publish/5,
          retract/4,
+         get_items/4,
          get_all_items/3,
          purge_all_items/3
         ]).
@@ -179,6 +180,13 @@ publish(User, Id, {NodeAddr, NodeName}) ->
     Elements = [publish_element(NodeName, undefined)],
     pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
 
+-spec publish(escalus_utils:jid_spec(), exml:element(), binary(), pubsub_node_id()) ->
+                     exml:element().
+publish(User, ContentElement, Id, {NodeAddr, NodeName}) ->
+    ItemElement = item_element(ContentElement),
+    Elements = [publish_element(NodeName, ItemElement)],
+    pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
+
 -spec publish(escalus_utils:jid_spec(), binary(), exml:element(), binary(), pubsub_node_id()) ->
                      exml:element().
 publish(User, ItemId, ContentElement, Id, {NodeAddr, NodeName}) ->
@@ -190,6 +198,11 @@ publish(User, ItemId, ContentElement, Id, {NodeAddr, NodeName}) ->
 retract(User, Id, {NodeAddr, NodeName}, ItemId) ->
     Elements = [retract_item(NodeName, ItemId)],
     pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
+
+-spec get_items(escalus_utils:jid_spec(), binary(), pubsub_node_id(), binary()) -> exml:element().
+get_items(User, Id, {NodeAddr, NodeName}, MaxItems) ->
+    Elements = [items_element(NodeName, MaxItems)],
+    pubsub_iq(<<"get">>, User, Id, NodeAddr, Elements).
 
 -spec get_all_items(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
 get_all_items(User, Id, {NodeAddr, NodeName}) ->
@@ -273,6 +286,15 @@ publish_element(NodeName, Item) ->
 items_element(NodeName) ->
     #xmlel{name = <<"items">>,
            attrs = [{<<"node">>, NodeName}]}.
+
+items_element(NodeName, MaxItems) ->
+    #xmlel{name = <<"items">>,
+           attrs = [{<<"node">>, NodeName},
+                    {<<"max_items">>, MaxItems}]}.
+
+item_element(ContentElement) ->
+    #xmlel{name = <<"item">>,
+           children = skip_undefined([ContentElement])}.
 
 item_element(ItemId, ContentElement) ->
     #xmlel{name = <<"item">>,
