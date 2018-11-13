@@ -31,6 +31,7 @@
          publish/3, publish/5,
          retract/4,
          get_all_items/3,
+         get_item/4,
          purge_all_items/3
         ]).
 
@@ -194,6 +195,13 @@ retract(User, Id, {NodeAddr, NodeName}, ItemId) ->
 -spec get_all_items(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
 get_all_items(User, Id, {NodeAddr, NodeName}) ->
     Elements = [items_element(NodeName)],
+    pubsub_iq(<<"get">>, User, Id, NodeAddr, Elements).
+
+-spec get_item(escalus_utils:jid_spec(), binary(), binary(), pubsub_node_id()) -> exml:element().
+get_item(User, Id, ItemId, {NodeAddr, NodeName}) ->
+    BareItemsEl = items_element(NodeName),
+    Item = item_element(ItemId, undefined),
+    Elements = [BareItemsEl#xmlel{children = [Item]}],
     pubsub_iq(<<"get">>, User, Id, NodeAddr, Elements).
 
 -spec purge_all_items(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
