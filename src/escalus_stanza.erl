@@ -288,7 +288,7 @@ error_element(Type, Condition) ->
 
 -spec message(From, Recipient, Type, Msg) -> exml:element() when
       From :: undefined | binary(),
-      Recipient :: escalus_utils:jid_spec(),
+      Recipient :: escalus_utils:jid_spec() | {escalus_utils:jid_spec(), [escalus_utils:extaddress()]},
       Type :: binary(),
       Msg :: binary().
 message(From, Recipient, Type, Msg) when is_atom(Recipient) ->
@@ -308,11 +308,42 @@ message1(From, Recipient, Type, Msg) ->
                    undefined -> [];
                    _ -> [{<<"from">>, From}]
                end,
+    {To, AdrsElement} = case Recipient of 
+                            {MulticastService, Addresses} -> 
+                                {MulticastService, [make_address_block(Addresses)]};
+                            _ -> 
+                                {Recipient, []}
+                 end,
     #xmlel{name = <<"message">>,
            attrs = FromAttr ++ [{<<"type">>, Type},
-                                {<<"to">>, escalus_utils:get_jid(Recipient)}],
+                                {<<"to">>, escalus_utils:get_jid(To)}],
            children = [#xmlel{name = <<"body">>,
-                              children = [#xmlcdata{content = Msg}]}]}.
+                              children = [#xmlcdata{content = Msg}]}]
+                       ++ AdrsElement
+                      }.
+
+make_address_block(AdrList) ->
+    #xmlel{name = <<"addresses">>, attrs = [{<<"xmlns">>, ?NS_ADDRESS}], 
+          children = lists:map(fun make_address_element/1, AdrList)}.
+
+make_address_element(Jid) when is_binary(Jid) ->
+    make_address_element(#extaddress{jid = Jid});
+make_address_element(#extaddress{} = Eadr) ->
+    Attrs = [{<<"type">>, to_type(Eadr#extaddress.type)},
+             {<<"jid">>, Eadr#extaddress.jid},
+             {<<"uri">>, Eadr#extaddress.uri},
+             {<<"node">>, Eadr#extaddress.node},
+             {<<"desc">>, Eadr#extaddress.desc}],
+    ValidAttrs = lists:filter(fun({_, undefined}) -> false; (_) -> true end, Attrs),
+    #xmlel{name = <<"address">>, attrs = ValidAttrs, children = []}.
+
+to_type(to) -> <<"to">>;
+to_type(cc) -> <<"cc">>;
+to_type(bcc) -> <<"bcc">>;
+to_type(replyto) -> <<"replyto">>;
+to_type(replyroom) -> <<"replyroom">>;
+to_type(noreply) -> <<"noreply">>;
+to_type(ofrom) -> <<"ofrom">>.
 
 chat_to(Recipient, Msg) ->
     message(undefined, Recipient, <<"chat">>, Msg).
