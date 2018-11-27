@@ -139,7 +139,7 @@ submit_subscription_response(User, Id, {NodeAddr, _NodeName}, Form) ->
 -spec get_pending_subscriptions(escalus_utils:jid_spec(), binary(),
                                     pubsub_node_id() | binary()) -> exml:element().
 get_pending_subscriptions(User, Id, {NodeAddr, NodeName}) ->
-    Fields = [ encode_form_field(<<"pubsub#node">>, NodeName) ],
+    Fields = [ encode_form_field({<<"pubsub#node">>, NodeName}) ],
     Payload = [ escalus_stanza:x_data_form(<<"submit">>, Fields) ],
     Node = <<"http://jabber.org/protocol/pubsub#get-pending">>,
     CommandIQ = escalus_stanza:adhoc_request(Node, Payload),
@@ -327,16 +327,17 @@ form_type_field_element(FormType) ->
            children = [#xmlel{name = <<"value">>,
                               children = [#xmlcdata{content = Content}]}]}.
 
-encode_form_field({Var, Content}) ->
-    encode_form_field(Var, Content);
-encode_form_field({Var, _Type, Content}) ->
-    encode_form_field(Var, Content).
+encode_form_field({Var, Value}) ->
+    encode_form_field(Var, [Value]);
+encode_form_field({Var, <<"text-multi">>, Value}) ->
+    encode_form_field(Var, Value);
+encode_form_field({Var, _Type, Value}) ->
+    encode_form_field(Var, [Value]).
 
-encode_form_field(Var, Content) ->
-    #xmlel{name = <<"field">>,
-           attrs = [{<<"var">>, Var}],
-           children = [#xmlel{name = <<"value">>,
-                              children = [#xmlcdata{content = Content}]}]}.
+encode_form_field(Var, Values) ->
+    Children = [ #xmlel{name = <<"value">>, children = [#xmlcdata{content = Content}]}
+                 || Content <- Values ],
+    #xmlel{name = <<"field">>, attrs = [{<<"var">>, Var}], children = Children}.
 
 %% Helpers
 
