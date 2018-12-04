@@ -25,6 +25,7 @@
          submit_subscription_response/4,
          get_pending_subscriptions/3,
          get_user_subscriptions/3,
+         get_subscription_options/3,
          get_node_subscriptions/3,
          set_subscriptions/4,
 
@@ -157,6 +158,10 @@ get_user_subscriptions(User, Id, Node) ->
           {NodeAddr0, NodeName} -> {subscriptions_element(NodeName, []), NodeAddr0};
           NodeAddr0 -> {subscriptions_element(), NodeAddr0}
       end,
+    pubsub_iq(<<"get">>, User, Id, NodeAddr, [Element]).
+
+get_subscription_options(User, Id, {NodeAddr, NodeName}) ->
+    Element = subscription_options(NodeName, User),
     pubsub_iq(<<"get">>, User, Id, NodeAddr, [Element]).
 
 -spec get_node_subscriptions(escalus_utils:jid_spec(), binary(), pubsub_node_id()) ->
@@ -309,6 +314,11 @@ subscription_element(User, SubscriptionState) ->
     #xmlel{name = <<"subscription">>,
            attrs = [{<<"jid">>, escalus_utils:get_jid(User)},
                     {<<"subscription">>, SubscriptionState}]}.
+
+subscription_options(NodeName, User) ->
+    #xmlel{name = <<"options">>,
+           attrs = [{<<"node">>, NodeName},
+                    {<<"jid">>, escalus_utils:get_jid(User)}]}.
 
 form_element(FormName, NodeName, FieldElements) ->
     #xmlel{name = FormName,
