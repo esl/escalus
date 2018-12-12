@@ -26,6 +26,7 @@
          get_pending_subscriptions/3,
          get_user_subscriptions/3,
          get_subscription_options/3,
+         set_subscription_options/4,
          get_node_subscriptions/3,
          set_subscriptions/4,
 
@@ -163,6 +164,12 @@ get_user_subscriptions(User, Id, Node) ->
 get_subscription_options(User, Id, {NodeAddr, NodeName}) ->
     Element = subscription_options(NodeName, User),
     pubsub_iq(<<"get">>, User, Id, NodeAddr, [Element]).
+
+set_subscription_options(User, Id, {NodeAddr, NodeName}, Options) ->
+    FormType = form_type_field_element(<<"subscribe_options">>),
+    EncodedOptions = [FormType | lists:map(fun encode_form_field/1, Options)],
+    Children = [set_subscription_options_form(NodeName, User, EncodedOptions)],
+    pubsub_iq(<<"set">>, User, Id, NodeAddr, Children).
 
 -spec get_node_subscriptions(escalus_utils:jid_spec(), binary(), pubsub_node_id()) ->
                                          exml:element().
@@ -319,6 +326,15 @@ subscription_options(NodeName, User) ->
     #xmlel{name = <<"options">>,
            attrs = [{<<"node">>, NodeName},
                     {<<"jid">>, escalus_utils:get_jid(User)}]}.
+
+set_subscription_options_form(NodeName, User, Children) ->
+    #xmlel{name = <<"options">>,
+           attrs = [{<<"node">>, NodeName},
+                    {<<"jid">>, escalus_utils:get_jid(User)}],
+           children = [#xmlel{name = <<"x">>,
+                              attrs = [{<<"xmlns">>, <<"jabber:x:data">>},
+                                       {<<"type">>, <<"submit">>}],
+                              children = Children}]}.
 
 form_element(FormName, NodeName, FieldElements) ->
     #xmlel{name = FormName,
