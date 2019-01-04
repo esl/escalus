@@ -53,7 +53,7 @@ attribute_as_argument(_) ->
     Attr = {<<"name">>, <<"value">>},
     Example = #xmlel{name = <<"el">>,
                      attrs = [Attr]},
-    ?eq(Example, M:from_template("<el {{attr}}/>", [{attr, Attr}])).
+    ?eq(Example, M:from_template("<el {{{attr}}}/>", [{attr, Attr}])).
 
 numbers_as_arguments(_) ->
     M = escalus_stanza,
