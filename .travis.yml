@@ -11,12 +11,15 @@ otp_release:
         - 19.3
 
 sudo: required
+
 services:
         - docker
 
+install:
+       - make
+
 before_script:
         - make mongooseim-start
-        - make
 
 script:
         - make test
@@ -25,3 +28,7 @@ script:
 
 after_script:
         - make mongooseim-stop
+
+cache:
+    directories:
+        - $HOME/.cache/rebar3

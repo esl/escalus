@@ -893,15 +893,17 @@ xml_to_xmlterm(XML) when is_binary(XML) ->
       Snippet :: xml_snippet(),
       Ctx :: context(),
       Text :: string().
-render(Snippet, Ctx) ->
-    mustache:render(xml_snippet_to_string(Snippet),
-                    validate_context(Ctx)).
 
-xml_snippet_to_string(Snippet) when is_binary(Snippet) -> ?b2l(Snippet);
-xml_snippet_to_string(Snippet) -> Snippet.
+render(Snippet, Ctx) ->
+    ValidateCtx = validate_context(Ctx),
+    bbmustache:render(xml_snippet_to_binary(Snippet),
+                      ValidateCtx).
+
+xml_snippet_to_binary(Snippet) when is_binary(Snippet) -> Snippet;
+xml_snippet_to_binary(Snippet) -> ?io2b(Snippet).
 
 validate_context(Ctx) ->
-    [ {Key, argument_to_string(Value)} || {Key, Value} <- Ctx ].
+    [ {atom_to_list(Key), argument_to_string(Value)} || {Key, Value} <- Ctx ].
 
 argument_to_string({Name, Value}) ->
     ?b2l(?io2b([Name, "=\"", Value, "\""]));
