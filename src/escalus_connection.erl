@@ -82,7 +82,7 @@
 
 -type stanza_msg() :: {stanza, pid(), exml:element(), map()}.
 
--type metadata() :: #{recv_timestamp := integer()}.
+-type metadata() :: #{recv_timestamp => integer()}.
 
 %%%===================================================================
 %%% Public API
@@ -181,10 +181,12 @@ maybe_set_jid(Client = #client{props = Props}) ->
     end.
 
 -spec send(escalus:client(), exml_stream:element()) -> ok.
-send(#client{module = Mod, event_client = EventClient, rcv_pid = Pid, jid = Jid}, Elem) ->
+send(#client{module = Mod, event_client = EventClient, rcv_pid = Pid, jid = Jid} = Client, Elem) ->
     escalus_event:outgoing_stanza(EventClient, Elem),
     escalus_ct:log_stanza(Jid, out, Elem),
-    Mod:send(Pid, Elem).
+    Mod:send(Pid, Elem),
+    handle_stanza(Client, Elem, #{}, sent_stanza_handlers(Client)),
+    ok.
 
 -spec get_stanza(client(), any()) -> exml_stream:element().
 get_stanza(Client, Name) ->
@@ -270,6 +272,9 @@ apply_handler(Handler, Client, Stanza, _Metadata) when is_function(Handler, 2) -
 
 received_stanza_handlers(#client{props = Props}) ->
     proplists:get_value(received_stanza_handlers, Props, []).
+
+sent_stanza_handlers(#client{props = Props}) ->
+    proplists:get_value(sent_stanza_handlers, Props, []).
 
 get_stream_end(#client{rcv_pid = Pid, jid = Jid}, Timeout) ->
     receive
