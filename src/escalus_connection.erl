@@ -43,7 +43,7 @@
 -type step_spec() :: atom() | {module(), atom()} | escalus_session:step().
 -export_type([step_spec/0]).
 
--type filter_pred() :: fun((exml:element()) -> boolean()) | none.
+-type filter_pred() :: fun((exml_stream:element()) -> boolean()) | none.
 -export_type([filter_pred/0]).
 
 -export_type([t/0]).
