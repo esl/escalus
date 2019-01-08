@@ -51,6 +51,9 @@
 -type filter_pred() :: fun((exml_stream:element()) -> boolean()) | none.
 -export_type([filter_pred/0]).
 
+-type stanza_pred() :: fun((exml_stream:element()) -> boolean()).
+-export_type([stanza_pred/0]).
+
 -type stanza_handler() :: fun((client(), exml_stream:element(), metadata()) -> boolean())
                         | fun((client(), exml_stream:element()) -> boolean()).
 -export_type([stanza_handler/0]).
@@ -196,9 +199,9 @@ get_stanza(Client, Name) ->
 
 -spec get_stanza(client(), any(), timeout()) -> exml_stream:element().
 get_stanza(Client, Name, Timeout) ->
-    get_stanza(Client, Name, Timeout, none).
+    get_stanza(Client, Name, Timeout, fun(_) -> true end).
 
--spec get_stanza(client(), any(), timeout(), filter_pred()) -> exml_stream:element().
+-spec get_stanza(client(), any(), timeout(), stanza_pred()) -> exml_stream:element().
 get_stanza(Client, Name, Timeout, Pred) ->
     case get_stanza_safe(Client, Timeout, Pred) of
         {error, timeout} ->
@@ -211,7 +214,7 @@ get_stanza(Client, Name, Timeout, Pred) ->
 get_stanza_with_metadata(Client, Name, Timeout) ->
     get_stanza_with_metadata(Client, Name, Timeout, fun(_) -> true end).
 
--spec get_stanza_with_metadata(client(), any(), timeout(), filter_pred()) ->
+-spec get_stanza_with_metadata(client(), any(), timeout(), stanza_pred()) ->
                                       {exml_stream:element(), metadata()}.
 get_stanza_with_metadata(Client, Name, Timeout, Pred) ->
     case get_stanza_safe(Client, Timeout, Pred) of
@@ -223,26 +226,28 @@ get_stanza_with_metadata(Client, Name, Timeout, Pred) ->
 
 -spec get_stanza_safe(client(), timeout()) -> {error, timeout} | {exml_stream:element(), metadata()}.
 get_stanza_safe(Client, Timeout) ->
-    get_stanza_safe(Client, Timeout, none).
+    get_stanza_safe(Client, Timeout, fun(_) -> true end).
 
--spec get_stanza_safe(client(), timeout(), filter_pred()) ->
+-spec get_stanza_safe(client(), timeout(), stanza_pred()) ->
     {error, timeout} | {exml_stream:element(), metadata()}.
 get_stanza_safe(Client, Timeout, Pred) ->
-    receive_stanzas(Client, Timeout, fun(Stanza, Metadata) ->
-                                             case Pred =:= none orelse Pred(Stanza) of
-                                                 true -> {finish, {Stanza, Metadata}};
-                                                 false ->
-                                                     handle_received_stanza(Client, Stanza, Metadata),
-                                                     continue
-                                             end
-                                     end).
+    Handler = fun(Stanza, Metadata) ->
+                      case Pred(Stanza) of
+                          true -> {finish, {Stanza, Metadata}};
+                          false ->
+                              handle_received_stanza(Client, Stanza, Metadata),
+                              continue
+                      end
+              end,
+    receive_stanzas(Client, Timeout, Handler).
 
 -spec wait(client(), timeout()) -> ok.
 wait(Client, Timeout) ->
-    {error, timeout} = receive_stanzas(Client, Timeout, fun(Stanza, Metadata) ->
-                                                                handle_received_stanza(Client, Stanza, Metadata),
-                                                                continue
-                                                         end),
+    Handler = fun(Stanza, Metadata) ->
+                      handle_received_stanza(Client, Stanza, Metadata),
+                      continue
+              end,
+    {error, timeout} = receive_stanzas(Client, Timeout, Handler),
     ok.
 
 -spec wait_forever(client()) -> no_return().
