@@ -49,6 +49,10 @@
 -type filter_pred() :: fun((exml_stream:element()) -> boolean()) | none.
 -export_type([filter_pred/0]).
 
+-type stanza_handler() :: fun((client(), exml_stream:element(), metadata()) -> boolean())
+                        | fun((client(), exml_stream:element()) -> boolean()).
+-export_type([stanza_handler/0]).
+
 -export_type([t/0]).
 
 %% Private
@@ -223,7 +227,9 @@ get_stanza_safe(Client, Timeout, Pred) ->
     receive_stanzas(Client, Timeout, fun(Stanza, Metadata) ->
                                              case Pred =:= none orelse Pred(Stanza) of
                                                  true -> {finish, {Stanza, Metadata}};
-                                                 false -> continue
+                                                 false ->
+                                                     handle_received_stanza(Client, Stanza, Metadata),
+                                                     continue
                                              end
                                      end).
 
@@ -245,6 +251,25 @@ do_receive_stanzas(#client{event_client = EventClient, jid = Jid, rcv_pid = Pid}
         TimeoutMsg ->
             {error, timeout}
     end.
+
+handle_received_stanza(Client, Stanza, Metadata) ->
+    handle_stanza(Client, Stanza, Metadata, received_stanza_handlers(Client)).
+
+-spec handle_stanza(client(), exml_stream:element(), metadata(), [stanza_handler()]) -> boolean().
+handle_stanza(Client, Stanza, Metadata, StanzaHandlers) ->
+    lists:foldl(fun(StanzaHandler, false) -> apply_handler(StanzaHandler, Client, Stanza, Metadata);
+                   (_, true) -> true
+                end,
+                false,
+                StanzaHandlers).
+
+apply_handler(Handler, Client, Stanza, Metadata) when is_function(Handler, 3) ->
+    Handler(Client, Stanza, Metadata);
+apply_handler(Handler, Client, Stanza, _Metadata) when is_function(Handler, 2) ->
+    Handler(Client, Stanza).
+
+received_stanza_handlers(#client{props = Props}) ->
+    proplists:get_value(received_stanza_handlers, Props, []).
 
 get_stream_end(#client{rcv_pid = Pid, jid = Jid}, Timeout) ->
     receive
