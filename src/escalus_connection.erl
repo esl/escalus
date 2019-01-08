@@ -23,6 +23,8 @@
          get_stanza_with_metadata/4,
          get_stanza_safe/2,
          get_stanza_safe/3,
+         wait/2,
+         wait_forever/1,
          get_sm_h/1,
          set_sm_h/2,
          set_filter_predicate/2,
@@ -234,6 +236,24 @@ get_stanza_safe(Client, Timeout, Pred) ->
                                                      continue
                                              end
                                      end).
+
+-spec wait(client(), timeout()) -> ok.
+wait(Client, Timeout) ->
+    {error, timeout} = receive_stanzas(Client, Timeout, fun(Stanza, Metadata) ->
+                                                                handle_received_stanza(Client, Stanza, Metadata),
+                                                                continue
+                                                         end),
+    ok.
+
+-spec wait_forever(client()) -> no_return().
+wait_forever(#client{event_client = EventClient, jid = Jid, rcv_pid = Pid} = Client) ->
+    receive
+        {stanza, Pid, Stanza, Metadata} ->
+            escalus_event:pop_incoming_stanza(EventClient, Stanza),
+            escalus_ct:log_stanza(Jid, in, Stanza),
+            handle_received_stanza(Client, Stanza, Metadata),
+            wait_forever(Client)
+    end.
 
 receive_stanzas(Client, Timeout, Handler) ->
     Tref = erlang:send_after(Timeout, self(), TimeoutMsg = {timeout, make_ref()}),
