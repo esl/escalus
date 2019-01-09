@@ -38,7 +38,9 @@
          is_iq_with_ns/2,
          is_iq_set/1,
          is_iq_get/1,
+         is_iq_result_or_error/2,
          is_iq_error/1,
+         is_iq_error/2,
          is_iq_result/1,
          is_iq_result/2,
          is_presence/1,
@@ -305,17 +307,23 @@ is_iq_set(Stanza) -> is_iq(<<"set">>, Stanza).
 -spec is_iq_get(exml:element()) -> boolean().
 is_iq_get(Stanza) -> is_iq(<<"get">>, Stanza).
 
+is_iq_result_or_error(QueryStanza, ResultStanza) ->
+    (is_iq_error(ResultStanza) orelse is_iq_result(ResultStanza))
+        andalso has_same_id(QueryStanza, ResultStanza).
+
 -spec is_iq_error(exml:element()) -> boolean().
 is_iq_error(Stanza) -> is_iq(<<"error">>, Stanza).
+
+-spec is_iq_error(exml:element(), exml:element()) -> boolean().
+is_iq_error(QueryStanza, ResultStanza) ->
+    is_iq_error(ResultStanza) andalso has_same_id(QueryStanza, ResultStanza).
 
 -spec is_iq_result(exml:element()) -> boolean().
 is_iq_result(Stanza) -> is_iq(<<"result">>, Stanza).
 
 -spec is_iq_result(exml:element(), exml:element()) -> boolean().
 is_iq_result(QueryStanza, ResultStanza) ->
-    QueryId = exml_query:attr(QueryStanza, <<"id">>),
-    ResultId = exml_query:attr(ResultStanza, <<"id">>),
-    is_iq_result(ResultStanza) andalso QueryId == ResultId.
+    is_iq_result(ResultStanza) andalso has_same_id(QueryStanza, ResultStanza).
 
 -spec is_presence_with_show(binary(), exml:element()) -> boolean().
 is_presence_with_show(Show, Presence) ->
@@ -685,3 +693,9 @@ get_roster_items(Stanza) ->
 -spec has_path(exml:element(), exml_query:path()) -> boolean().
 has_path(Stanza, Path) ->
     exml_query:path(Stanza, Path) /= undefined.
+
+-spec has_same_id(exml:element(), exml:element()) -> boolean().
+has_same_id(OrigStanza, Stanza) ->
+    OrigId = exml_query:attr(OrigStanza, <<"id">>),
+    Id = exml_query:attr(Stanza, <<"id">>),
+    OrigId =:= Id.
