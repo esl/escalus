@@ -18,8 +18,13 @@
          send/2,
          get_stanza/2,
          get_stanza/3,
-         get_stanza_safe/2,
+         get_stanza/4,
          get_stanza_with_metadata/3,
+         get_stanza_with_metadata/4,
+         get_stanza_safe/2,
+         get_stanza_safe/3,
+         wait/2,
+         wait_forever/1,
          get_sm_h/1,
          set_sm_h/2,
          set_filter_predicate/2,
@@ -43,8 +48,15 @@
 -type step_spec() :: atom() | {module(), atom()} | escalus_session:step().
 -export_type([step_spec/0]).
 
--type filter_pred() :: fun((exml:element()) -> boolean()) | none.
+-type filter_pred() :: fun((exml_stream:element()) -> boolean()) | none.
 -export_type([filter_pred/0]).
+
+-type stanza_pred() :: fun((exml_stream:element()) -> boolean()).
+-export_type([stanza_pred/0]).
+
+-type stanza_handler() :: fun((client(), exml_stream:element(), metadata()) -> boolean())
+                        | fun((client(), exml_stream:element()) -> boolean()).
+-export_type([stanza_handler/0]).
 
 -export_type([t/0]).
 
@@ -75,7 +87,7 @@
 
 -type stanza_msg() :: {stanza, pid(), exml:element(), map()}.
 
--type metadata() :: #{recv_timestamp := integer()}.
+-type metadata() :: #{recv_timestamp => integer()}.
 
 %%%===================================================================
 %%% Public API
@@ -174,44 +186,120 @@ maybe_set_jid(Client = #client{props = Props}) ->
     end.
 
 -spec send(escalus:client(), exml_stream:element()) -> ok.
-send(#client{module = Mod, event_client = EventClient, rcv_pid = Pid, jid = Jid}, Elem) ->
+send(#client{module = Mod, event_client = EventClient, rcv_pid = Pid, jid = Jid} = Client, Elem) ->
     escalus_event:outgoing_stanza(EventClient, Elem),
     escalus_ct:log_stanza(Jid, out, Elem),
-    Mod:send(Pid, Elem).
+    Mod:send(Pid, Elem),
+    handle_stanza(Client, Elem, #{}, sent_stanza_handlers(Client)),
+    ok.
 
 -spec get_stanza(client(), any()) -> exml_stream:element().
-get_stanza(Conn, Name) ->
-    get_stanza(Conn, Name, ?TIMEOUT).
+get_stanza(Client, Name) ->
+    get_stanza(Client, Name, ?TIMEOUT).
 
 -spec get_stanza(client(), any(), timeout()) -> exml_stream:element().
 get_stanza(Client, Name, Timeout) ->
-    case get_stanza_safe(Client, Timeout) of
+    get_stanza(Client, Name, Timeout, fun(_) -> true end).
+
+-spec get_stanza(client(), any(), timeout(), stanza_pred()) -> exml_stream:element().
+get_stanza(Client, Name, Timeout, Pred) ->
+    case get_stanza_safe(Client, Timeout, Pred) of
         {error, timeout} ->
             throw({timeout, Name});
         {Stanza, _} ->
             Stanza
     end.
 
--spec get_stanza_with_metadata(client(), any(), timeout()) ->
-    {exml_stream:element(), metadata()}.
+-spec get_stanza_with_metadata(client(), any(), timeout()) -> {exml_stream:element(), metadata()}.
 get_stanza_with_metadata(Client, Name, Timeout) ->
-    case get_stanza_safe(Client, Timeout) of
+    get_stanza_with_metadata(Client, Name, Timeout, fun(_) -> true end).
+
+-spec get_stanza_with_metadata(client(), any(), timeout(), stanza_pred()) ->
+                                      {exml_stream:element(), metadata()}.
+get_stanza_with_metadata(Client, Name, Timeout, Pred) ->
+    case get_stanza_safe(Client, Timeout, Pred) of
         {error, timeout} ->
             throw({timeout, Name});
         StanzaWithMetadata ->
             StanzaWithMetadata
     end.
 
--spec get_stanza_safe(client(), timeout()) ->
-    {error, timeout} | {exml_stream:element(), map()}.
-get_stanza_safe(#client{rcv_pid = Pid, jid = Jid}, Timeout) ->
+-spec get_stanza_safe(client(), timeout()) -> {error, timeout} | {exml_stream:element(), metadata()}.
+get_stanza_safe(Client, Timeout) ->
+    get_stanza_safe(Client, Timeout, fun(_) -> true end).
+
+-spec get_stanza_safe(client(), timeout(), stanza_pred()) ->
+    {error, timeout} | {exml_stream:element(), metadata()}.
+get_stanza_safe(Client, Timeout, Pred) ->
+    Handler = fun(Stanza, Metadata) ->
+                      case Pred(Stanza) of
+                          true -> {finish, {Stanza, Metadata}};
+                          false ->
+                              handle_received_stanza(Client, Stanza, Metadata),
+                              continue
+                      end
+              end,
+    receive_stanzas(Client, Timeout, Handler).
+
+-spec wait(client(), timeout()) -> ok.
+wait(Client, Timeout) ->
+    Handler = fun(Stanza, Metadata) ->
+                      handle_received_stanza(Client, Stanza, Metadata),
+                      continue
+              end,
+    {error, timeout} = receive_stanzas(Client, Timeout, Handler),
+    ok.
+
+-spec wait_forever(client()) -> no_return().
+wait_forever(#client{event_client = EventClient, jid = Jid, rcv_pid = Pid} = Client) ->
     receive
         {stanza, Pid, Stanza, Metadata} ->
+            escalus_event:pop_incoming_stanza(EventClient, Stanza),
             escalus_ct:log_stanza(Jid, in, Stanza),
-            {Stanza, Metadata}
-    after Timeout ->
-              {error, timeout}
+            handle_received_stanza(Client, Stanza, Metadata),
+            wait_forever(Client)
     end.
+
+receive_stanzas(Client, Timeout, Handler) ->
+    Tref = erlang:send_after(Timeout, self(), TimeoutMsg = {timeout, make_ref()}),
+    Result = do_receive_stanzas(Client, TimeoutMsg, Handler),
+    erlang:cancel_timer(Tref),
+    Result.
+
+do_receive_stanzas(#client{event_client = EventClient, jid = Jid, rcv_pid = Pid} = Client, TimeoutMsg, Handler) ->
+    receive
+        {stanza, Pid, Stanza, Metadata} ->
+            escalus_event:pop_incoming_stanza(EventClient, Stanza),
+            escalus_ct:log_stanza(Jid, in, Stanza),
+            case Handler(Stanza, Metadata) of
+                {finish, Res} -> Res;
+                continue -> do_receive_stanzas(Client, TimeoutMsg, Handler)
+            end;
+        TimeoutMsg ->
+            {error, timeout}
+    end.
+
+handle_received_stanza(Client, Stanza, Metadata) ->
+    handle_stanza(Client, Stanza, Metadata, received_stanza_handlers(Client)).
+
+-spec handle_stanza(client(), exml_stream:element(), metadata(), [stanza_handler()]) -> boolean().
+handle_stanza(Client, Stanza, Metadata, StanzaHandlers) ->
+    lists:foldl(fun(StanzaHandler, false) -> apply_handler(StanzaHandler, Client, Stanza, Metadata);
+                   (_, true) -> true
+                end,
+                false,
+                StanzaHandlers).
+
+apply_handler(Handler, Client, Stanza, Metadata) when is_function(Handler, 3) ->
+    Handler(Client, Stanza, Metadata);
+apply_handler(Handler, Client, Stanza, _Metadata) when is_function(Handler, 2) ->
+    Handler(Client, Stanza).
+
+received_stanza_handlers(#client{props = Props}) ->
+    proplists:get_value(received_stanza_handlers, Props, []).
+
+sent_stanza_handlers(#client{props = Props}) ->
+    proplists:get_value(sent_stanza_handlers, Props, []).
 
 get_stream_end(#client{rcv_pid = Pid, jid = Jid}, Timeout) ->
     receive

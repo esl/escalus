@@ -114,13 +114,11 @@ wait_for_stanzas(Client, Count, Timeout) ->
 
 do_wait_for_stanzas(_Client, 0, _TimeoutMsg, Acc) ->
     lists:reverse(Acc);
-do_wait_for_stanzas(#client{event_client=EventClient, jid=Jid, rcv_pid=Pid} = Client,
-                    Count, Timeout, Acc) ->
+do_wait_for_stanzas(Client, Count, Timeout, Acc) ->
     case escalus_connection:get_stanza_safe(Client, Timeout) of
         {error,  timeout} ->
             do_wait_for_stanzas(Client, 0, Timeout, Acc);
         {Stanza, _} ->
-            escalus_event:pop_incoming_stanza(EventClient, Stanza),
             do_wait_for_stanzas(Client, Count - 1, Timeout, [Stanza|Acc])
         %% FIXME: stream error
     end.
