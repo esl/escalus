@@ -23,6 +23,8 @@
          chat/3,
          chat_to_short_jid/2,
          chat_without_carbon_to/2,
+         chat_to_with_id_and_timestamp/2,
+         chat_to_with_id/2,
          groupchat_to/2,
          iq_result/1,
          iq_result/2,
@@ -119,7 +121,9 @@
          to/2,
          from/2,
          tags/1,
+         set_id/1,
          set_id/2,
+         set_current_timestamp/1,
          uuid_v4/0]).
 
 -export([get_registration_fields/0,
@@ -232,8 +236,18 @@ from(Stanza, Recipient) when is_binary(Recipient) ->
 from(Stanza, Recipient) ->
     setattr(Stanza, <<"from">>, escalus_utils:get_jid(Recipient)).
 
+
+-spec set_id(exml:element()) -> exml:element().
+set_id(Stanza) ->
+    set_id(Stanza, uuid_v4()).
+
 set_id(Stanza, ID) ->
     setattr(Stanza, <<"id">>, ID).
+
+-spec set_current_timestamp(exml:element()) -> exml:element().
+set_current_timestamp(Stanza) ->
+    Timestamp = integer_to_binary(os:system_time(microsecond)),
+    setattr(Stanza, <<"timestamp">>, Timestamp).
 
 setattr(Stanza, Key, Val) ->
     NewAttrs = lists:keystore(Key, 1, Stanza#xmlel.attrs, {Key, Val}),
@@ -328,6 +342,16 @@ chat_without_carbon_to(Recipient, Msg) ->
     Stanza#xmlel{children = Children ++
                   [#xmlel{name = <<"private">>,
                           attrs = [{<<"xmlns">>, ?NS_CARBONS_2}]}]}.
+
+-spec chat_to_with_id(escalus_utils:jid_spec(), binary()) -> exml:element().
+chat_to_with_id(Recipient, Body) ->
+    set_id(
+      chat_to(Recipient, Body)).
+
+-spec chat_to_with_id_and_timestamp(escalus_utils:jid_spec(), binary()) -> exml:element().
+chat_to_with_id_and_timestamp(Recipient, Body) ->
+    set_current_timestamp(
+      chat_to_with_id(Recipient, Body)).
 
 receipt_req(#xmlel{ name = <<"message">>,
                     attrs = Attrs,
@@ -821,7 +845,7 @@ id() ->
 
 -spec uuid_v4() -> binary().
 uuid_v4() ->
-    iolist_to_binary(uuid:uuid_to_string(uuid:get_v4())).
+    uuid:uuid_to_string(uuid:get_v4(), binary_standard).
 
 %%--------------------------------------------------------------------
 %% Stanzas from inline XML
