@@ -18,7 +18,7 @@
 
 %% old ones
 -export([id/0,
-         message/4,
+         message/2, message/4,
          chat_to/2,
          chat/3,
          chat_to_short_jid/2,
@@ -121,9 +121,7 @@
          to/2,
          from/2,
          tags/1,
-         set_id/1,
          set_id/2,
-         set_current_timestamp/1,
          uuid_v4/0]).
 
 -export([get_registration_fields/0,
@@ -236,18 +234,8 @@ from(Stanza, Recipient) when is_binary(Recipient) ->
 from(Stanza, Recipient) ->
     setattr(Stanza, <<"from">>, escalus_utils:get_jid(Recipient)).
 
-
--spec set_id(exml:element()) -> exml:element().
-set_id(Stanza) ->
-    set_id(Stanza, uuid_v4()).
-
 set_id(Stanza, ID) ->
     setattr(Stanza, <<"id">>, ID).
-
--spec set_current_timestamp(exml:element()) -> exml:element().
-set_current_timestamp(Stanza) ->
-    Timestamp = integer_to_binary(os:system_time(microsecond)),
-    setattr(Stanza, <<"timestamp">>, Timestamp).
 
 setattr(Stanza, Key, Val) ->
     NewAttrs = lists:keystore(Key, 1, Stanza#xmlel.attrs, {Key, Val}),
@@ -318,40 +306,57 @@ message(From, Recipient, Type, Msg) ->
     message1(From, Recipient, Type, Msg).
 
 message1(From, Recipient, Type, Msg) ->
-    FromAttr = case From of
-                   undefined -> [];
-                   _ -> [{<<"from">>, From}]
-               end,
-    #xmlel{name = <<"message">>,
-           attrs = FromAttr ++ [{<<"type">>, Type},
-                                {<<"to">>, escalus_utils:get_jid(Recipient)}],
-           children = [#xmlel{name = <<"body">>,
-                              children = [#xmlcdata{content = Msg}]}]}.
+    Attrs = (case From of
+                 undefined -> [];
+                 _ -> [{from, From}]
+             end ++
+             [
+              {to, escalus_utils:get_jid(Recipient)},
+              {type, Type}
+             ]),
+    message(Msg, maps:from_list(Attrs)).
+
+-spec message(binary(), Attrs) -> exml:element() when
+      Attrs :: #{atom() | binary() => binary()}.
+message(Text, Attrs) ->
+    maps:fold(fun (K, V, Stanza) when is_atom(K) -> setattr(Stanza, atom_to_binary(K, utf8), V);
+                  (K, V, Stanza) when is_binary(K) -> setattr(Stanza, K, V) end,
+              #xmlel{name = <<"message">>,
+                     children = [#xmlel{name = <<"body">>,
+                                        children = [#xmlcdata{content = Text}]}]},
+              Attrs).
 
 chat_to(Recipient, Msg) ->
-    message(undefined, Recipient, <<"chat">>, Msg).
+    message(Msg, #{type => <<"chat">>,
+                   to => Recipient}).
 
 chat(Sender, Recipient, Msg) ->
-    message(Sender, Recipient, <<"chat">>, Msg).
+    message(Msg, #{type => <<"chat">>,
+                   from => Sender,
+                   to => Recipient}).
 
 chat_to_short_jid(Recipient, Msg) ->
-    chat_to(escalus_utils:get_short_jid(Recipient), Msg).
+    message(Msg, #{type => <<"chat">>,
+                   to => escalus_utils:get_short_jid(Recipient)}).
+
+-spec chat_to_with_id(escalus_utils:jid_spec(), binary()) -> exml:element().
+chat_to_with_id(Recipient, Msg) ->
+    message(Msg, #{type => <<"chat">>,
+                   to => Recipient,
+                   id => uuid_v4()}).
+
+-spec chat_to_with_id_and_timestamp(escalus_utils:jid_spec(), binary()) -> exml:element().
+chat_to_with_id_and_timestamp(Recipient, Msg) ->
+    message(Msg, #{type => <<"chat">>,
+                   to => Recipient,
+                   id => uuid_v4(),
+                   timestamp => integer_to_binary(os:system_time(microsecond))}).
 
 chat_without_carbon_to(Recipient, Msg) ->
     Stanza = #xmlel{children = Children} = chat_to(Recipient, Msg),
     Stanza#xmlel{children = Children ++
                   [#xmlel{name = <<"private">>,
                           attrs = [{<<"xmlns">>, ?NS_CARBONS_2}]}]}.
-
--spec chat_to_with_id(escalus_utils:jid_spec(), binary()) -> exml:element().
-chat_to_with_id(Recipient, Body) ->
-    set_id(
-      chat_to(Recipient, Body)).
-
--spec chat_to_with_id_and_timestamp(escalus_utils:jid_spec(), binary()) -> exml:element().
-chat_to_with_id_and_timestamp(Recipient, Body) ->
-    set_current_timestamp(
-      chat_to_with_id(Recipient, Body)).
 
 receipt_req(#xmlel{ name = <<"message">>,
                     attrs = Attrs,
