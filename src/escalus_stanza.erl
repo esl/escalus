@@ -306,20 +306,20 @@ message(From, Recipient, Type, Msg) ->
     message1(From, Recipient, Type, Msg).
 
 message1(From, Recipient, Type, Msg) ->
-    Attrs = (case From of
-                 undefined -> [];
-                 _ -> [{from, From}]
-             end ++
-             [
-              {to, escalus_utils:get_jid(Recipient)},
-              {type, Type}
-             ]),
-    message(Msg, maps:from_list(Attrs)).
+    AttrsIn = #{to => Recipient,
+                type => Type},
+    Attrs = case From of
+                 undefined -> AttrsIn;
+                 _ -> AttrsIn#{from => From}
+             end,
+    message(Msg, Attrs).
 
 -spec message(binary(), Attrs) -> exml:element() when
-      Attrs :: #{atom() | binary() => binary()}.
+      Attrs :: #{to => escalus_utils:jid_spec(),
+                 atom() | binary() => binary()}.
 message(Text, Attrs) ->
-    maps:fold(fun (K, V, Stanza) when is_atom(K) -> setattr(Stanza, atom_to_binary(K, utf8), V);
+    maps:fold(fun (to, V, Stanza) -> setattr(Stanza, <<"to">>, escalus_utils:get_jid(V));
+                  (K, V, Stanza) when is_atom(K) -> setattr(Stanza, atom_to_binary(K, utf8), V);
                   (K, V, Stanza) when is_binary(K) -> setattr(Stanza, K, V) end,
               #xmlel{name = <<"message">>,
                      children = [#xmlel{name = <<"body">>,
