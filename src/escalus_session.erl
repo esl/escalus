@@ -30,6 +30,9 @@
          bind/2,
          session/2]).
 
+-export([send_presence_available/1,
+         send_presence_unavailable/1]).
+
 %% Public Types
 -export_type([feature/0,
               features/0,
@@ -124,6 +127,16 @@ session(Client) ->
     SessionReply = escalus_connection:get_stanza(Client, session_reply),
     escalus:assert(is_iq_result, SessionReply),
     Client.
+
+-spec send_presence_available(escalus:client()) -> ok.
+send_presence_available(Client) ->
+    Pres = escalus_stanza:presence(<<"available">>),
+    escalus_connection:send(Client, Pres).
+
+-spec send_presence_unavailable(escalus:client()) -> ok.
+send_presence_unavailable(Client) ->
+    Pres = escalus_stanza:presence(<<"unavailable">>),
+    escalus_connection:send(Client, Pres).
 
 -spec use_ssl(user_spec(), features()) -> boolean().
 use_ssl(Props, Features) ->

@@ -18,11 +18,13 @@
 
 %% old ones
 -export([id/0,
-         message/4,
+         message/2, message/4,
          chat_to/2,
          chat/3,
          chat_to_short_jid/2,
          chat_without_carbon_to/2,
+         chat_to_with_id_and_timestamp/2,
+         chat_to_with_id/2,
          groupchat_to/2,
          iq_result/1,
          iq_result/2,
@@ -304,24 +306,51 @@ message(From, Recipient, Type, Msg) ->
     message1(From, Recipient, Type, Msg).
 
 message1(From, Recipient, Type, Msg) ->
-    FromAttr = case From of
-                   undefined -> [];
-                   _ -> [{<<"from">>, From}]
-               end,
-    #xmlel{name = <<"message">>,
-           attrs = FromAttr ++ [{<<"type">>, Type},
-                                {<<"to">>, escalus_utils:get_jid(Recipient)}],
-           children = [#xmlel{name = <<"body">>,
-                              children = [#xmlcdata{content = Msg}]}]}.
+    AttrsIn = #{to => Recipient,
+                type => Type},
+    Attrs = case From of
+                 undefined -> AttrsIn;
+                 _ -> AttrsIn#{from => From}
+             end,
+    message(Msg, Attrs).
+
+-spec message(binary(), Attrs) -> exml:element() when
+      Attrs :: #{to => escalus_utils:jid_spec(),
+                 atom() | binary() => binary()}.
+message(Text, Attrs) ->
+    maps:fold(fun (to, V, Stanza) -> setattr(Stanza, <<"to">>, escalus_utils:get_jid(V));
+                  (K, V, Stanza) when is_atom(K) -> setattr(Stanza, atom_to_binary(K, utf8), V);
+                  (K, V, Stanza) when is_binary(K) -> setattr(Stanza, K, V) end,
+              #xmlel{name = <<"message">>,
+                     children = [#xmlel{name = <<"body">>,
+                                        children = [#xmlcdata{content = Text}]}]},
+              Attrs).
 
 chat_to(Recipient, Msg) ->
-    message(undefined, Recipient, <<"chat">>, Msg).
+    message(Msg, #{type => <<"chat">>,
+                   to => Recipient}).
 
 chat(Sender, Recipient, Msg) ->
-    message(Sender, Recipient, <<"chat">>, Msg).
+    message(Msg, #{type => <<"chat">>,
+                   from => Sender,
+                   to => Recipient}).
 
 chat_to_short_jid(Recipient, Msg) ->
-    chat_to(escalus_utils:get_short_jid(Recipient), Msg).
+    message(Msg, #{type => <<"chat">>,
+                   to => escalus_utils:get_short_jid(Recipient)}).
+
+-spec chat_to_with_id(escalus_utils:jid_spec(), binary()) -> exml:element().
+chat_to_with_id(Recipient, Msg) ->
+    message(Msg, #{type => <<"chat">>,
+                   to => Recipient,
+                   id => uuid_v4()}).
+
+-spec chat_to_with_id_and_timestamp(escalus_utils:jid_spec(), binary()) -> exml:element().
+chat_to_with_id_and_timestamp(Recipient, Msg) ->
+    message(Msg, #{type => <<"chat">>,
+                   to => Recipient,
+                   id => uuid_v4(),
+                   timestamp => integer_to_binary(os:system_time(microsecond))}).
 
 chat_without_carbon_to(Recipient, Msg) ->
     Stanza = #xmlel{children = Children} = chat_to(Recipient, Msg),
@@ -821,7 +850,7 @@ id() ->
 
 -spec uuid_v4() -> binary().
 uuid_v4() ->
-    iolist_to_binary(uuid:uuid_to_string(uuid:get_v4())).
+    uuid:uuid_to_string(uuid:get_v4(), binary_standard).
 
 %%--------------------------------------------------------------------
 %% Stanzas from inline XML

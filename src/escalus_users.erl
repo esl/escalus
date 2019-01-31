@@ -336,6 +336,8 @@ is_mod_register_enabled(Config) ->
                      | 'connection_steps'  %% [escalus_session:step()]
                      | 'parser_opts' %% a list of exml parser opts,
                                      %% e.g. infinite_stream
+                     | received_stanza_handlers %% list of escalus_connection:stanza_handler()
+                     | sent_stanza_handlers %% similar as above but for sent stanzas
                      .
 
 -type ejabberd_option() :: 'ejabberd_node'
