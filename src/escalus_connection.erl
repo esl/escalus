@@ -15,6 +15,7 @@
 %% Low-level API
 -export([connect/1,
          maybe_set_jid/1,
+         send_and_receive/3,
          send/2,
          get_stanza/2,
          get_stanza/3,
@@ -25,6 +26,7 @@
          get_stanza_safe/3,
          wait/2,
          wait_forever/1,
+         receive_stanza/2,
          get_sm_h/1,
          set_sm_h/2,
          set_filter_predicate/2,
@@ -63,8 +65,6 @@
 %% Private
 -export([connection_step/2]).
 
--define(TIMEOUT, 5000).
-
 %%%===================================================================
 %%% Behaviour callback
 %%%===================================================================
@@ -88,6 +88,13 @@
 -type stanza_msg() :: {stanza, pid(), exml:element(), map()}.
 
 -type metadata() :: #{recv_timestamp => integer()}.
+
+-type receive_options() :: #{pred => stanza_pred(),
+                             safe => boolean(),
+                             with_metadata => boolean(),
+                             timeout => timeout(),
+                             name => term(),
+                             assert => {term(), list()} | term()}.
 
 %%%===================================================================
 %%% Public API
@@ -185,6 +192,14 @@ maybe_set_jid(Client = #client{props = Props}) ->
             Client
     end.
 
+-spec send_and_receive(client(), exml:element(), receive_options()) ->
+                     {exml_stream:element(), metadata()} |
+                     exml_stream:element() |
+                     {error, timeout}.
+send_and_receive(Client, Stanza, RecvOptions) ->
+    send(Client, Stanza),
+    receive_stanza(Client, RecvOptions).
+
 -spec send(escalus:client(), exml_stream:element()) -> ok.
 send(#client{module = Mod, event_client = EventClient, rcv_pid = Pid, jid = Jid} = Client, Elem) ->
     escalus_event:outgoing_stanza(EventClient, Elem),
@@ -195,42 +210,49 @@ send(#client{module = Mod, event_client = EventClient, rcv_pid = Pid, jid = Jid}
 
 -spec get_stanza(client(), any()) -> exml_stream:element().
 get_stanza(Client, Name) ->
-    get_stanza(Client, Name, ?TIMEOUT).
+    receive_stanza(Client, #{name => Name}).
 
 -spec get_stanza(client(), any(), timeout()) -> exml_stream:element().
 get_stanza(Client, Name, Timeout) ->
-    get_stanza(Client, Name, Timeout, fun(_) -> true end).
+    receive_stanza(Client, #{name => Name, timeout => Timeout}).
 
 -spec get_stanza(client(), any(), timeout(), stanza_pred()) -> exml_stream:element().
 get_stanza(Client, Name, Timeout, Pred) ->
-    case get_stanza_safe(Client, Timeout, Pred) of
-        {error, timeout} ->
-            throw({timeout, Name});
-        {Stanza, _} ->
-            Stanza
-    end.
+    receive_stanza(Client, #{name => Name, timeout => Timeout, pred => Pred}).
 
 -spec get_stanza_with_metadata(client(), any(), timeout()) -> {exml_stream:element(), metadata()}.
 get_stanza_with_metadata(Client, Name, Timeout) ->
-    get_stanza_with_metadata(Client, Name, Timeout, fun(_) -> true end).
+    receive_stanza(Client, #{name => Name, timeout => Timeout, with_metadata => true}).
 
 -spec get_stanza_with_metadata(client(), any(), timeout(), stanza_pred()) ->
                                       {exml_stream:element(), metadata()}.
 get_stanza_with_metadata(Client, Name, Timeout, Pred) ->
-    case get_stanza_safe(Client, Timeout, Pred) of
-        {error, timeout} ->
-            throw({timeout, Name});
-        StanzaWithMetadata ->
-            StanzaWithMetadata
-    end.
+    receive_stanza(Client, #{name => Name, timeout => Timeout, with_metadata => true, pred => Pred}).
 
 -spec get_stanza_safe(client(), timeout()) -> {error, timeout} | {exml_stream:element(), metadata()}.
 get_stanza_safe(Client, Timeout) ->
-    get_stanza_safe(Client, Timeout, fun(_) -> true end).
+    receive_stanza(Client, #{timeout => Timeout, with_metadata => true, safe => true}).
 
 -spec get_stanza_safe(client(), timeout(), stanza_pred()) ->
     {error, timeout} | {exml_stream:element(), metadata()}.
 get_stanza_safe(Client, Timeout, Pred) ->
+    receive_stanza(Client, #{timeout => Timeout, with_metadata => true, safe => true, pred => Pred}).
+
+-spec wait(client(), timeout()) -> ok.
+wait(Client, Timeout) ->
+    {error, timeout} = receive_stanza(Client, #{timeout => Timeout, pred => fun(_) -> false end}),
+    ok.
+
+-spec wait_forever(client()) -> no_return().
+wait_forever(Client) ->
+    receive_stanza(Client, #{timeout => infinity, pred => fun(_) -> false end}).
+
+-spec receive_stanza(client(), receive_options()) ->
+                            {exml_stream:element(), metadata()} |
+                            exml_stream:element() |
+                            {error, timeout}.
+receive_stanza(Client, Options) ->
+    Pred = maps:get(pred, Options, fun(_) -> true end),
     Handler = fun(Stanza, Metadata) ->
                       case Pred(Stanza) of
                           true -> {finish, {Stanza, Metadata}};
@@ -239,27 +261,33 @@ get_stanza_safe(Client, Timeout, Pred) ->
                               continue
                       end
               end,
-    receive_stanzas(Client, Timeout, Handler).
-
--spec wait(client(), timeout()) -> ok.
-wait(Client, Timeout) ->
-    Handler = fun(Stanza, Metadata) ->
-                      handle_received_stanza(Client, Stanza, Metadata),
-                      continue
-              end,
-    {error, timeout} = receive_stanzas(Client, Timeout, Handler),
-    ok.
-
--spec wait_forever(client()) -> no_return().
-wait_forever(#client{event_client = EventClient, jid = Jid, rcv_pid = Pid} = Client) ->
-    receive
-        {stanza, Pid, Stanza, Metadata} ->
-            escalus_event:pop_incoming_stanza(EventClient, Stanza),
-            escalus_ct:log_stanza(Jid, in, Stanza),
-            handle_received_stanza(Client, Stanza, Metadata),
-            wait_forever(Client)
+    Safe = maps:get(safe, Options, false),
+    WithMetadata = maps:get(with_metadata, Options, false),
+    Timeout = maps:get(timeout, Options, default_timeout()),
+    case receive_stanzas(Client, Timeout, Handler) of
+        {error, timeout} when Safe -> {error, timeout};
+        {error, timeout} ->
+            Error = case Options of
+                        #{name := Name} -> {timeout, Name};
+                        _ -> timeout
+                    end,
+            throw(Error);
+        {Stanza, Metadata} ->
+            case Options of
+                #{assert := {Assertion, Params}} ->
+                    escalus:assert(Assertion, Params, Stanza);
+                #{assert := Assertion} ->
+                    escalus:assert(Assertion, Stanza);
+                _ -> ok
+            end,
+            case WithMetadata of
+                true -> {Stanza, Metadata};
+                false -> Stanza
+            end
     end.
 
+receive_stanzas(Client, infinity, Handler) ->
+    do_receive_stanzas(Client, no_timeout, Handler);
 receive_stanzas(Client, Timeout, Handler) ->
     Tref = erlang:send_after(Timeout, self(), TimeoutMsg = {timeout, make_ref()}),
     Result = do_receive_stanzas(Client, TimeoutMsg, Handler),
@@ -275,7 +303,7 @@ do_receive_stanzas(#client{event_client = EventClient, jid = Jid, rcv_pid = Pid}
                 {finish, Res} -> Res;
                 continue -> do_receive_stanzas(Client, TimeoutMsg, Handler)
             end;
-        TimeoutMsg ->
+        {timeout, _} = TimeoutMsg ->
             {error, timeout}
     end.
 
@@ -441,3 +469,5 @@ end_stream(#client{module = Mod, props = Props} = Client) ->
     Timeout = proplists:get_value(wait_for_stream_end_timeout, Props, 5000),
     StreamEndRep = get_stream_end(Client, Timeout),
     Mod:assert_stream_end(StreamEndRep, Props).
+
+default_timeout() -> 5000.
