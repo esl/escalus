@@ -264,14 +264,14 @@ handle_cast({send, Elem}, #state{socket = Socket, ssl = Ssl, compress = Compress
     Reply = case {Ssl, Compress} of
                 {true, {zlib, {_, Zout}}} ->
                     Deflated = zlib:deflate(Zout, exml:to_iolist(Elem), sync),
-                    ssl:send(Socket, Deflated);
+                    ok = ssl:send(Socket, Deflated);
                 {true, _} ->
-                    ssl:send(Socket, exml:to_iolist(Elem));
+                    ok = ssl:send(Socket, exml:to_iolist(Elem));
                 {false, {zlib, {_, Zout}}} ->
                     Deflated = zlib:deflate(Zout, exml:to_iolist(Elem), sync),
-                    gen_tcp:send(State#state.socket, Deflated);
+                    ok = gen_tcp:send(State#state.socket, Deflated);
                 {false, false} ->
-                    gen_tcp:send(Socket, exml:to_iolist(Elem))
+                    ok = gen_tcp:send(Socket, exml:to_iolist(Elem))
             end,
     OnRequestFun(Reply),
     {noreply, State};
@@ -288,8 +288,14 @@ handle_info({tcp, Socket, Data}, #state{socket = Socket, ssl = false} = State) -
 handle_info({ssl, Socket, Data}, #state{socket = Socket, ssl = true} = State) ->
     NewState = handle_data(Socket, Data, State),
     {noreply, NewState};
-handle_info({tcp_closed, Socket}, #state{socket = Socket} = State) ->
+handle_info({tcp_closed, _Socket}, #state{} = State) ->
     {stop, normal, State};
+handle_info({ssl_closed, _Socket}, #state{} = State) ->
+    {stop, normal, State};
+handle_info({tcp_error, _Socket, Reason}, #state{} = State) ->
+    {stop, {error, Reason}, State};
+handle_info({ssl_error, _Socket, Reason}, #state{} = State) ->
+    {stop, {error, Reason}, State};
 handle_info(_, State) ->
     {noreply, State}.
 
