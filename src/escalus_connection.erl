@@ -240,13 +240,29 @@ get_stanza_safe(Client, Timeout, Pred) ->
 
 -spec wait(client(), timeout()) -> ok.
 wait(Client, Timeout) ->
-    {error, timeout} = receive_stanza(Client, #{timeout => Timeout, pred => fun(_) -> false end}),
+    {error, timeout} = receive_stanza(Client, #{timeout => Timeout, safe => true, pred => fun(_) -> false end}),
     ok.
 
 -spec wait_forever(client()) -> no_return().
 wait_forever(Client) ->
     receive_stanza(Client, #{timeout => infinity, pred => fun(_) -> false end}).
 
+%% @doc Receives incoming stanzas in a loop until the specified timeout passes.
+%% Whenever a stanza is received:
+%% - If there is no 'pred' in Options OR 'pred' returns 'true', the stanza is returned.
+%% - Otherwise, the handlers specified in Client#client.props are applied one by one
+%%   until one of them returns 'true'.
+%%   - If any of the handlers returns 'true', the loop continues, waiting for a new stanza.
+%%   - Otherwise, the stanza is returned.
+%%
+%% Meaning of the options:
+%%   - pred - receive only specific stanzas, skipping the rest and handling them
+%%            with the handlers specified in the client properties
+%%   - safe - return an error instead of throwing an exception when the timeout passes
+%%   - with_metadata - return additional metadata with the stanza
+%%   - timeout - change the default timeout value (see default_timeout/0)
+%%   - name - tag the thrown timeout exception with the provided name
+%%   - assert - perform an assertion on the stanza before returning it
 -spec receive_stanza(client(), receive_options()) ->
                             {exml_stream:element(), metadata()} |
                             exml_stream:element() |
