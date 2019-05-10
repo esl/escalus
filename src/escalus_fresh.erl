@@ -16,7 +16,7 @@
 -define(MIN_UNREGISTER_TEMPO, 20000).
 
 
--type user_res() :: {atom(), integer()}.
+-type user_res() :: escalus_users:resource_spec().
 -type config() :: escalus:config().
 
 %% @doc

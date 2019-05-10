@@ -49,15 +49,17 @@
 %% Public types
 -export_type([user_name/0,
               user_spec/0,
-              named_user/0]).
+              named_user/0,
+              resource_spec/0]).
 
 %% Public types
 -type user_name() :: atom().
 -type user_spec() :: [{user_option(), any()}].
+-type named_user() :: {user_name(), user_spec()}.
+-type resource_spec() :: {user_name(), pos_integer()}.
 
 %% Internal types
 -type user() :: user_name() | user_spec().
--type named_user() :: {user_name(), user_spec()}.
 -type host() :: inet:hostname() | inet:ip4_address() | binary().
 -type xmpp_domain() :: inet:hostname() | binary().
 
