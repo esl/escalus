@@ -69,21 +69,26 @@ create_users(Config, UserSpecs) ->
 %% Creates a fresh spec without creating XMPP users on a server.
 %% It is useful when testing some lower level parts of the protocol
 %% i.e. some stream features. It is side-effect free.
--spec freshen_specs(escalus:config(), [escalus_users:resource_spec()]) -> [escalus_users:user_spec()].
+-spec freshen_specs(escalus:config(), [escalus_users:resource_spec()]) -> R when
+      R :: [escalus_users:user_spec()].
 freshen_specs(Config, UserSpecs) ->
     Suffix = fresh_suffix(),
-    lists:map(fun({UserName, Spec}) -> Spec end,
+    lists:map(fun({_UserName, Spec}) -> Spec end,
               freshen_specs(Config, UserSpecs, Suffix)).
 
--spec freshen_spec(escalus:config(), escalus_users:user_name() | escalus_users:resource_spec()) -> escalus_users:user_spec().
-freshen_spec(Config, {UserName, Res} = UserSpec) ->
+-spec freshen_spec(Config, User) -> R when
+      Config :: escalus:config(),
+      User :: escalus_users:user_name() | escalus_users:resource_spec(),
+      R :: escalus_users:user_spec().
+freshen_spec(Config, {UserName, _Res} = _UserSpec) ->
     [FreshSpec] = freshen_specs(Config, [{UserName, 1}]),
     FreshSpec;
-freshen_spec(Config, UserName) ->
+freshen_spec(Config, UserName) when is_atom(UserName) ->
     freshen_spec(Config, {UserName, 1}).
 
 
--spec freshen_specs(escalus:config(), [escalus_users:resource_spec()], binary()) -> [escalus_users:named_user()].
+-spec freshen_specs(escalus:config(), [escalus_users:resource_spec()], binary()) -> R when
+      R :: [escalus_users:named_user()].
 freshen_specs(Config, UserSpecs, Suffix) ->
     FreshSpecs = fresh_specs(Config, UserSpecs, Suffix),
     case length(FreshSpecs) == length(UserSpecs) of
@@ -95,7 +100,10 @@ freshen_specs(Config, UserSpecs, Suffix) ->
 
 %% @doc
 %% Creates a fresh user along with XMPP user on a server.
--spec create_fresh_user(escalus:config(), escalus_users:resource_spec() | atom()) -> escalus_users:user_spec().
+-spec create_fresh_user(Config, User) -> R when
+      Config :: escalus:config(),
+      User :: escalus_users:resource_spec() | escalus_users:user_name(),
+      R :: escalus_users:user_spec().
 create_fresh_user(Config, {UserName, _Resource} = UserSpec) ->
     Config2 = create_users(Config, [UserSpec]),
     escalus_users:get_userspec(Config2, UserName);
@@ -126,9 +134,10 @@ clean() ->
             error(Log)
     end.
 
-
--spec collect_deletion_results([{Ord :: non_neg_integer(), Item :: tuple()}],
-              [{Ord :: non_neg_integer(), Item :: tuple(), Error :: any()}]) -> {error, any()} | ok.
+-spec collect_deletion_results(Pending, Failed) -> R when
+      Pending :: [{Ord :: non_neg_integer(), Item :: tuple()}],
+      Failed :: [{Ord :: non_neg_integer(), Item :: tuple(), Error :: any()}],
+      R :: ok | {error, any()}.
 collect_deletion_results([], []) -> ok;
 collect_deletion_results([], Failed) ->
     {error, {unregistering_failed,
@@ -150,7 +159,7 @@ collect_deletion_results(Pending, Failed) ->
 %%% Internals
 nasty_global_table() -> escalus_fresh_db.
 
-work_on_deleting_users(Ord, {_Suffix, Conf} = Item, CollectingPid) ->
+work_on_deleting_users(Ord, {_Suffix, Conf} = _Item, CollectingPid) ->
     try do_delete_users(Conf) of
         _ ->
             CollectingPid ! {done, Ord}
