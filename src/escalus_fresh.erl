@@ -17,23 +17,19 @@
 -define(WORKER_OVERRUN_TIME, 3000).
 -define(MIN_UNREGISTER_TEMPO, 20000).
 
-
--type user_res() :: escalus_users:resource_spec().
--type config() :: escalus:config().
-
 %% @doc
 %% Run story with fresh users (non-breaking API).
 %% The genererated fresh usernames will consist of the predefined {username, U} value
 %% prepended to a unique, per-story suffix.
 %% {username, <<"alice">>} -> {username, <<"alice32.632506">>}
--spec story(config(), [user_res()], fun()) -> any().
+-spec story(escalus:config(), [escalus_users:resource_spec()], fun()) -> any().
 story(Config, UserSpecs, StoryFun) ->
     escalus:story(create_users(Config, UserSpecs), UserSpecs, StoryFun).
 
 %% @doc
 %% See escalus_story:story/3 for the difference between
 %% story/3 and story_with_client_list/3.
--spec story_with_client_list(config(), [user_res()], fun()) -> any().
+-spec story_with_client_list(escalus:config(), [escalus_users:resource_spec()], fun()) -> any().
 story_with_client_list(Config, UserSpecs, StoryFun) ->
     escalus_story:story_with_client_list(create_users(Config, UserSpecs), UserSpecs, StoryFun).
 
@@ -49,7 +45,7 @@ story_with_client_list(Config, UserSpecs, StoryFun) ->
 %% fresh_story_with_config(C,[..],fun(FreshConfig, Alice, Bob) ->
 %%
 %% and any queries rewritten to use FreshConfig within this scope
--spec story_with_config(config(), [user_res()], fun()) -> any().
+-spec story_with_config(escalus:config(), [escalus_users:resource_spec()], fun()) -> any().
 story_with_config(Config, UserSpecs, StoryFun) ->
     FreshConfig = create_users(Config, UserSpecs),
     escalus_story:story_with_client_list(FreshConfig, UserSpecs,
@@ -59,7 +55,7 @@ story_with_config(Config, UserSpecs, StoryFun) ->
 %% Create fresh users for lower-level testing (NOT escalus:stories)
 %% The users are created and the config updated with their fresh usernames.
 %% The side effect is the creation of XMPP users on a server.
--spec create_users(config(), [user_res()]) -> config().
+-spec create_users(escalus:config(), [escalus_users:resource_spec()]) -> escalus:config().
 create_users(Config, UserSpecs) ->
     Suffix = fresh_suffix(),
     FreshSpecs = freshen_specs(Config, UserSpecs, Suffix),
@@ -73,13 +69,13 @@ create_users(Config, UserSpecs) ->
 %% Creates a fresh spec without creating XMPP users on a server.
 %% It is useful when testing some lower level parts of the protocol
 %% i.e. some stream features. It is side-effect free.
--spec freshen_specs(config(), [user_res()]) -> [escalus_users:user_spec()].
+-spec freshen_specs(escalus:config(), [escalus_users:resource_spec()]) -> [escalus_users:user_spec()].
 freshen_specs(Config, UserSpecs) ->
     Suffix = fresh_suffix(),
     lists:map(fun({UserName, Spec}) -> Spec end,
               freshen_specs(Config, UserSpecs, Suffix)).
 
--spec freshen_spec(config(), escalus_users:user_name() | user_res()) -> escalus_users:user_spec().
+-spec freshen_spec(escalus:config(), escalus_users:user_name() | escalus_users:resource_spec()) -> escalus_users:user_spec().
 freshen_spec(Config, {UserName, Res} = UserSpec) ->
     [FreshSpec] = freshen_specs(Config, [{UserName, 1}]),
     FreshSpec;
@@ -87,7 +83,7 @@ freshen_spec(Config, UserName) ->
     freshen_spec(Config, {UserName, 1}).
 
 
--spec freshen_specs(config(), [user_res()], binary()) -> [escalus_users:named_user()].
+-spec freshen_specs(escalus:config(), [escalus_users:resource_spec()], binary()) -> [escalus_users:named_user()].
 freshen_specs(Config, UserSpecs, Suffix) ->
     FreshSpecs = fresh_specs(Config, UserSpecs, Suffix),
     case length(FreshSpecs) == length(UserSpecs) of
@@ -99,7 +95,7 @@ freshen_specs(Config, UserSpecs, Suffix) ->
 
 %% @doc
 %% Creates a fresh user along with XMPP user on a server.
--spec create_fresh_user(config(), user_res() | atom()) -> escalus_users:user_spec().
+-spec create_fresh_user(escalus:config(), escalus_users:resource_spec() | atom()) -> escalus_users:user_spec().
 create_fresh_user(Config, {UserName, _Resource} = UserSpec) ->
     Config2 = create_users(Config, [UserSpec]),
     escalus_users:get_userspec(Config2, UserName);
