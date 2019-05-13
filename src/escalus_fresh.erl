@@ -1,4 +1,5 @@
 -module(escalus_fresh).
+
 -export([story/3,
          story_with_client_list/3,
          story_with_config/3,
@@ -7,6 +8,7 @@
          freshen_spec/2,
          work_on_deleting_users/3, % used by wpool worker
          create_fresh_user/2]).
+
 -export([start/1,
          stop/1,
          clean/0]).
