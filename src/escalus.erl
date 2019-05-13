@@ -121,15 +121,15 @@ get_users(Names) ->
 make_everyone_friends(Config) ->
     escalus_story:make_everyone_friends(Config).
 
--spec fresh_story(config(), escalus_users:user_spec(), fun()) -> any().
+-spec fresh_story(config(), [escalus_users:resource_spec()], fun()) -> any().
 fresh_story(Config, ResourceCounts, Story) ->
     escalus_fresh:story(Config, ResourceCounts, Story).
 
--spec fresh_story_with_config(config(), escalus_users:user_spec(), fun()) -> any().
+-spec fresh_story_with_config(config(), [escalus_users:resource_spec()], fun()) -> any().
 fresh_story_with_config(Config, ResourceCounts, Story) ->
     escalus_fresh:story_with_config(Config, ResourceCounts, Story).
 
--spec story(config(), escalus_users:user_spec(), fun()) -> any().
+-spec story(config(), [escalus_users:resource_spec()], fun()) -> any().
 story(Config, ResourceCounts, Story) ->
     escalus_story:story(Config, ResourceCounts, Story).
 
