@@ -193,7 +193,7 @@ maybe_set_jid(Client = #client{props = Props}) ->
             Client
     end.
 
--spec send_and_receive(client(), exml:element(), receive_options()) ->
+-spec send_and_receive(client(), exml_stream:element(), receive_options()) ->
                      {exml_stream:element(), metadata()} |
                      exml_stream:element() |
                      {error, timeout}.

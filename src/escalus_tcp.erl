@@ -83,7 +83,7 @@ connect(Opts0) ->
     {ok, Pid} = gen_server:start_link(?MODULE, [Opts1, self()], []),
     Pid.
 
--spec send(pid(), exml:element() | binary()) -> ok.
+-spec send(pid(), exml_stream:element() | iodata()) -> ok.
 send(Pid, ElemOrData) ->
     gen_server:cast(Pid, {send, ElemOrData}).
 
@@ -258,9 +258,7 @@ handle_call(stop, _From, S) ->
     wait_until_closed(S#state.socket),
     {stop, normal, ok, S}.
 
--type stream_level_element() :: exml:element() | exml_stream:start() | exml_stream:stop().
-
--spec handle_cast({send, stream_level_element() | iodata()}, state()) ->
+-spec handle_cast({send, exml_stream:element() | iodata()}, state()) ->
     {noreply, state()} | {stop, term(), state()}.
 handle_cast({send, Data}, #state{ on_request = OnRequestFun } = State)
   when is_binary(Data); is_list(Data) ->
