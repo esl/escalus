@@ -17,6 +17,7 @@
          maybe_set_jid/1,
          send_and_receive/3,
          send/2,
+         send_raw/2,
          get_stanza/2,
          get_stanza/3,
          get_stanza/4,
@@ -206,6 +207,11 @@ send(#client{module = Mod, event_client = EventClient, rcv_pid = Pid, jid = Jid}
     escalus_ct:log_stanza(Jid, out, Elem),
     Mod:send(Pid, Elem),
     handle_stanza(Client, Elem, #{}, sent_stanza_handlers(Client)),
+    ok.
+
+-spec send_raw(escalus:client(), iodata()) -> ok.
+send_raw(#client{ module = Mod, rcv_pid = Pid }, Data) ->
+    Mod:send(Pid, Data),
     ok.
 
 -spec get_stanza(client(), any()) -> exml_stream:element().
