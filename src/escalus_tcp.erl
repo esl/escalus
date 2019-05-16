@@ -258,14 +258,16 @@ handle_call(stop, _From, S) ->
     wait_until_closed(S#state.socket),
     {stop, normal, ok, S}.
 
+-type stream_level_element() :: exml:element() | exml_stream:start() | exml_stream:stop().
 
--spec handle_cast({send, exml:element() | iodata()}, state()) ->
+-spec handle_cast({send, stream_level_element() | iodata()}, state()) ->
     {noreply, state()} | {stop, term(), state()}.
-handle_cast({send, #xmlel{} = Elem}, State) ->
-    handle_cast({send, exml:to_iolist(Elem)}, State);
-handle_cast({send, Data}, #state{ on_request = OnRequestFun } = State) ->
+handle_cast({send, Data}, #state{ on_request = OnRequestFun } = State)
+  when is_binary(Data); is_list(Data) ->
     OnRequestFun(maybe_compress_and_send(Data, State)),
     {noreply, State};
+handle_cast({send, StreamLevelElement}, State) ->
+    handle_cast({send, exml:to_iolist(StreamLevelElement)}, State);
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
     {noreply, State#state{parser = NewParser}};
