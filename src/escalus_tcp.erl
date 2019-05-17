@@ -83,7 +83,7 @@ connect(Opts0) ->
     {ok, Pid} = gen_server:start_link(?MODULE, [Opts1, self()], []),
     Pid.
 
--spec send(pid(), exml_stream:element() | iodata()) -> ok.
+-spec send(pid(), exml_stream:element() | [exml_stream:element()] | binary()) -> ok.
 send(Pid, ElemOrData) ->
     gen_server:cast(Pid, {send, ElemOrData}).
 
@@ -258,14 +258,14 @@ handle_call(stop, _From, S) ->
     wait_until_closed(S#state.socket),
     {stop, normal, ok, S}.
 
--spec handle_cast({send, exml_stream:element() | iodata()}, state()) ->
+-spec handle_cast({send, exml_stream:element() | [exml_stream:element()] | binary()}, state()) ->
     {noreply, state()} | {stop, term(), state()}.
-handle_cast({send, Data}, #state{ on_request = OnRequestFun } = State)
-  when is_binary(Data); is_list(Data) ->
+handle_cast({send, Data}, #state{ on_request = OnRequestFun } = State)  when is_binary(Data) ->
     OnRequestFun(maybe_compress_and_send(Data, State)),
     {noreply, State};
-handle_cast({send, StreamLevelElement}, State) ->
-    handle_cast({send, exml:to_iolist(StreamLevelElement)}, State);
+handle_cast({send, StreamLevelElement}, #state{ on_request = OnRequestFun } = State) ->
+    OnRequestFun(maybe_compress_and_send(exml:to_iolist(StreamLevelElement), State)),
+    {noreply, State};
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
     {noreply, State#state{parser = NewParser}};
