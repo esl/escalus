@@ -88,7 +88,7 @@ stop(Config) ->
             ok
     end.
 
--spec create_users(escalus:config(), [user_spec()]) -> escalus:config().
+-spec create_users(escalus:config(), [named_user()]) -> escalus:config().
 create_users(Config, Users) ->
     case auth_type(Config) of
         xmpp ->
@@ -97,13 +97,13 @@ create_users(Config, Users) ->
             M:create_users(Config, Users)
     end.
 
--spec create_users_via_xmpp(escalus:config(), [user_spec()]) -> escalus:config().
+-spec create_users_via_xmpp(escalus:config(), [named_user()]) -> escalus:config().
 create_users_via_xmpp(Config, Users) ->
     CreationResults = [create_user(Config, User) || User <- Users],
     lists:foreach(fun verify_creation/1, CreationResults),
     lists:keystore(escalus_users, 1, Config, {escalus_users, Users}).
 
--spec delete_users(escalus:config(), [user_spec()]) -> escalus:config().
+-spec delete_users(escalus:config(), [named_user()]) -> escalus:config().
 delete_users(Config, Users) ->
     case auth_type(Config) of
         xmpp ->
@@ -270,7 +270,7 @@ verify_creation({error, Error, Raw}) ->
     error_logger:error_msg("error when trying to register user: ~s~n", [RawStr]),
     error(Error).
 
--spec delete_user(escalus:config(), {atom(), user()}) ->
+-spec delete_user(escalus:config(), named_user()) ->
       {ok, _, _} | {error, _, _}.
 delete_user(Config, {_Name, UserSpec}) ->
     Options = get_options(Config, UserSpec),

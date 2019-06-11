@@ -47,8 +47,6 @@
          setup_option/2,
          reset_option/2]).
 
--type user_spec() :: escalus_users:user_spec().
-
 -include("escalus.hrl").
 
 %%%
@@ -208,18 +206,14 @@ reset_option({Option, _, Set, _}, Config) ->
 start(_) -> ok.
 stop(_) -> ok.
 
--spec create_users(escalus:config(), [user_spec()]) -> escalus:config().
+-spec create_users(escalus:config(), [escalus_users:named_user()]) -> escalus:config().
 create_users(Config, Users) ->
-    lists:foreach(fun({_Name, UserSpec}) ->
-                          register_user(Config, UserSpec)
-                  end, Users),
+    lists:foreach(fun (User) -> register_user(Config, User) end, Users),
     lists:keystore(escalus_users, 1, Config, {escalus_users, Users}).
 
--spec delete_users(escalus:config(), [user_spec()]) -> escalus:config().
+-spec delete_users(escalus:config(), [escalus_users:named_user()]) -> escalus:config().
 delete_users(Config, Users) ->
-    lists:foreach(fun({_Name, UserSpec}) ->
-                          unregister_user(Config, UserSpec)
-                  end, Users),
+    lists:foreach(fun(User) -> unregister_user(Config, User) end, Users),
     Config.
 
 %%--------------------------------------------------------------------
@@ -236,13 +230,15 @@ name() -> ?MODULE.
 %% Helpers
 %%--------------------------------------------------------------------
 
-register_user(Config, UserSpec) ->
+-spec register_user(escalus:config(), escalus_users:named_user()) -> any().
+register_user(Config, {_UserName, UserSpec}) ->
     StrFormat = escalus_ct:get_config(ejabberd_string_format),
     USP = [unify_str_arg(Arg, StrFormat) ||
            Arg <- escalus_users:get_usp(Config, UserSpec)],
     rpc(ejabberd_admin, register, USP).
 
-unregister_user(Config, UserSpec) ->
+-spec unregister_user(escalus:config(), escalus_users:named_user()) -> any().
+unregister_user(Config, {_UserName, UserSpec}) ->
     StrFormat = escalus_ct:get_config(ejabberd_string_format),
     USP = [unify_str_arg(Arg, StrFormat) ||
            Arg <- escalus_users:get_usp(Config, UserSpec)],
