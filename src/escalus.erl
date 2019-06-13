@@ -96,7 +96,7 @@ end_per_testcase(_CaseName, Config) ->
 create_users(Config) ->
     escalus_users:create_users(Config).
 
--spec create_users(config(), escalus_users:user_spec()) -> config().
+-spec create_users(config(), [escalus_users:named_user()]) -> config().
 create_users(Config, Users) ->
     escalus_users:create_users(Config, Users).
 
@@ -104,13 +104,14 @@ create_users(Config, Users) ->
 delete_users(Config) ->
     escalus_users:delete_users(Config).
 
--spec delete_users(config(), escalus_users:user_spec()) -> config().
+-spec delete_users(config(), [escalus_users:named_user()]) -> config().
 delete_users(Config, Users) ->
     escalus_users:delete_users(Config, Users).
 
 -spec get_users(Names) -> Result when
-      Names :: all | [escalus_users:user_name()]
-               | {by_name, [escalus_users:user_name()]},
+      Names :: all
+             | [escalus_users:user_name()]
+             | {by_name, [escalus_users:user_name()]},
       Result :: [escalus_users:named_user()].
 get_users(Names) ->
     escalus_users:get_users(Names).
