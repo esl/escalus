@@ -209,7 +209,7 @@ send(#client{module = Mod, event_client = EventClient, rcv_pid = Pid, jid = Jid}
     handle_stanza(Client, Elem, #{}, sent_stanza_handlers(Client)),
     ok.
 
--spec send_raw(escalus:client(), iodata()) -> ok.
+-spec send_raw(escalus:client(), binary()) -> ok.
 send_raw(#client{ module = Mod, rcv_pid = Pid }, Data) ->
     Mod:send(Pid, Data),
     ok.
