@@ -9,6 +9,7 @@
 -behaviour(escalus_connection).
 
 -include_lib("exml/include/exml_stream.hrl").
+-include_lib("exml/include/exml.hrl").
 -include("escalus.hrl").
 
 %% API exports
@@ -82,9 +83,9 @@ connect(Opts0) ->
     {ok, Pid} = gen_server:start_link(?MODULE, [Opts1, self()], []),
     Pid.
 
--spec send(pid(), exml:element()) -> ok.
-send(Pid, Elem) ->
-    gen_server:cast(Pid, {send, Elem}).
+-spec send(pid(), exml_stream:element() | [exml_stream:element()] | binary()) -> ok.
+send(Pid, ElemOrData) ->
+    gen_server:cast(Pid, {send, ElemOrData}).
 
 -spec is_connected(pid()) -> boolean().
 is_connected(Pid) ->
@@ -257,23 +258,13 @@ handle_call(stop, _From, S) ->
     wait_until_closed(S#state.socket),
     {stop, normal, ok, S}.
 
-
--spec handle_cast({send, any()}, any()) -> {noreply, state()} | {stop, term(), state()}.
-handle_cast({send, Elem}, #state{socket = Socket, ssl = Ssl, compress = Compress,
-                                 on_request = OnRequestFun} = State) ->
-    Reply = case {Ssl, Compress} of
-                {true, {zlib, {_, Zout}}} ->
-                    Deflated = zlib:deflate(Zout, exml:to_iolist(Elem), sync),
-                    ok = ssl:send(Socket, Deflated);
-                {true, _} ->
-                    ok = ssl:send(Socket, exml:to_iolist(Elem));
-                {false, {zlib, {_, Zout}}} ->
-                    Deflated = zlib:deflate(Zout, exml:to_iolist(Elem), sync),
-                    ok = gen_tcp:send(State#state.socket, Deflated);
-                {false, false} ->
-                    ok = gen_tcp:send(Socket, exml:to_iolist(Elem))
-            end,
-    OnRequestFun(Reply),
+-spec handle_cast({send, exml_stream:element() | [exml_stream:element()] | binary()}, state()) ->
+    {noreply, state()} | {stop, term(), state()}.
+handle_cast({send, Data}, #state{ on_request = OnRequestFun } = State)  when is_binary(Data) ->
+    OnRequestFun(maybe_compress_and_send(Data, State)),
+    {noreply, State};
+handle_cast({send, StreamLevelElement}, #state{ on_request = OnRequestFun } = State) ->
+    OnRequestFun(maybe_compress_and_send(exml:to_iolist(StreamLevelElement), State)),
     {noreply, State};
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),
@@ -442,16 +433,20 @@ reply_to_ack_requests({false,H,A}, _, _) -> {false, H, A};
 reply_to_ack_requests({true,H,inactive}, _, _) -> {true, H, inactive};
 reply_to_ack_requests({true, H0, active}, Acks, State) ->
     {true,
-     lists:foldl(fun({Ack,H}, _) -> raw_send(State, Ack), H end,
+     % TODO: Maybe compress here?
+     lists:foldl(fun({Ack,H}, _) -> raw_send(exml:to_iolist(Ack), State), H end,
                  H0, Acks),
      active}.
 
-raw_send(#state{socket=Socket, ssl=true}, Elem) ->
-    ssl:send(Socket, exml:to_iolist(Elem));
-raw_send(#state{socket=_Socket, compress=true}, _Elem) ->
-    throw({escalus_tcp, auto_ack_not_implemented_for_compressed_streams});
-raw_send(#state{socket=Socket}, Elem) ->
-    gen_tcp:send(Socket, exml:to_iolist(Elem)).
+maybe_compress_and_send(Data, #state{ compress = {zlib, {_, Zout}} } = State) ->
+    raw_send(zlib:deflate(Zout, Data, sync), State);
+maybe_compress_and_send(Data, State) ->
+    raw_send(Data, State).
+
+raw_send(Data, #state{socket = Socket, ssl = true}) ->
+    ssl:send(Socket, Data);
+raw_send(Data, #state{socket = Socket}) ->
+    gen_tcp:send(Socket, Data).
 
 common_terminate(_Reason, #state{parser = Parser}) ->
     exml_stream:free_parser(Parser).
