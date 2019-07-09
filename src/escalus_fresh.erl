@@ -14,7 +14,7 @@
          clean/0]).
 
 -define(UNREGISTER_WORKERS, 10).
--define(WORKER_OVERRUN_TIME, 3000).
+-define(WORKER_OVERRUN_TIME, application:get_env(escalus, fresh_clean_overrun_time, 3000)).
 -define(MIN_UNREGISTER_TEMPO, 20000).
 
 %% @doc
