@@ -25,7 +25,6 @@
          get_stanza_safe/2,
          get_stanza_safe/3,
          wait/2,
-         wait_safely/2,
          wait_forever/1,
          receive_stanza/2,
          get_sm_h/1,
@@ -239,14 +238,9 @@ get_stanza_safe(Client, Timeout) ->
 get_stanza_safe(Client, Timeout, Pred) ->
     receive_stanza(Client, #{timeout => Timeout, with_metadata => true, safe => true, pred => Pred}).
 
--spec wait(client(), timeout()) -> no_return().
+-spec wait(client(), timeout()) -> ok.
 wait(Client, Timeout) ->
-    receive_stanza(Client, default_recv_opts(Timeout)).
-
--spec wait_safely(client(), timeout()) -> ok.
-wait_safely(Client, Timeout) ->
-    DefaultOpts = default_recv_opts(Timeout),
-    {error, timeout} = receive_stanza(Client, DefaultOpts#{safe => true}),
+    {error, timeout} = receive_stanza(Client, #{timeout => Timeout, pred => fun(_) -> false end}),
     ok.
 
 -spec wait_forever(client()) -> no_return().
@@ -477,6 +471,3 @@ end_stream(#client{module = Mod, props = Props} = Client) ->
     Mod:assert_stream_end(StreamEndRep, Props).
 
 default_timeout() -> 5000.
-
-default_recv_opts(Timeout) ->
-    #{timeout => Timeout, pred => fun(_) -> false end}.
