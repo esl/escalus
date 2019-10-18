@@ -456,7 +456,10 @@ wait_until_closed(Socket) ->
         {tcp_closed, Socket} ->
             ok
     after ?WAIT_FOR_SOCKET_CLOSE_TIMEOUT ->
-            error(tcp_close_timeout)
+            %% Make warning, but allow process exit without an error.
+            %% There are many reasons for this to happen.
+            error_logger:warning_msg("tcp_close_timeout ~p~n", [Socket]),
+            {error, tcp_close_timeout}
     end.
 
 -spec host_to_inet(tuple() | atom() | list() | binary())
