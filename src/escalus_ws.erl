@@ -178,7 +178,8 @@ init([Args, Owner]) ->
     WSUpgradeHeaders = [{<<"sec-websocket-protocol">>, <<"xmpp">>}],
     StreamRef = gun:ws_upgrade(ConnPid, Resource, WSUpgradeHeaders,
                                #{protocols => [{<<"xmpp">>, gun_ws_h}]}),
-    wait_for_ws_upgrade(ConnPid, StreamRef),
+    Timeout = get_option(ws_upgrade_timeout, Args, 5000),
+    wait_for_ws_upgrade(ConnPid, StreamRef, Timeout),
     ParserOpts = case LegacyWS of
                      true -> [];
                      _ -> [{infinite_stream, true}, {autoreset, true}]
@@ -190,7 +191,7 @@ init([Args, Owner]) ->
                 legacy_ws = LegacyWS,
                 event_client = EventClient}}.
 
-wait_for_ws_upgrade(ConnPid, StreamRef) ->
+wait_for_ws_upgrade(ConnPid, StreamRef, Timeout) ->
     receive
         {gun_upgrade, ConnPid, StreamRef, [<<"websocket">>], _} ->
             ok;
@@ -199,7 +200,7 @@ wait_for_ws_upgrade(ConnPid, StreamRef) ->
         {gun_error, ConnPid, _StreamRef, Reason} ->
             exit({ws_upgrade_failed, Reason})
     after %% More clauses here as needed.
-          1000 ->
+          Timeout ->
             exit(ws_upgrade_timeout)
     end.
 
