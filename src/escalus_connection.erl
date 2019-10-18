@@ -480,7 +480,7 @@ default_connection_steps() ->
 start_stream(#client{module = Mod, props = Props} = Client) ->
     StreamStartReq = Mod:stream_start_req(Props),
     send(Client, StreamStartReq),
-    Timeout = proplists:get_value(wait_for_stream_timeout, Props, 1000),
+    Timeout = proplists:get_value(wait_for_stream_timeout, Props, 5000),
     StreamStartRep = get_stanza(Client, stream_start, Timeout),
     Mod:assert_stream_start(StreamStartRep, Props).
 
