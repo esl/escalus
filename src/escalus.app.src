@@ -12,7 +12,7 @@
                   base16,
                   gun,
                   meck,
-                  mustache,
+                  bbmustache,
                   uuid
                  ]},
   {maintainers, ["ESL"]},
