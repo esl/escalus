@@ -921,7 +921,7 @@ xml_to_xmlterm(XML) when is_binary(XML) ->
 -spec render(Snippet, Ctx) -> Text when
       Snippet :: xml_snippet(),
       Ctx :: context(),
-      Text :: string().
+      Text :: binary().
 
 render(Snippet, Ctx) ->
     ValidateCtx = validate_context(Ctx),
