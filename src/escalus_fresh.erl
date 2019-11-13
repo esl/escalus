@@ -216,7 +216,7 @@ case_name_suffix(Config) ->
             <<"_unnamed_">>;
         Name when is_atom(Name) ->
             N = atom_to_binary(Name, unicode),
-            <<"_",N/binary,"_">>
+            <<"_", N/binary, "_">>
     end.
 
 
