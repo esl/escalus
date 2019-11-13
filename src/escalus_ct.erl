@@ -101,13 +101,16 @@ do_log_stanza(Target, Jid, Direction, Stanza) ->
                        [ReportString, Stanza]),
                 ct:fail(Error)
         end,
-    PrintFun = case Target of
-                   console_and_file -> pal;
-                   console -> print;
-                   file -> log
-               end,
+    {PrintFun, PrintArgs} = case Target of
+                                console_and_file ->
+                                    {pal, [ReportString, PrettyStanza]};
+                                console ->
+                                    {print, [ReportString, PrettyStanza]};
+                                file ->
+                                    {log, [ReportString, exml_nif:escape_cdata(PrettyStanza)]}
+                            end,
     %% grep anchor: ct:pal, ct:print, ct:log
-    ct:PrintFun(stanza_log, "~s~n~s", [ReportString, PrettyStanza]).
+    ct:PrintFun(stanza_log, "~s~n~s", PrintArgs).
 
 %% ------------- Common Test hack! -------------
 %% There is a bug in Common Test since 18.3, which causes links to be printed inside <pre/>.
