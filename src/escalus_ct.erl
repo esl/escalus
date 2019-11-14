@@ -18,6 +18,8 @@
 
 -define(APPNAME, escalus).
 
+-include_lib("common_test/include/ct.hrl").
+
 -spec add_log_link(any(), any(), any()) -> ok | false.
 add_log_link(Heading, File, Type) ->
     is_ct_available() andalso
@@ -70,9 +72,14 @@ interpret_config_file_path(RelPath) ->
 -spec log_stanza(undefined | binary(), in | out, exml_stream:element()) -> ok.
 log_stanza(undefined, _, _) -> ok;
 log_stanza(Jid, Direction, Stanza) ->
-    case is_ct_available() andalso ct:get_config(stanza_log) of
-        true ->
-            do_log_stanza(Jid, Direction, Stanza);
+    case {is_ct_available(), ct:get_config(stanza_log)} of
+        {true, true} ->
+            do_log_stanza(console_and_file, Jid, Direction, Stanza);
+        {true, LogTarget}
+          when console_and_file == LogTarget;
+               console == LogTarget;
+               file == LogTarget ->
+            do_log_stanza(LogTarget, Jid, Direction, Stanza);
         _ ->
             ok
     end.
@@ -81,18 +88,30 @@ log_stanza(Jid, Direction, Stanza) ->
 is_ct_available() ->
     code:is_loaded(ct) =/= false andalso ct:get_status() =/= no_tests_running.
 
--spec do_log_stanza(binary(), in | out, exml:element()) -> ok.
-do_log_stanza(Jid, Direction, Stanza) ->
+-spec do_log_stanza(Target, Jid, Direction, Stanza) -> ok when
+      Target :: console_and_file | console | file,
+      Jid :: binary(),
+      Direction :: in | out,
+      Stanza :: exml:element().
+do_log_stanza(Target, Jid, Direction, Stanza) ->
     ReportString = io_lib:format("~s ~p", [Jid, Direction]),
-    PrettyStanza =
-        try
-            iolist_to_binary(exml:to_pretty_iolist(Stanza))
-        catch error:Error ->
-                ct:pal(error, "Cannot convert stanza to iolist: ~s~n~p",
-                       [ReportString, Stanza]),
-                ct:fail(Error)
-        end,
-    ct:pal(stanza_log, "~s~n~s", [ReportString, PrettyStanza]).
+    PrettyStanza = try
+                       iolist_to_binary(exml:to_pretty_iolist(Stanza))
+                   catch error:Error ->
+                             ct:pal(error, "Cannot convert stanza to iolist: ~s~n~p",
+                                    [ReportString, Stanza]),
+                             ct:fail(Error)
+                   end,
+    ct_print_or_log(Target, ReportString, PrettyStanza).
+
+ct_print_or_log(Target, ReportString, PrettyStanza) ->
+    CTFun = case Target of
+                console_and_file -> pal;
+                console -> print;
+                file -> log
+            end,
+    %% grep anchor: ct:pal, ct:print, ct:log
+    ct:CTFun(stanza_log, ?STD_IMPORTANCE, "~s~n~s", [ReportString, PrettyStanza], [esc_chars]).
 
 %% ------------- Common Test hack! -------------
 %% There is a bug in Common Test since 18.3, which causes links to be printed inside <pre/>.
