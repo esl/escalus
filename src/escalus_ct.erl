@@ -18,6 +18,8 @@
 
 -define(APPNAME, escalus).
 
+-include_lib("common_test/include/ct.hrl").
+
 -spec add_log_link(any(), any(), any()) -> ok | false.
 add_log_link(Heading, File, Type) ->
     is_ct_available() andalso
@@ -93,24 +95,23 @@ is_ct_available() ->
       Stanza :: exml:element().
 do_log_stanza(Target, Jid, Direction, Stanza) ->
     ReportString = io_lib:format("~s ~p", [Jid, Direction]),
-    PrettyStanza =
-        try
-            iolist_to_binary(exml:to_pretty_iolist(Stanza))
-        catch error:Error ->
-                ct:pal(error, "Cannot convert stanza to iolist: ~s~n~p",
-                       [ReportString, Stanza]),
-                ct:fail(Error)
-        end,
-    {PrintFun, PrintArgs} = case Target of
-                                console_and_file ->
-                                    {pal, [ReportString, PrettyStanza]};
-                                console ->
-                                    {print, [ReportString, PrettyStanza]};
-                                file ->
-                                    {log, [ReportString, exml_nif:escape_cdata(PrettyStanza)]}
-                            end,
+    PrettyStanza = try
+                       iolist_to_binary(exml:to_pretty_iolist(Stanza))
+                   catch error:Error ->
+                             ct:pal(error, "Cannot convert stanza to iolist: ~s~n~p",
+                                    [ReportString, Stanza]),
+                             ct:fail(Error)
+                   end,
+    ct_print_or_log(Target, ReportString, PrettyStanza).
+
+ct_print_or_log(Target, ReportString, PrettyStanza) ->
+    CTFun = case Target of
+                console_and_file -> pal;
+                console -> print;
+                file -> log
+            end,
     %% grep anchor: ct:pal, ct:print, ct:log
-    ct:PrintFun(stanza_log, "~s~n~s", PrintArgs).
+    ct:CTFun(stanza_log, ?STD_IMPORTANCE, "~s~n~s", [ReportString, PrettyStanza], [esc_chars]).
 
 %% ------------- Common Test hack! -------------
 %% There is a bug in Common Test since 18.3, which causes links to be printed inside <pre/>.
