@@ -1,21 +1,23 @@
 .PHONY: all compile test clean
 
+REBAR = ./rebar3
+
 all: compile
 
 compile:
-	./rebar3 compile
+	$(REBAR) compile
 
 test:
-	./rebar3 eunit
+	$(REBAR) eunit
 
 clean:
-	./rebar3 clean
+	$(REBAR) clean
 
 ct:
-	./rebar3 ct
+	$(REBAR) ct
 
 dialyzer:
-	./rebar3 dialyzer
+	$(REBAR) dialyzer
 
 mongooseim-start:
 	docker run --rm -d -t -h mongooseim-escalus-test-1 --name mongooseim-escalus-test-1 \
