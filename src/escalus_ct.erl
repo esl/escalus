@@ -72,16 +72,26 @@ interpret_config_file_path(RelPath) ->
 -spec log_stanza(undefined | binary(), in | out, exml_stream:element()) -> ok.
 log_stanza(undefined, _, _) -> ok;
 log_stanza(Jid, Direction, Stanza) ->
-    case {is_ct_available(), ct:get_config(stanza_log)} of
-        {true, true} ->
-            do_log_stanza(console_and_file, Jid, Direction, Stanza);
-        {true, LogTarget}
-          when console_and_file == LogTarget;
-               console == LogTarget;
-               file == LogTarget ->
-            do_log_stanza(LogTarget, Jid, Direction, Stanza);
-        _ ->
-            ok
+    case get_stanza_log() of
+        false ->
+            ok;
+        LogTarget ->
+            do_log_stanza(LogTarget, Jid, Direction, Stanza)
+    end.
+
+get_stanza_log() ->
+    case is_ct_available() of
+        true ->
+            case ct:get_config(stanza_log, console_and_file) of
+                true ->
+                    console_and_file;
+                LogTarget when LogTarget == console_and_file;
+                               LogTarget == console;
+                               LogTarget == file  ->
+                    LogTarget
+            end;
+        false ->
+            false
     end.
 
 -spec is_ct_available() -> boolean().
