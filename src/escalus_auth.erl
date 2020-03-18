@@ -11,6 +11,7 @@
          auth_sasl_anon/2,
          auth_sasl_external/2,
          auth_sasl_scram_sha1/2,
+         auth_sasl_scram_sha256/2,
          auth_sasl_oauth/2]).
 
 %% Useful helpers for writing own mechanisms
@@ -50,33 +51,30 @@ auth_digest_md5(Conn, Props) ->
 
 -spec auth_sasl_scram_sha1(client(), user_spec()) -> ok.
 auth_sasl_scram_sha1(Conn, Props) ->
+    auth_sasl_scram_sha(sha, <<"SCRAM-SHA-1">>, Conn, Props).
+
+-spec auth_sasl_scram_sha256(client(), user_spec()) -> ok.
+auth_sasl_scram_sha256(Conn, Props) ->
+    auth_sasl_scram_sha(sha256, <<"SCRAM-SHA-256">>, Conn, Props).
+
+auth_sasl_scram_sha(HashMethod, XMPPMethod, Conn, Props) ->
     Username = get_property(username, Props),
     Nonce = base64:encode(crypto:strong_rand_bytes(16)),
-    ClientFirstMessageBare = csvkv:format([{<<"n">>, Username},
-                                           {<<"r">>, Nonce}],
-                                          false),
+    ClientFirstMessageBare = csvkv:format([{<<"n">>, Username}, {<<"r">>, Nonce}], false),
     GS2Header = <<"n,,">>,
     Payload = <<GS2Header/binary,ClientFirstMessageBare/binary>>,
-    Stanza = escalus_stanza:auth(<<"SCRAM-SHA-1">>, [base64_cdata(Payload)]),
-
+    Stanza = escalus_stanza:auth(XMPPMethod, [base64_cdata(Payload)]),
     ok = escalus_connection:send(Conn, Stanza),
-
-    {Response,
-     SaltedPassword,
-     AuthMessage} = scram_sha1_response(Conn, GS2Header,
-                                        ClientFirstMessageBare, Props),
+    {Response, SaltedPassword, AuthMessage} =
+        scram_sha_response(HashMethod, Conn, GS2Header, ClientFirstMessageBare, Props),
     ResponseStanza = escalus_stanza:auth_response([Response]),
-
-
     ok = escalus_connection:send(Conn, ResponseStanza),
-
     AuthReply = escalus_connection:get_stanza(Conn, auth_reply),
     case AuthReply of
         #xmlel{name = <<"success">>, children = [#xmlcdata{content = CData}]} ->
             V = get_property(<<"v">>, csvkv:parse(base64:decode(CData))),
             Decoded = base64:decode(V),
-            ok = scram_sha1_validate_server(SaltedPassword, AuthMessage,
-                                            Decoded);
+            ok = scram_sha_validate_server(HashMethod, SaltedPassword, AuthMessage, Decoded);
         #xmlel{name = <<"failure">>} ->
             throw({auth_failed, Username, AuthReply})
     end.
@@ -152,30 +150,30 @@ md5_digest_response(ChallengeData, Props) ->
         {<<"authzid">>, FullJid}
     ])).
 
-scram_sha1_response(Conn, GS2Headers, ClientFirstMessageBare, Props) ->
+scram_sha_response(HashMethod, Conn, GS2Headers, ClientFirstMessageBare, Props) ->
     Challenge = get_challenge(Conn, challenge1, false),
     ChallengeData = csvkv:parse(Challenge),
     Password = get_property(password, Props),
     Nonce = get_property(<<"r">>, ChallengeData),
     Iteration = binary_to_integer(get_property(<<"i">>, ChallengeData)),
     Salt = base64:decode(get_property(<<"s">>, ChallengeData)),
-    SaltedPassword = scram:salted_password(Password, Salt, Iteration),
-    ClientKey = scram:client_key(SaltedPassword),
-    StoredKey = scram:stored_key(ClientKey),
+    SaltedPassword = scram:salted_password(HashMethod, Password, Salt, Iteration),
+    ClientKey = scram:client_key(HashMethod, SaltedPassword),
+    StoredKey = scram:stored_key(HashMethod, ClientKey),
     GS2Headers64 = base64:encode(GS2Headers),
     ClientFinalMessageWithoutProof = <<"c=",GS2Headers64/binary,",r=", Nonce/binary>>,
     AuthMessage = <<ClientFirstMessageBare/binary,$,,
                     Challenge/binary,$,,
                     ClientFinalMessageWithoutProof/binary>>,
-    ClientSignature = scram:client_signature(StoredKey, AuthMessage),
+    ClientSignature = scram:client_signature(HashMethod, StoredKey, AuthMessage),
     ClientProof = base64:encode(crypto:exor(ClientKey, ClientSignature)),
     ClientFinalMessage = <<ClientFinalMessageWithoutProof/binary,
                            ",p=", ClientProof/binary>>,
     {base64_cdata(ClientFinalMessage),SaltedPassword, AuthMessage}.
 
-scram_sha1_validate_server(SaltedPassword, AuthMessage, ServerSignature) ->
-    ServerKey = scram:server_key(SaltedPassword),
-    ServerSignatureComputed = scram:server_signature(ServerKey, AuthMessage),
+scram_sha_validate_server(HashMethod, SaltedPassword, AuthMessage, ServerSignature) ->
+    ServerKey = scram:server_key(HashMethod, SaltedPassword),
+    ServerSignatureComputed = scram:server_signature(HashMethod, ServerKey, AuthMessage),
     case ServerSignatureComputed == ServerSignature of
         true ->
             ok;

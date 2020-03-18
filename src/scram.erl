@@ -30,43 +30,43 @@
 
 %% External exports
 %% ejabberd doesn't implement SASLPREP, so we use the similar RESOURCEPREP instead
--export([salted_password/3,
-         stored_key/1,
-         server_key/1,
-         server_signature/2,
-         client_signature/2,
-         client_key/1,
-         client_key/2
+-export([salted_password/4,
+         stored_key/2,
+         server_key/2,
+         server_signature/3,
+         client_signature/3,
+         client_key/2,
+         client_proof_signature/2
         ]).
 
 -type hash_type() :: crypto:sha1() | crypto:sha2().
 
--spec salted_password(binary(), binary(), non_neg_integer()) -> binary().
-salted_password(Password, Salt, IterationCount) ->
-    hi(sha, Password, Salt, IterationCount).
+-spec salted_password(hash_type(), binary(), binary(), non_neg_integer()) -> binary().
+salted_password(Hash, Password, Salt, IterationCount) ->
+    hi(Hash, Password, Salt, IterationCount).
 
--spec client_key(binary()) -> binary().
-client_key(SaltedPassword) ->
-    crypto_hmac(sha, SaltedPassword, <<"Client Key">>).
+-spec client_key(hash_type(), binary()) -> binary().
+client_key(Hash, SaltedPassword) ->
+    crypto_hmac(Hash, SaltedPassword, <<"Client Key">>).
 
--spec stored_key(binary()) -> binary().
-stored_key(ClientKey) -> crypto:hash(sha, ClientKey).
+-spec stored_key(hash_type(), binary()) -> binary().
+stored_key(Hash, ClientKey) -> crypto:hash(Hash, ClientKey).
 
--spec server_key(binary()) -> binary().
-server_key(SaltedPassword) ->
-    crypto_hmac(sha, SaltedPassword, <<"Server Key">>).
+-spec server_key(hash_type(), binary()) -> binary().
+server_key(Hash, SaltedPassword) ->
+    crypto_hmac(Hash, SaltedPassword, <<"Server Key">>).
 
--spec client_signature(binary(), binary()) -> binary().
-client_signature(StoredKey, AuthMessage) ->
-    crypto_hmac(sha, StoredKey, AuthMessage).
+-spec client_signature(hash_type(), binary(), binary()) -> binary().
+client_signature(Hash, StoredKey, AuthMessage) ->
+    crypto_hmac(Hash, StoredKey, AuthMessage).
 
--spec client_key(binary(), binary()) -> binary().
-client_key(ClientProof, ClientSignature) ->
+-spec client_proof_signature(binary(), binary()) -> binary().
+client_proof_signature(ClientProof, ClientSignature) ->
     mask(ClientProof, ClientSignature).
 
--spec server_signature(binary(), binary()) -> binary().
-server_signature(ServerKey, AuthMessage) ->
-    crypto_hmac(sha, ServerKey, AuthMessage).
+-spec server_signature(hash_type(), binary(), binary()) -> binary().
+server_signature(Hash, ServerKey, AuthMessage) ->
+    crypto_hmac(Hash, ServerKey, AuthMessage).
 
 -spec hi(hash_type(), binary(), binary(), non_neg_integer()) -> binary().
 hi(Hash, Password, Salt, IterationCount) ->
