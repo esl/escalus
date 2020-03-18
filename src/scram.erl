@@ -85,5 +85,5 @@ hi_round(Password, UPrev, IterationCount) ->
                                  binary_to_list(hi_round(Password, U,
                                                          IterationCount - 1)))).
 
-crypto_hmac(sha, Key, Data) ->
-    crypto:hmac(sha, Key, Data).
+crypto_hmac(SHA, Key, Data) ->
+    crypto:mac(hmac, SHA, Key, Data).
