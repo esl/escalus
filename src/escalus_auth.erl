@@ -11,7 +11,10 @@
          auth_sasl_anon/2,
          auth_sasl_external/2,
          auth_sasl_scram_sha1/2,
+         auth_sasl_scram_sha224/2,
          auth_sasl_scram_sha256/2,
+         auth_sasl_scram_sha384/2,
+         auth_sasl_scram_sha512/2,
          auth_sasl_oauth/2]).
 
 %% Useful helpers for writing own mechanisms
@@ -53,9 +56,21 @@ auth_digest_md5(Conn, Props) ->
 auth_sasl_scram_sha1(Conn, Props) ->
     auth_sasl_scram_sha(sha, <<"SCRAM-SHA-1">>, Conn, Props).
 
+-spec auth_sasl_scram_sha224(client(), user_spec()) -> ok.
+auth_sasl_scram_sha224(Conn, Props) ->
+    auth_sasl_scram_sha(sha224, <<"SCRAM-SHA-224">>, Conn, Props).
+
 -spec auth_sasl_scram_sha256(client(), user_spec()) -> ok.
 auth_sasl_scram_sha256(Conn, Props) ->
     auth_sasl_scram_sha(sha256, <<"SCRAM-SHA-256">>, Conn, Props).
+
+-spec auth_sasl_scram_sha384(client(), user_spec()) -> ok.
+auth_sasl_scram_sha384(Conn, Props) ->
+    auth_sasl_scram_sha(sha384, <<"SCRAM-SHA-384">>, Conn, Props).
+
+-spec auth_sasl_scram_sha512(client(), user_spec()) -> ok.
+auth_sasl_scram_sha512(Conn, Props) ->
+    auth_sasl_scram_sha(sha512, <<"SCRAM-SHA-512">>, Conn, Props).
 
 auth_sasl_scram_sha(HashMethod, XMPPMethod, Conn, Props) ->
     Username = get_property(username, Props),
