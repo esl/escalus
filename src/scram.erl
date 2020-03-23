@@ -29,7 +29,6 @@
 -author('stephen.roettger@googlemail.com').
 
 %% External exports
-%% ejabberd doesn't implement SASLPREP, so we use the similar RESOURCEPREP instead
 -export([salted_password/4,
          stored_key/2,
          server_key/2,
@@ -90,4 +89,4 @@ mask(Key, Data) ->
 
 -spec crypto_hmac(hash_type(), binary(), binary()) -> binary() | no_return().
 crypto_hmac(SHA, Key, Data) ->
-    crypto:mac(hmac, SHA, Key, Data).
+    crypto:hmac(SHA, Key, Data).
