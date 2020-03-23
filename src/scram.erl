@@ -29,61 +29,64 @@
 -author('stephen.roettger@googlemail.com').
 
 %% External exports
-%% ejabberd doesn't implement SASLPREP, so we use the similar RESOURCEPREP instead
--export([salted_password/3, stored_key/1, server_key/1,
-         server_signature/2, client_signature/2, client_key/1,
-         client_key/2]).
+-export([salted_password/4,
+         stored_key/2,
+         server_key/2,
+         server_signature/3,
+         client_signature/3,
+         client_key/2,
+         client_proof_signature/2
+        ]).
 
--spec salted_password(binary(), binary(), non_neg_integer()) -> binary().
+-type hash_type() :: crypto:sha1() | crypto:sha2().
 
-salted_password(Password, Salt, IterationCount) ->
-    hi(Password, Salt, IterationCount).
+-spec salted_password(hash_type(), binary(), binary(), non_neg_integer()) -> binary().
+salted_password(Hash, Password, Salt, IterationCount) ->
+    hi(Hash, Password, Salt, IterationCount).
 
--spec client_key(binary()) -> binary().
+-spec client_key(hash_type(), binary()) -> binary().
+client_key(Hash, SaltedPassword) ->
+    crypto_hmac(Hash, SaltedPassword, <<"Client Key">>).
 
-client_key(SaltedPassword) ->
-    crypto_hmac(sha, SaltedPassword, <<"Client Key">>).
+-spec stored_key(hash_type(), binary()) -> binary().
+stored_key(Hash, ClientKey) -> crypto:hash(Hash, ClientKey).
 
--spec stored_key(binary()) -> binary().
-stored_key(ClientKey) -> crypto:hash(sha, ClientKey).
+-spec server_key(hash_type(), binary()) -> binary().
+server_key(Hash, SaltedPassword) ->
+    crypto_hmac(Hash, SaltedPassword, <<"Server Key">>).
 
--spec server_key(binary()) -> binary().
+-spec client_signature(hash_type(), binary(), binary()) -> binary().
+client_signature(Hash, StoredKey, AuthMessage) ->
+    crypto_hmac(Hash, StoredKey, AuthMessage).
 
-server_key(SaltedPassword) ->
-    crypto_hmac(sha, SaltedPassword, <<"Server Key">>).
+-spec client_proof_signature(binary(), binary()) -> binary().
+client_proof_signature(ClientProof, ClientSignature) ->
+    mask(ClientProof, ClientSignature).
 
--spec client_signature(binary(), binary()) -> binary().
+-spec server_signature(hash_type(), binary(), binary()) -> binary().
+server_signature(Hash, ServerKey, AuthMessage) ->
+    crypto_hmac(Hash, ServerKey, AuthMessage).
 
-client_signature(StoredKey, AuthMessage) ->
-    crypto_hmac(sha, StoredKey, AuthMessage).
+-spec hi(hash_type(), binary(), binary(), non_neg_integer()) -> binary().
+hi(Hash, Password, Salt, IterationCount) ->
+    U1 = crypto_hmac(Hash, Password, <<Salt/binary, 0, 0, 0, 1>>),
+    mask(U1, hi_round(Hash, Password, U1, IterationCount - 1)).
 
--spec client_key(binary(), binary()) -> binary().
+-spec hi_round(hash_type(), binary(), binary(), non_neg_integer()) -> binary().
+hi_round(Hash, Password, UPrev, 1) ->
+    crypto_hmac(Hash, Password, UPrev);
+hi_round(Hash, Password, UPrev, IterationCount) ->
+    U = crypto_hmac(Hash, Password, UPrev),
+    mask(U, hi_round(Hash, Password, U, IterationCount - 1)).
 
-client_key(ClientProof, ClientSignature) ->
-    list_to_binary(lists:zipwith(fun (X, Y) -> X bxor Y end,
-                                 binary_to_list(ClientProof),
-                                 binary_to_list(ClientSignature))).
+-spec mask(binary(), binary()) -> binary().
+mask(Key, Data) ->
+    KeySize = size(Key) * 8,
+    <<A:KeySize>> = Key,
+    <<B:KeySize>> = Data,
+    C = A bxor B,
+    <<C:KeySize>>.
 
--spec server_signature(binary(), binary()) -> binary().
-
-server_signature(ServerKey, AuthMessage) ->
-    crypto_hmac(sha, ServerKey, AuthMessage).
-
-hi(Password, Salt, IterationCount) ->
-    U1 = crypto_hmac(sha, Password, <<Salt/binary, 0, 0, 0, 1>>),
-    list_to_binary(lists:zipwith(fun (X, Y) -> X bxor Y end,
-                                 binary_to_list(U1),
-                                 binary_to_list(hi_round(Password, U1,
-                                                         IterationCount - 1)))).
-
-hi_round(Password, UPrev, 1) ->
-    crypto_hmac(sha, Password, UPrev);
-hi_round(Password, UPrev, IterationCount) ->
-    U = crypto_hmac(sha, Password, UPrev),
-    list_to_binary(lists:zipwith(fun (X, Y) -> X bxor Y end,
-                                 binary_to_list(U),
-                                 binary_to_list(hi_round(Password, U,
-                                                         IterationCount - 1)))).
-
-crypto_hmac(sha, Key, Data) ->
-    crypto:hmac(sha, Key, Data).
+-spec crypto_hmac(hash_type(), binary(), binary()) -> binary() | no_return().
+crypto_hmac(SHA, Key, Data) ->
+    crypto:hmac(SHA, Key, Data).
