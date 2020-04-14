@@ -15,7 +15,7 @@
 %%==============================================================================
 
 -record(state, {owner,
-                socket :: gen_tcp:socket() | fast_tls:tls_socket(),
+                socket :: gen_tcp:socket() | ssl:sslsocket() | fast_tls:tls_socket(),
                 parser,
                 filter_pred,
                 ssl = false,
