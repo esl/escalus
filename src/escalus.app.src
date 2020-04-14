@@ -13,7 +13,8 @@
                   gun,
                   meck,
                   bbmustache,
-                  uuid
+                  uuid,
+                  fast_tls
                  ]},
   {maintainers, ["ESL"]},
   {licenses, ["Apache 2.0"]},
