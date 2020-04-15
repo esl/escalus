@@ -19,6 +19,7 @@
                 parser,
                 filter_pred,
                 ssl = false,
+                tls_module = ssl,
                 compress = false,
                 event_client,
                 on_reply,
