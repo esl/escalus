@@ -61,6 +61,7 @@
         host              => binary() | inet:ip_address() | inet:hostname(),
         port              => pos_integer(),
         ssl               => boolean(),
+        tls_module        => ssl | fast_tls,
         stream_management => boolean(),
         manual_ack        => boolean(),
         iface             => inet:ip_address(),
@@ -138,8 +139,6 @@ kill(Pid) ->
             already_stopped
     end.
 
-%% TODO get rid of the functions using #client
-
 -spec upgrade_to_tls(pid(), [ssl:ssl_option()]) -> ok.
 upgrade_to_tls(Pid, SSLOpts) ->
     case gen_server:call(Pid, {upgrade_to_tls, SSLOpts}) of
@@ -192,6 +191,7 @@ set_active(Pid, Active) ->
 init([Opts0, Owner]) ->
     Opts1 = overwrite_default_opts(Opts0, default_options()),
     #{ssl          := IsSSLConnection,
+      tls_module   := TLSMod,
       on_reply     := OnReplyFun,
       on_request   := OnRequestFun,
       parser_opts  := ParserOpts,
@@ -204,6 +204,7 @@ init([Opts0, Owner]) ->
                 socket = Socket,
                 parser = Parser,
                 ssl = IsSSLConnection,
+                tls_module = TLSMod,
                 sm_state = SM,
                 event_client = EventClient,
                 on_reply = OnReplyFun,
@@ -216,15 +217,15 @@ handle_call(get_sm_h, _From, #state{sm_state = {_, H, _}} = State) ->
 handle_call({set_sm_h, H}, _From, #state{sm_state = {A, _OldH, S}} = State) ->
     NewState = State#state{sm_state={A, H, S}},
     {reply, {ok, H}, NewState};
-handle_call({upgrade_to_tls, SSLOpts}, _From, #state{socket = Socket} = State) ->
+handle_call({upgrade_to_tls, SSLOpts}, _From, #state{socket = Socket,
+                                                     tls_module = TLSMod} = State) ->
     SSLOpts1 = [{reuse_sessions, true}],
-    SSLOpts2 = lists:keymerge(1, lists:keysort(1, SSLOpts),
-                              lists:keysort(1, SSLOpts1)),
-    case ssl:connect(Socket, SSLOpts2) of
-        {ok, Socket2} ->
+    SSLOpts2 = lists:keymerge(1, lists:keysort(1, SSLOpts), lists:keysort(1, SSLOpts1)),
+    case tcp_to_tls(TLSMod, Socket, SSLOpts2) of
+        {ok, TlsSocket} ->
             {ok, Parser} = exml_stream:new_parser(),
-            {reply, Socket2,
-             State#state{socket = Socket2, parser = Parser, ssl=true}};
+            {reply, TlsSocket, State#state{socket = TlsSocket, parser = Parser,
+                                           ssl = true, tls_module = TLSMod}};
         {error, _} = E ->
             {reply, E, State}
     end;
@@ -240,15 +241,17 @@ handle_call(get_active, _From, #state{active = Active} = State) ->
     {reply, Active, State};
 handle_call(get_compress, _From, #state{compress = Compress} = State) ->
     {reply, Compress, State};
-handle_call(get_ssl, _From, #state{ssl = Ssl} = State) ->
-    {reply, Ssl, State};
+handle_call(get_ssl, _From, #state{ssl = false} = State) ->
+    {reply, false, State};
+handle_call(get_ssl, _From, #state{ssl = _} = State) ->
+    {reply, true, State};
 handle_call({set_active, Active}, _From, State) ->
     {reply, ok, set_active_opt(State,Active)};
 handle_call({set_filter_pred, Pred}, _From, State) ->
     {reply, ok, State#state{filter_pred = Pred}};
-handle_call(kill_connection, _, #state{socket = Socket, ssl = SSL} = S) ->
+handle_call(kill_connection, _, #state{socket = Socket, ssl = SSL, tls_module = TLSMod} = S) ->
     case SSL of
-        true -> ssl:close(Socket);
+        true -> TLSMod:close(Socket);
         false -> gen_tcp:close(Socket)
     end,
     close_compression_streams(S#state.compress),
@@ -276,8 +279,13 @@ handle_cast(stop, State) ->
 handle_info({tcp, Socket, Data}, #state{socket = Socket, ssl = false} = State) ->
     NewState = handle_data(Socket, Data, State),
     {noreply, NewState};
-handle_info({ssl, Socket, Data}, #state{socket = Socket, ssl = true} = State) ->
+handle_info({ssl, Socket, Data}, #state{socket = Socket, ssl = true, tls_module = ssl} = State) ->
     NewState = handle_data(Socket, Data, State),
+    {noreply, NewState};
+handle_info({tcp, TcpSocket, Data}, #state{socket = {tlssock, TcpSocket, _} = TlsSocket,
+                                           ssl = true, tls_module = fast_tls} = State) ->
+    {ok, NewData} = fast_tls:recv_data(TlsSocket, Data),
+    NewState = handle_data(TlsSocket, NewData, State),
     {noreply, NewState};
 handle_info({tcp_closed, _Socket}, #state{} = State) ->
     {stop, normal, State};
@@ -291,12 +299,10 @@ handle_info(_, State) ->
     {noreply, State}.
 
 -spec terminate(term(), state()) -> term().
-terminate(Reason, #state{socket = Socket, ssl = true} = State) ->
-    common_terminate(Reason, State),
-    ssl:close(Socket);
+terminate(Reason, #state{socket = Socket, ssl = true, tls_module = TLSMod} = State) ->
+    common_terminate(TLSMod, Socket, Reason, State);
 terminate(Reason, #state{socket = Socket} = State) ->
-    common_terminate(Reason, State),
-    gen_tcp:close(Socket).
+    common_terminate(gen_tcp, Socket, Reason, State).
 
 -spec code_change(term(), state(), term()) -> {ok, state()}.
 code_change(_OldVsn, State, _Extra) ->
@@ -311,6 +317,7 @@ default_options() ->
     #{host              => <<"localhost">>,
       port              => 5222,
       ssl               => false,
+      tls_module        => ssl,
       stream_management => false,
       manual_ack        => false,
       on_reply          => fun(_) -> ok end,
@@ -333,25 +340,27 @@ default_socket_options() ->
 %%%===================================================================
 %%% Helpers
 %%%===================================================================
-set_active_opt(#state{ssl = SSL, socket = Soc} = State, Act) when is_boolean(Act) ->
-    set_active_opt(SSL, Soc, Act),
+set_active_opt(
+  #state{ssl = SSL, socket = Soc, tls_module = TLSMod} = State, Act) when is_boolean(Act) ->
+    set_active_opt(SSL, TLSMod, Soc, Act),
     State#state{active = Act};
-set_active_opt(#state{ssl = SSL, socket = Soc, active = Act} = State, current_opt) ->
-    set_active_opt(SSL, Soc, Act),
+set_active_opt(
+  #state{ssl = SSL, socket = Soc, active = Act, tls_module = TLSMod} = State, current_opt) ->
+    set_active_opt(SSL, TLSMod, Soc, Act),
     State;
-set_active_opt(#state{ssl = SSL, socket = Soc} = State, once) ->
-    set_active_opt(SSL, Soc, true),
+set_active_opt(#state{ssl = SSL, socket = Soc, tls_module = TLSMod} = State, once) ->
+    set_active_opt(SSL, TLSMod, Soc, true),
     State#state{active = false};
-set_active_opt(#state{ssl = SSL, socket = Soc} = State, at_least_once) ->
-    set_active_opt(SSL, Soc, true),
+set_active_opt(#state{ssl = SSL, socket = Soc, tls_module = TLSMod} = State, at_least_once) ->
+    set_active_opt(SSL, TLSMod, Soc, true),
     State.
 
 
-set_active_opt(true, Socket, true) ->
-    ssl:setopts(Socket, [{active, once}]);
-set_active_opt(false, Socket, true) ->
+set_active_opt(true, TLSMod, Socket, true) ->
+    TLSMod:setopts(Socket, [{active, once}]);
+set_active_opt(false, _, Socket, true) ->
     inet:setopts(Socket, [{active, once}]);
-set_active_opt(_,_,_) ->
+set_active_opt(_,_,_,_) ->
     ok.
 
 handle_data(Socket, Data, #state{parser      = Parser,
@@ -443,13 +452,14 @@ maybe_compress_and_send(Data, #state{ compress = {zlib, {_, Zout}} } = State) ->
 maybe_compress_and_send(Data, State) ->
     raw_send(Data, State).
 
-raw_send(Data, #state{socket = Socket, ssl = true}) ->
-    ssl:send(Socket, Data);
+raw_send(Data, #state{socket = Socket, ssl = true, tls_module = TLSMod}) ->
+    TLSMod:send(Socket, Data);
 raw_send(Data, #state{socket = Socket}) ->
     gen_tcp:send(Socket, Data).
 
-common_terminate(_Reason, #state{parser = Parser}) ->
-    exml_stream:free_parser(Parser).
+common_terminate(SocketModule, Socket, _Reason, #state{parser = Parser}) ->
+    exml_stream:free_parser(Parser),
+    SocketModule:close(Socket).
 
 wait_until_closed(Socket) ->
     receive
@@ -487,6 +497,7 @@ close_compression_streams({zlib, {Zin, Zout}}) ->
     end.
 
 do_connect(#{ssl        := IsSSLConn,
+             tls_module := TLSMod,
              on_connect := OnConnectFun,
              host       := Host,
              port       := Port,
@@ -494,7 +505,7 @@ do_connect(#{ssl        := IsSSLConn,
     Address = host_to_inet(Host),
     SocketOpts = get_socket_opts(Opts),
     TimeB = os:timestamp(),
-    Reply = maybe_ssl_connection(IsSSLConn, Address, Port, SocketOpts, SSLOpts),
+    Reply = maybe_ssl_connection(IsSSLConn, TLSMod, Address, Port, SocketOpts, SSLOpts),
     TimeA = os:timestamp(),
     ConnectionTime = timer:now_diff(TimeA, TimeB),
     case Reply of
@@ -505,10 +516,29 @@ do_connect(#{ssl        := IsSSLConn,
     end,
     Reply.
 
-maybe_ssl_connection(true, Address, Port, SocketOpts, SSLOpts) ->
+maybe_ssl_connection(true, fast_tls, Address, Port, SocketOpts, SSLOpts) ->
+    {ok, GenTcpSocket} = gen_tcp:connect(Address, Port, SocketOpts),
+    tcp_to_tls(fast_tls, GenTcpSocket, SSLOpts);
+maybe_ssl_connection(true, ssl, Address, Port, SocketOpts, SSLOpts) ->
     ssl:connect(Address, Port, SocketOpts ++ SSLOpts);
-maybe_ssl_connection(_, Address, Port, SocketOpts, _) ->
+maybe_ssl_connection(_, _, Address, Port, SocketOpts, _) ->
     gen_tcp:connect(Address, Port, SocketOpts).
+
+tcp_to_tls(fast_tls, GenTcpSocket, SSLOpts) ->
+    inet:setopts(GenTcpSocket, [{active, false}]),
+    case fast_tls:tcp_to_tls(GenTcpSocket, [connect | SSLOpts]) of
+        {ok, TlsSocket} ->
+            %% fast_tls requires dummy recv_data/2 call to accomplish TLS handshake
+            fast_tls:recv(TlsSocket, 0, 100),
+            fast_tls:recv_data(TlsSocket, <<>>),
+            fast_tls:recv_data(TlsSocket, <<>>),
+            fast_tls:setopts(TlsSocket, [{active, once}]),
+            {ok, TlsSocket};
+        {error, _} = E ->
+            E
+    end;
+tcp_to_tls(ssl, GenTcpSocket, SSLOpts) ->
+    ssl:connect(GenTcpSocket, SSLOpts).
 
 %%===================================================================
 %%% Init options parsing helpers

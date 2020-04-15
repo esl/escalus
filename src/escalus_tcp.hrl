@@ -15,10 +15,11 @@
 %%==============================================================================
 
 -record(state, {owner,
-                socket,
+                socket :: gen_tcp:socket() | ssl:sslsocket() | fast_tls:tls_socket(),
                 parser,
                 filter_pred,
                 ssl = false,
+                tls_module = ssl,
                 compress = false,
                 event_client,
                 on_reply,
