@@ -15,6 +15,11 @@
          auth_sasl_scram_sha256/2,
          auth_sasl_scram_sha384/2,
          auth_sasl_scram_sha512/2,
+         auth_sasl_scram_sha1_plus/2,
+         auth_sasl_scram_sha224_plus/2,
+         auth_sasl_scram_sha256_plus/2,
+         auth_sasl_scram_sha384_plus/2,
+         auth_sasl_scram_sha512_plus/2,
          auth_sasl_oauth/2]).
 
 %% Useful helpers for writing own mechanisms
@@ -24,6 +29,8 @@
 %% Some shorthands
 -type client() :: escalus_connection:client().
 -type user_spec() :: escalus_users:user_spec().
+-type hash_type() :: scram:hash_type().
+-type plus_variant() :: none | tls_unique.
 
 -include_lib("exml/include/exml.hrl").
 
@@ -52,6 +59,7 @@ auth_digest_md5(Conn, Props) ->
     ok = escalus_connection:send(Conn, ResponseStanza2),
     wait_for_success(get_property(username, Props), Conn).
 
+%% SCRAM Regular
 -spec auth_sasl_scram_sha1(client(), user_spec()) -> ok.
 auth_sasl_scram_sha1(Conn, Props) ->
     auth_sasl_scram_sha(sha, <<"SCRAM-SHA-1">>, Conn, Props).
@@ -72,18 +80,59 @@ auth_sasl_scram_sha384(Conn, Props) ->
 auth_sasl_scram_sha512(Conn, Props) ->
     auth_sasl_scram_sha(sha512, <<"SCRAM-SHA-512">>, Conn, Props).
 
+-spec auth_sasl_scram_sha(hash_type(), binary(), client(), user_spec()) -> ok.
 auth_sasl_scram_sha(HashMethod, XMPPMethod, Conn, Props) ->
+    auth_sasl_scram_sha(none, HashMethod, XMPPMethod, Conn, Props).
+
+%% SCRAM PLUS
+-spec auth_sasl_scram_sha1_plus(client(), user_spec()) -> ok.
+auth_sasl_scram_sha1_plus(Conn, Props) ->
+    auth_sasl_scram_sha(tls_unique, sha, <<"SCRAM-SHA-1">>, Conn, Props).
+
+-spec auth_sasl_scram_sha224_plus(client(), user_spec()) -> ok.
+auth_sasl_scram_sha224_plus(Conn, Props) ->
+    auth_sasl_scram_sha(tls_unique, sha224, <<"SCRAM-SHA-224">>, Conn, Props).
+
+-spec auth_sasl_scram_sha256_plus(client(), user_spec()) -> ok.
+auth_sasl_scram_sha256_plus(Conn, Props) ->
+    auth_sasl_scram_sha(tls_unique, sha256, <<"SCRAM-SHA-256">>, Conn, Props).
+
+-spec auth_sasl_scram_sha384_plus(client(), user_spec()) -> ok.
+auth_sasl_scram_sha384_plus(Conn, Props) ->
+    auth_sasl_scram_sha(tls_unique, sha384, <<"SCRAM-SHA-384">>, Conn, Props).
+
+-spec auth_sasl_scram_sha512_plus(client(), user_spec()) -> ok.
+auth_sasl_scram_sha512_plus(Conn, Props) ->
+    auth_sasl_scram_sha(tls_unique, sha512, <<"SCRAM-SHA-512">>, Conn, Props).
+
+-spec auth_sasl_scram_sha(plus_variant(), hash_type(), binary(), client(), user_spec()) -> ok.
+auth_sasl_scram_sha(PlusVariant, HashMethod, XMPPMethod, Conn, Props) ->
+    %% HERE WE GENERATE THE FIRST AUTH MESSAGE
     Username = get_property(username, Props),
     Nonce = base64:encode(crypto:strong_rand_bytes(16)),
     ClientFirstMessageBare = csvkv:format([{<<"n">>, Username}, {<<"r">>, Nonce}], false),
-    GS2Header = <<"n,,">>,
+    GS2Header = case PlusVariant of
+                    none ->
+                        <<"n,,">>;
+                    tls_unique ->
+                        <<"p=tls-unique,,">>
+                end,
     Payload = <<GS2Header/binary,ClientFirstMessageBare/binary>>,
+    % <<"n,,n=alicE_log_one_scram_51.215262,r=Yp/XFnLbydzdBKGe6eh9qA==">>
     Stanza = escalus_stanza:auth(XMPPMethod, [base64_cdata(Payload)]),
+
+    %% Send <auth> stanza
     ok = escalus_connection:send(Conn, Stanza),
+
+    %% Receive <challenge> stanza
     {Response, SaltedPassword, AuthMessage} =
         scram_sha_response(HashMethod, Conn, GS2Header, ClientFirstMessageBare, Props),
+
+    %% Send <response> stanza
     ResponseStanza = escalus_stanza:auth_response([Response]),
     ok = escalus_connection:send(Conn, ResponseStanza),
+
+    %% Receive (hopefully) a <success> stanza
     AuthReply = escalus_connection:get_stanza(Conn, auth_reply),
     case AuthReply of
         #xmlel{name = <<"success">>, children = [#xmlcdata{content = CData}]} ->
