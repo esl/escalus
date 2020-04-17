@@ -43,7 +43,8 @@
          verify_creation/1,
          delete_user/2,
          get_usp/2,
-         is_mod_register_enabled/1
+         is_mod_register_enabled/1,
+         get_auth_method/1
         ]).
 
 %% Public types

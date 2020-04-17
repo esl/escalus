@@ -73,17 +73,9 @@ starttls(Client) ->
     start_stream(Client).
 
 -spec authenticate(client()) -> client().
-authenticate(Client = #client{props = Props}) ->
-    %% FIXME: as default, select authentication scheme based on stream features
-    {M, F} = proplists:get_value(auth, Props, {escalus_auth, auth_plain}),
-    PropsAfterAuth = case apply(M, F, [Client, Props]) of
-                         ok -> Props;
-                         {ok, P} when is_list(P) -> P
-                     end,
-    escalus_connection:reset_parser(Client),
-    Client1 = escalus_session:start_stream(Client#client{props = PropsAfterAuth}),
-    escalus_session:stream_features(Client1, []),
-    Client1.
+authenticate(Client = #client{}) ->
+    {C, _} = authenticate(Client, []),
+    C.
 
 -spec bind(client()) -> client().
 bind(Client = #client{props = Props0}) ->
@@ -258,8 +250,31 @@ stream_resumption(Client = #client{props = Props}, Features) ->
     {Client#client{props = [{smid, SMID} | Props]}, Features}.
 
 -spec ?CONNECTION_STEP_SIG(authenticate).
-authenticate(Client, Features) ->
-    {authenticate(Client), Features}.
+authenticate(Client = #client{props = Props}, Features) ->
+    {M, F} = select_authentication_mechanism(Props, Features),
+    PropsAfterAuth = case apply(M, F, [Client, Props]) of
+                         ok -> Props;
+                         {ok, P} when is_list(P) -> P
+                     end,
+    escalus_connection:reset_parser(Client),
+    Client1 = escalus_session:start_stream(Client#client{props = PropsAfterAuth}),
+    escalus_session:stream_features(Client1, []),
+    {Client1#client{props = lists:keystore(auth, 1, Props, {auth, {M, F}})}, Features}.
+
+%% as default, select authentication scheme based on stream features published by the server,
+%% unless the user config specifies a different one.
+select_authentication_mechanism(Props, Features) ->
+    case proplists:get_value(auth, Props) of
+        {Mod, Fun} when is_atom(Mod), is_atom(Fun) ->
+            {Mod, Fun};
+        undefined ->
+            BinMechs = proplists:get_value(sasl_mechanisms, Features, [<<"PLAIN">>]),
+            Mechanisms = lists:map(fun escalus_users:get_auth_method/1, BinMechs),
+            case Mechanisms of
+                [] -> {escalus_auth, auth_plain};
+                L -> hd(lists:reverse(L))
+            end
+    end.
 
 -spec ?CONNECTION_STEP_SIG(bind).
 bind(Client, Features) ->
