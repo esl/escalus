@@ -8,3 +8,4 @@ deps
 dialyzer
 .eunit
 test/*.beam
+_build/
