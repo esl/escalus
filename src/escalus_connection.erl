@@ -31,6 +31,7 @@
          get_sm_h/1,
          set_sm_h/2,
          set_filter_predicate/2,
+         get_tls_last_message/1,
          reset_parser/1,
          is_connected/1,
          wait_for_close/2,
@@ -384,6 +385,12 @@ set_sm_h(#client{module = Mod}, _) ->
 -spec set_filter_predicate(client(), filter_pred()) -> ok.
 set_filter_predicate(#client{module = Module, rcv_pid = Pid}, Pred) ->
     Module:set_filter_predicate(Pid, Pred).
+
+-spec get_tls_last_message(client()) -> {ok, binary()} | {error, undefined_tls_message}.
+get_tls_last_message(#client{module = escalus_tcp, rcv_pid = Pid}) ->
+    escalus_tcp:get_tls_last_message(Pid);
+get_tls_last_message(#client{module = Mod}) ->
+    error({get_tls_last_message, {undefined_for_escalus_module, Mod}}).
 
 -spec reset_parser(client()) -> ok.
 reset_parser(#client{module = Mod, rcv_pid = Pid}) ->
