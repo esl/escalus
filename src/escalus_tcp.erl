@@ -29,7 +29,9 @@
          stream_start_req/1,
          stream_end_req/1,
          assert_stream_start/2,
-         assert_stream_end/2]).
+         assert_stream_end/2,
+         get_tls_last_message/1
+        ]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -115,6 +117,10 @@ is_using_ssl(Pid) ->
 -spec set_filter_predicate(pid(), escalus_connection:filter_pred()) -> ok.
 set_filter_predicate(Pid, Pred) ->
     gen_server:call(Pid, {set_filter_pred, Pred}).
+
+-spec get_tls_last_message(pid()) -> {ok, binary()} | {error, undefined_tls_message}.
+get_tls_last_message(Pid) ->
+    gen_server:call(Pid, get_tls_last_message).
 
 -spec stop(pid()) -> ok | already_stopped.
 stop(Pid) ->
@@ -249,6 +255,12 @@ handle_call({set_active, Active}, _From, State) ->
     {reply, ok, set_active_opt(State,Active)};
 handle_call({set_filter_pred, Pred}, _From, State) ->
     {reply, ok, State#state{filter_pred = Pred}};
+handle_call(get_tls_last_message, _From,
+            #state{socket = Socket, ssl = true, tls_module = fast_tls} = S) ->
+    Reply = {ok, fast_tls:get_tls_last_message(self, Socket)},
+    {reply, Reply, S};
+handle_call(get_tls_last_message, _From, #state{} = S) ->
+    {reply, {error, undefined_tls_message}, S};
 handle_call(kill_connection, _, #state{socket = Socket, ssl = SSL, tls_module = TLSMod} = S) ->
     case SSL of
         true -> TLSMod:close(Socket);

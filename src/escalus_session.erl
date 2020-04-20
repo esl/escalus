@@ -251,8 +251,11 @@ stream_resumption(Client = #client{props = Props}, Features) ->
 
 -spec ?CONNECTION_STEP_SIG(authenticate).
 authenticate(Client = #client{props = Props}, Features) ->
-    {M, F} = select_authentication_mechanism(Props, Features),
-    PropsAfterAuth = case apply(M, F, [Client, Props]) of
+    BinMechs = lists:reverse(proplists:get_value(sasl_mechanisms, Features, [<<"PLAIN">>])),
+    {M, F} = select_authentication_mechanism(Props, BinMechs),
+    ServerPLUS = server_supports_channel_binding(BinMechs),
+    PropsBeforeAuth = lists:keystore(server_auth, 1, Props, {server_auth, [{plus, ServerPLUS}]}),
+    PropsAfterAuth = case apply(M, F, [Client, PropsBeforeAuth]) of
                          ok -> Props;
                          {ok, P} when is_list(P) -> P
                      end,
@@ -263,18 +266,20 @@ authenticate(Client = #client{props = Props}, Features) ->
 
 %% as default, select authentication scheme based on stream features published by the server,
 %% unless the user config specifies a different one.
-select_authentication_mechanism(Props, Features) ->
+select_authentication_mechanism(Props, BinMechs) ->
     case proplists:get_value(auth, Props) of
         {Mod, Fun} when is_atom(Mod), is_atom(Fun) ->
             {Mod, Fun};
         undefined ->
-            BinMechs = proplists:get_value(sasl_mechanisms, Features, [<<"PLAIN">>]),
             Mechanisms = lists:map(fun escalus_users:get_auth_method/1, BinMechs),
             case Mechanisms of
                 [] -> {escalus_auth, auth_plain};
-                L -> hd(lists:reverse(L))
+                L -> hd(L)
             end
     end.
+
+server_supports_channel_binding(ScramList) when is_list(ScramList) ->
+    lists:any(fun(Bin) -> binary:longest_common_suffix([Bin, <<"-PLUS">>]) == 5 end, ScramList).
 
 -spec ?CONNECTION_STEP_SIG(bind).
 bind(Client, Features) ->

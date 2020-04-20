@@ -111,14 +111,10 @@ auth_sasl_scram_sha(PlusVariant, HashMethod, XMPPMethod, Conn, Props) ->
     Username = get_property(username, Props),
     Nonce = base64:encode(crypto:strong_rand_bytes(16)),
     ClientFirstMessageBare = csvkv:format([{<<"n">>, Username}, {<<"r">>, Nonce}], false),
-    GS2Header = case PlusVariant of
-                    none ->
-                        <<"n,,">>;
-                    tls_unique ->
-                        <<"p=tls-unique,,">>
-                end,
-    Payload = <<GS2Header/binary,ClientFirstMessageBare/binary>>,
+    GS2Header = scram_sha_auth_payload(PlusVariant, Props),
+    Payload = <<GS2Header/binary, ClientFirstMessageBare/binary>>,
     % <<"n,,n=alicE_log_one_scram_51.215262,r=Yp/XFnLbydzdBKGe6eh9qA==">>
+    % <<"p=tls-unique,,n=alicE_log_one_scram_51.215262,r=Yp/XFnLbydzdBKGe6eh9qA==">>
     Stanza = escalus_stanza:auth(XMPPMethod, [base64_cdata(Payload)]),
 
     %% Send <auth> stanza
@@ -126,7 +122,7 @@ auth_sasl_scram_sha(PlusVariant, HashMethod, XMPPMethod, Conn, Props) ->
 
     %% Receive <challenge> stanza
     {Response, SaltedPassword, AuthMessage} =
-        scram_sha_response(HashMethod, Conn, GS2Header, ClientFirstMessageBare, Props),
+        scram_sha_response(PlusVariant, HashMethod, Conn, GS2Header, ClientFirstMessageBare, Props),
 
     %% Send <response> stanza
     ResponseStanza = escalus_stanza:auth_response([Response]),
@@ -214,7 +210,7 @@ md5_digest_response(ChallengeData, Props) ->
         {<<"authzid">>, FullJid}
     ])).
 
-scram_sha_response(HashMethod, Conn, GS2Headers, ClientFirstMessageBare, Props) ->
+scram_sha_response(PlusVariant, HashMethod, Conn, GS2Headers, ClientFirstMessageBare, Props) ->
     Challenge = get_challenge(Conn, challenge1, false),
     ChallengeData = csvkv:parse(Challenge),
     Password = get_property(password, Props),
@@ -224,8 +220,8 @@ scram_sha_response(HashMethod, Conn, GS2Headers, ClientFirstMessageBare, Props) 
     SaltedPassword = scram:salted_password(HashMethod, Password, Salt, Iteration),
     ClientKey = scram:client_key(HashMethod, SaltedPassword),
     StoredKey = scram:stored_key(HashMethod, ClientKey),
-    GS2Headers64 = base64:encode(GS2Headers),
-    ClientFinalMessageWithoutProof = <<"c=",GS2Headers64/binary,",r=", Nonce/binary>>,
+    CAttribute = build_c_attribute(PlusVariant, GS2Headers, Conn),
+    ClientFinalMessageWithoutProof = <<CAttribute/binary,",r=", Nonce/binary>>,
     AuthMessage = <<ClientFirstMessageBare/binary,$,,
                     Challenge/binary,$,,
                     ClientFinalMessageWithoutProof/binary>>,
@@ -235,6 +231,15 @@ scram_sha_response(HashMethod, Conn, GS2Headers, ClientFirstMessageBare, Props) 
                            ",p=", ClientProof/binary>>,
     {base64_cdata(ClientFinalMessage),SaltedPassword, AuthMessage}.
 
+build_c_attribute(none, GS2Headers, _Conn) ->
+    GS2Headers64 = base64:encode(GS2Headers),
+    <<"c=",GS2Headers64/binary>>;
+build_c_attribute(tls_unique, GS2Headers, Conn) ->
+    {ok, FinishedTLS} = escalus_connection:get_tls_last_message(Conn),
+    GS2Headers64 = base64:encode(GS2Headers),
+    FinishedTLS64 = base64:encode(FinishedTLS),
+    <<"c=",GS2Headers64/binary, FinishedTLS64/binary>>.
+
 scram_sha_validate_server(HashMethod, SaltedPassword, AuthMessage, ServerSignature) ->
     ServerKey = scram:server_key(HashMethod, SaltedPassword),
     ServerSignatureComputed = scram:server_signature(HashMethod, ServerKey, AuthMessage),
@@ -243,6 +248,16 @@ scram_sha_validate_server(HashMethod, SaltedPassword, AuthMessage, ServerSignatu
             ok;
         _ ->
             false
+    end.
+
+scram_sha_auth_payload(none, _) ->
+    <<"n,,">>;
+scram_sha_auth_payload(tls_unique, Props) ->
+    case proplists:get_value(plus, proplists:get_value(server_auth, Props)) of
+        false ->
+            <<"y,,">>;
+        true ->
+            <<"p=tls-unique,,">>
     end.
 
 hex_md5(Data) ->
