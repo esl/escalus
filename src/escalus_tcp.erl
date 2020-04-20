@@ -12,25 +12,27 @@
 -include_lib("exml/include/exml.hrl").
 -include("escalus.hrl").
 
-%% API exports
+%% Escalus transport callbacks
 -export([connect/1,
          send/2,
          is_connected/1,
-         upgrade_to_tls/2,
-         use_zlib/1,
          reset_parser/1,
+         use_zlib/1,
+         upgrade_to_tls/2,
+         set_filter_predicate/2,
+         stop/1,
+         kill/1,
          get_sm_h/1,
          set_sm_h/2,
          is_using_compression/1,
          is_using_ssl/1,
-         set_filter_predicate/2,
-         stop/1,
-         kill/1,
-         stream_start_req/1,
+         get_tls_last_message/1
+        ]).
+%% Connection stream start and end callbacks
+-export([stream_start_req/1,
          stream_end_req/1,
          assert_stream_start/2,
-         assert_stream_end/2,
-         get_tls_last_message/1
+         assert_stream_end/2
         ]).
 
 %% gen_server callbacks

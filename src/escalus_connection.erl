@@ -74,17 +74,22 @@
 %% they're escalus_connection:t().
 %% This is purely informal, for Dialyzer it's just a module().
 -type t() :: module().
+-type user_spec() :: escalus_users:user_spec().
 
 -callback connect([proplists:property()]) -> pid().
 -callback send(pid(), exml:element()) -> ok.
--callback stop(pid()) -> ok | already_stopped.
-
 -callback is_connected(pid()) -> boolean().
 -callback reset_parser(pid()) -> ok.
--callback kill(pid()) -> ok | already_stopped.
 -callback use_zlib(pid()) -> ok.
 -callback upgrade_to_tls(pid(), proplists:proplist()) -> ok.
 -callback set_filter_predicate(pid(), filter_pred()) -> ok.
+-callback stop(pid()) -> ok | already_stopped.
+-callback kill(pid()) -> ok | already_stopped.
+
+-callback stream_start_req(user_spec()) -> exml_stream:element().
+-callback stream_end_req(user_spec()) -> exml_stream:element().
+-callback assert_stream_start(exml_stream:element(), user_spec()) -> exml_stream:element().
+-callback assert_stream_end(exml_stream:element(), user_spec()) -> exml_stream:element().
 
 -type stanza_msg() :: {stanza, pid(), exml:element(), map()}.
 
