@@ -122,8 +122,15 @@ stop(Pid) ->
 
 -spec kill(pid()) -> ok | already_stopped.
 kill(Pid) ->
-    mark_as_terminated(Pid),
-    stop(Pid).
+    try
+        mark_as_terminated(Pid),
+        stop(Pid)
+    catch
+        exit:{noproc, {gen_server, call, _}} ->
+            already_stopped;
+        exit:{normal, {gen_server, call, _}} ->
+            already_stopped
+    end.
 
 -spec upgrade_to_tls(_, _) -> no_return().
 upgrade_to_tls(_, _) ->
