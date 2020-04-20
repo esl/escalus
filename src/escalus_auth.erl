@@ -15,6 +15,11 @@
          auth_sasl_scram_sha256/2,
          auth_sasl_scram_sha384/2,
          auth_sasl_scram_sha512/2,
+         auth_sasl_scram_sha1_plus/2,
+         auth_sasl_scram_sha224_plus/2,
+         auth_sasl_scram_sha256_plus/2,
+         auth_sasl_scram_sha384_plus/2,
+         auth_sasl_scram_sha512_plus/2,
          auth_sasl_oauth/2]).
 
 %% Useful helpers for writing own mechanisms
@@ -24,6 +29,12 @@
 %% Some shorthands
 -type client() :: escalus_connection:client().
 -type user_spec() :: escalus_users:user_spec().
+-type hash_type() :: scram:hash_type().
+-type plus_variant() :: none | tls_unique.
+-type scram_options() :: #{plus_variant := plus_variant(),
+                           hash_type := hash_type(),
+                           xmpp_method := binary()
+                          }.
 
 -include_lib("exml/include/exml.hrl").
 
@@ -52,27 +63,68 @@ auth_digest_md5(Conn, Props) ->
     ok = escalus_connection:send(Conn, ResponseStanza2),
     wait_for_success(get_property(username, Props), Conn).
 
+%% SCRAM Regular
 -spec auth_sasl_scram_sha1(client(), user_spec()) -> ok.
 auth_sasl_scram_sha1(Conn, Props) ->
-    auth_sasl_scram_sha(sha, <<"SCRAM-SHA-1">>, Conn, Props).
+    Options = #{plus_variant => none, hash_type => sha, xmpp_method => <<"SCRAM-SHA-1">>},
+    auth_sasl_scram(Options, Conn, Props).
 
 -spec auth_sasl_scram_sha224(client(), user_spec()) -> ok.
 auth_sasl_scram_sha224(Conn, Props) ->
-    auth_sasl_scram_sha(sha224, <<"SCRAM-SHA-224">>, Conn, Props).
+    Options = #{plus_variant => none, hash_type => sha224, xmpp_method => <<"SCRAM-SHA-224">>},
+    auth_sasl_scram(Options, Conn, Props).
 
 -spec auth_sasl_scram_sha256(client(), user_spec()) -> ok.
 auth_sasl_scram_sha256(Conn, Props) ->
-    auth_sasl_scram_sha(sha256, <<"SCRAM-SHA-256">>, Conn, Props).
+    Options = #{plus_variant => none, hash_type => sha256, xmpp_method => <<"SCRAM-SHA-256">>},
+    auth_sasl_scram(Options, Conn, Props).
 
 -spec auth_sasl_scram_sha384(client(), user_spec()) -> ok.
 auth_sasl_scram_sha384(Conn, Props) ->
-    auth_sasl_scram_sha(sha384, <<"SCRAM-SHA-384">>, Conn, Props).
+    Options = #{plus_variant => none, hash_type => sha384, xmpp_method => <<"SCRAM-SHA-384">>},
+    auth_sasl_scram(Options, Conn, Props).
 
 -spec auth_sasl_scram_sha512(client(), user_spec()) -> ok.
 auth_sasl_scram_sha512(Conn, Props) ->
-    auth_sasl_scram_sha(sha512, <<"SCRAM-SHA-512">>, Conn, Props).
+    Options = #{plus_variant => none, hash_type => sha512, xmpp_method => <<"SCRAM-SHA-512">>},
+    auth_sasl_scram(Options, Conn, Props).
 
-auth_sasl_scram_sha(HashMethod, XMPPMethod, Conn, Props) ->
+%% SCRAM PLUS
+-spec auth_sasl_scram_sha1_plus(client(), user_spec()) -> ok.
+auth_sasl_scram_sha1_plus(Conn, Props) ->
+    Options = #{plus_variant => tls_unique, hash_type => sha,
+                xmpp_method => <<"SCRAM-SHA-1-PLUS">>},
+    auth_sasl_scram(Options, Conn, Props).
+
+-spec auth_sasl_scram_sha224_plus(client(), user_spec()) -> ok.
+auth_sasl_scram_sha224_plus(Conn, Props) ->
+    Options = #{plus_variant => tls_unique, hash_type => sha224,
+                xmpp_method => <<"SCRAM-SHA-224-PLUS">>},
+    auth_sasl_scram(Options, Conn, Props).
+
+-spec auth_sasl_scram_sha256_plus(client(), user_spec()) -> ok.
+auth_sasl_scram_sha256_plus(Conn, Props) ->
+    Options = #{plus_variant => tls_unique, hash_type => sha256,
+                xmpp_method => <<"SCRAM-SHA-256-PLUS">>},
+    auth_sasl_scram(Options, Conn, Props).
+
+-spec auth_sasl_scram_sha384_plus(client(), user_spec()) -> ok.
+auth_sasl_scram_sha384_plus(Conn, Props) ->
+    Options = #{plus_variant => tls_unique, hash_type => sha384,
+                xmpp_method => <<"SCRAM-SHA-384-PLUS">>},
+    auth_sasl_scram(Options, Conn, Props).
+
+-spec auth_sasl_scram_sha512_plus(client(), user_spec()) -> ok.
+auth_sasl_scram_sha512_plus(Conn, Props) ->
+    Options = #{plus_variant => tls_unique, hash_type => sha512,
+                xmpp_method => <<"SCRAM-SHA-512-PLUS">>},
+    auth_sasl_scram(Options, Conn, Props).
+
+-spec auth_sasl_scram(scram_options(), client(), user_spec()) -> ok.
+auth_sasl_scram(#{plus_variant := PlusVariant,
+                  hash_type := HashMethod,
+                  xmpp_method := XMPPMethod},
+                Conn, Props) ->
     Username = get_property(username, Props),
     Nonce = base64:encode(crypto:strong_rand_bytes(16)),
     ClientFirstMessageBare = csvkv:format([{<<"n">>, Username}, {<<"r">>, Nonce}], false),

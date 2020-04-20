@@ -168,6 +168,7 @@ get_auth_method(<<"DIGEST-MD5">>) ->
     {escalus_auth, auth_digest_md5};
 get_auth_method(<<"SASL-ANON">>) ->
     {escalus_auth, auth_sasl_anon};
+%% SCRAM Regular
 get_auth_method(<<"SCRAM-SHA-1">>) ->
     {escalus_auth, auth_sasl_scram_sha1};
 get_auth_method(<<"SCRAM-SHA-224">>) ->
@@ -178,6 +179,17 @@ get_auth_method(<<"SCRAM-SHA-384">>) ->
     {escalus_auth, auth_sasl_scram_sha384};
 get_auth_method(<<"SCRAM-SHA-512">>) ->
     {escalus_auth, auth_sasl_scram_sha512};
+%% SCRAM PLUS
+get_auth_method(<<"SCRAM-SHA-1-PLUS">>) ->
+    {escalus_auth, auth_sasl_scram_sha1_plus};
+get_auth_method(<<"SCRAM-SHA-224-PLUS">>) ->
+    {escalus_auth, auth_sasl_scram_sha224_plus};
+get_auth_method(<<"SCRAM-SHA-256-PLUS">>) ->
+    {escalus_auth, auth_sasl_scram_sha256_plus};
+get_auth_method(<<"SCRAM-SHA-384-PLUS">>) ->
+    {escalus_auth, auth_sasl_scram_sha384_plus};
+get_auth_method(<<"SCRAM-SHA-512-PLUS">>) ->
+    {escalus_auth, auth_sasl_scram_sha512_plus};
 get_auth_method(<<"X-OAUTH">>) ->
     {escalus_auth, auth_sasl_oauth};
 get_auth_method({Mod, Fun}) when is_atom(Mod), is_atom(Fun) ->
