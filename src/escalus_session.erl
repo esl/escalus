@@ -74,7 +74,10 @@ starttls(Client) ->
 
 -spec authenticate(client()) -> client().
 authenticate(Client = #client{props = Props}) ->
-    %% FIXME: as default, select authentication scheme based on stream features
+    %% NOTE: we could select authentication scheme based on stream features,
+    %% but as a default we use plain, as it incurrs lower load and better logs (no hashing)
+    %% for common setups. If a different mechanism is required then it should be configured on the
+    %% user specification.
     {M, F} = proplists:get_value(auth, Props, {escalus_auth, auth_plain}),
     PropsAfterAuth = case apply(M, F, [Client, Props]) of
                          ok -> Props;
