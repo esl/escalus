@@ -11,7 +11,7 @@
   0},
  {<<"fast_tls">>,
   {git,"https://github.com/NelsonVides/fast_tls.git",
-       {ref,"09a63fc8266f6673cd654417380035df4a8c52bb"}},
+       {ref,"4a49a989038397d445ba9fb19119a199084d0727"}},
   0},
  {<<"fusco">>,
   {git,"https://github.com/esl/fusco.git",

@@ -259,7 +259,7 @@ handle_call({set_filter_pred, Pred}, _From, State) ->
     {reply, ok, State#state{filter_pred = Pred}};
 handle_call(get_tls_last_message, _From,
             #state{socket = Socket, ssl = true, tls_module = fast_tls} = S) ->
-    Reply = {ok, fast_tls:get_tls_last_message(self, Socket)},
+    Reply = fast_tls:get_tls_last_message(self, Socket),
     {reply, Reply, S};
 handle_call(get_tls_last_message, _From, #state{} = S) ->
     {reply, {error, undefined_tls_message}, S};
