@@ -39,6 +39,7 @@
         ]).
 
 -type hash_type() :: crypto:sha1() | crypto:sha2().
+-export_type([hash_type/0]).
 
 -spec salted_password(hash_type(), binary(), binary(), non_neg_integer()) -> binary().
 salted_password(Hash, Password, Salt, IterationCount) ->

@@ -16,13 +16,14 @@
 -export([connect/1,
          send/2,
          is_connected/1,
-         upgrade_to_tls/2,
-         use_zlib/1,
          reset_parser/1,
-         stop/1,
-         kill/1,
+         use_zlib/1,
+         upgrade_to_tls/2,
          set_filter_predicate/2,
-         stream_start_req/1,
+         stop/1,
+         kill/1]).
+%% Connection stream start and end callbacks
+-export([stream_start_req/1,
          stream_end_req/1,
          assert_stream_start/2,
          assert_stream_end/2]).

@@ -31,6 +31,7 @@
          get_sm_h/1,
          set_sm_h/2,
          set_filter_predicate/2,
+         get_tls_last_message/1,
          reset_parser/1,
          is_connected/1,
          wait_for_close/2,
@@ -74,17 +75,22 @@
 %% they're escalus_connection:t().
 %% This is purely informal, for Dialyzer it's just a module().
 -type t() :: module().
+-type user_spec() :: escalus_users:user_spec().
 
 -callback connect([proplists:property()]) -> pid().
 -callback send(pid(), exml:element()) -> ok.
--callback stop(pid()) -> ok | already_stopped.
-
 -callback is_connected(pid()) -> boolean().
 -callback reset_parser(pid()) -> ok.
--callback kill(pid()) -> ok | already_stopped.
 -callback use_zlib(pid()) -> ok.
 -callback upgrade_to_tls(pid(), proplists:proplist()) -> ok.
 -callback set_filter_predicate(pid(), filter_pred()) -> ok.
+-callback stop(pid()) -> ok | already_stopped.
+-callback kill(pid()) -> ok | already_stopped.
+
+-callback stream_start_req(user_spec()) -> exml_stream:element().
+-callback stream_end_req(user_spec()) -> exml_stream:element().
+-callback assert_stream_start(exml_stream:element(), user_spec()) -> exml_stream:element().
+-callback assert_stream_end(exml_stream:element(), user_spec()) -> exml_stream:element().
 
 -type stanza_msg() :: {stanza, pid(), exml:element(), map()}.
 
@@ -379,6 +385,12 @@ set_sm_h(#client{module = Mod}, _) ->
 -spec set_filter_predicate(client(), filter_pred()) -> ok.
 set_filter_predicate(#client{module = Module, rcv_pid = Pid}, Pred) ->
     Module:set_filter_predicate(Pid, Pred).
+
+-spec get_tls_last_message(client()) -> {ok, binary()} | {error, undefined_tls_message}.
+get_tls_last_message(#client{module = escalus_tcp, rcv_pid = Pid}) ->
+    escalus_tcp:get_tls_last_message(Pid);
+get_tls_last_message(#client{module = Mod}) ->
+    error({get_tls_last_message, {undefined_for_escalus_module, Mod}}).
 
 -spec reset_parser(client()) -> ok.
 reset_parser(#client{module = Mod, rcv_pid = Pid}) ->

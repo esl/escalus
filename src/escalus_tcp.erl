@@ -12,24 +12,28 @@
 -include_lib("exml/include/exml.hrl").
 -include("escalus.hrl").
 
-%% API exports
+%% Escalus transport callbacks
 -export([connect/1,
          send/2,
          is_connected/1,
-         upgrade_to_tls/2,
-         use_zlib/1,
          reset_parser/1,
+         use_zlib/1,
+         upgrade_to_tls/2,
+         set_filter_predicate/2,
+         stop/1,
+         kill/1,
          get_sm_h/1,
          set_sm_h/2,
          is_using_compression/1,
          is_using_ssl/1,
-         set_filter_predicate/2,
-         stop/1,
-         kill/1,
-         stream_start_req/1,
+         get_tls_last_message/1
+        ]).
+%% Connection stream start and end callbacks
+-export([stream_start_req/1,
          stream_end_req/1,
          assert_stream_start/2,
-         assert_stream_end/2]).
+         assert_stream_end/2
+        ]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -115,6 +119,10 @@ is_using_ssl(Pid) ->
 -spec set_filter_predicate(pid(), escalus_connection:filter_pred()) -> ok.
 set_filter_predicate(Pid, Pred) ->
     gen_server:call(Pid, {set_filter_pred, Pred}).
+
+-spec get_tls_last_message(pid()) -> {ok, binary()} | {error, undefined_tls_message}.
+get_tls_last_message(Pid) ->
+    gen_server:call(Pid, get_tls_last_message).
 
 -spec stop(pid()) -> ok | already_stopped.
 stop(Pid) ->
@@ -249,6 +257,12 @@ handle_call({set_active, Active}, _From, State) ->
     {reply, ok, set_active_opt(State,Active)};
 handle_call({set_filter_pred, Pred}, _From, State) ->
     {reply, ok, State#state{filter_pred = Pred}};
+handle_call(get_tls_last_message, _From,
+            #state{socket = Socket, ssl = true, tls_module = fast_tls} = S) ->
+    Reply = fast_tls:get_tls_last_message(self, Socket),
+    {reply, Reply, S};
+handle_call(get_tls_last_message, _From, #state{} = S) ->
+    {reply, {error, undefined_tls_message}, S};
 handle_call(kill_connection, _, #state{socket = Socket, ssl = SSL, tls_module = TLSMod} = S) ->
     case SSL of
         true -> TLSMod:close(Socket);
