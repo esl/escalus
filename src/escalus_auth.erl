@@ -245,8 +245,8 @@ build_c_attribute(none, GS2Headers, _Conn) ->
     <<"c=", (base64:encode(GS2Headers))/binary>>;
 build_c_attribute(tls_unique, GS2Headers, Conn) ->
     {ok, FinishedTLS} = escalus_connection:get_tls_last_message(Conn),
-    <<"c=", (base64:encode(GS2Headers))/binary, (base64:encode(FinishedTLS))/binary>>.
-
+    B64Data = <<GS2Headers/binary, FinishedTLS/binary>>,
+    <<"c=", (base64:encode(B64Data))/binary>>.
 
 scram_sha_validate_server(HashMethod, SaltedPassword, AuthMessage, ServerSignature) ->
     ServerKey = scram:server_key(HashMethod, SaltedPassword),
