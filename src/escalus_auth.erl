@@ -128,7 +128,7 @@ auth_sasl_scram(#{plus_variant := PlusVariant,
     Username = get_property(username, Props),
     Nonce = base64:encode(crypto:strong_rand_bytes(16)),
     ClientFirstMessageBare = csvkv:format([{<<"n">>, Username}, {<<"r">>, Nonce}], false),
-    GS2Header = scram_sha_auth_payload(PlusVariant),
+    GS2Header = scram_sha_auth_payload(proplists:get_value(tls_module, Props, ssl), PlusVariant),
     Payload = <<GS2Header/binary, ClientFirstMessageBare/binary>>,
     Stanza = escalus_stanza:auth(XMPPMethod, [base64_cdata(Payload)]),
     ok = escalus_connection:send(Conn, Stanza),
@@ -258,8 +258,9 @@ scram_sha_validate_server(HashMethod, SaltedPassword, AuthMessage, ServerSignatu
             false
     end.
 
-scram_sha_auth_payload(none) -> <<"y,,">>;
-scram_sha_auth_payload(tls_unique) -> <<"p=tls-unique,,">>.
+scram_sha_auth_payload(ssl, _) -> <<"n,,">>;
+scram_sha_auth_payload(fast_tls, none) -> <<"y,,">>;
+scram_sha_auth_payload(fast_tls, tls_unique) -> <<"p=tls-unique,,">>.
 
 hex_md5(Data) ->
     base16:encode(crypto:hash(md5, Data)).
