@@ -1,5 +1,5 @@
 %% Convert deps to Rebar 2 format if necessary
-case erlang:function_exported(rebar3, main, 1) of
+case erlang:function_exported(rebar3, main, 1) orelse erlang:function_exported('Elixir.Mix', env, 0) of
     true -> CONFIG;
     false ->
         R3Deps = proplists:get_value(deps, CONFIG),
@@ -8,7 +8,7 @@ case erlang:function_exported(rebar3, main, 1) of
         %% Rebar 3 accepts more dep formats than the match spec above.
         %% Pattern match failures in comprehensions filter out elements,
         %% so assert we didn't miss any deps.
-        if 
+        if
             length(R2Deps) == length(R3Deps) -> ok;
             length(R2Deps) /= length(R3Deps) ->
                 error("rebar.config.script: skipped some deps")
