@@ -43,7 +43,7 @@
 
 -spec salted_password(hash_type(), binary(), binary(), non_neg_integer()) -> binary().
 salted_password(Hash, Password, Salt, IterationCount) ->
-    hi(Hash, Password, Salt, IterationCount).
+    fast_scram:hi(Hash, Password, Salt, IterationCount).
 
 -spec client_key(hash_type(), binary()) -> binary().
 client_key(Hash, SaltedPassword) ->
@@ -62,31 +62,11 @@ client_signature(Hash, StoredKey, AuthMessage) ->
 
 -spec client_proof_signature(binary(), binary()) -> binary().
 client_proof_signature(ClientProof, ClientSignature) ->
-    mask(ClientProof, ClientSignature).
+    crypto:exor(ClientProof, ClientSignature).
 
 -spec server_signature(hash_type(), binary(), binary()) -> binary().
 server_signature(Hash, ServerKey, AuthMessage) ->
     crypto_hmac(Hash, ServerKey, AuthMessage).
-
--spec hi(hash_type(), binary(), binary(), non_neg_integer()) -> binary().
-hi(Hash, Password, Salt, IterationCount) ->
-    U1 = crypto_hmac(Hash, Password, <<Salt/binary, 0, 0, 0, 1>>),
-    mask(U1, hi_round(Hash, Password, U1, IterationCount - 1)).
-
--spec hi_round(hash_type(), binary(), binary(), non_neg_integer()) -> binary().
-hi_round(Hash, Password, UPrev, 1) ->
-    crypto_hmac(Hash, Password, UPrev);
-hi_round(Hash, Password, UPrev, IterationCount) ->
-    U = crypto_hmac(Hash, Password, UPrev),
-    mask(U, hi_round(Hash, Password, U, IterationCount - 1)).
-
--spec mask(binary(), binary()) -> binary().
-mask(Key, Data) ->
-    KeySize = size(Key) * 8,
-    <<A:KeySize>> = Key,
-    <<B:KeySize>> = Data,
-    C = A bxor B,
-    <<C:KeySize>>.
 
 -spec crypto_hmac(hash_type(), binary(), binary()) -> binary() | no_return().
 crypto_hmac(SHA, Key, Data) ->
