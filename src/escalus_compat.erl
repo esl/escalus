@@ -58,10 +58,8 @@ complain(What) ->
     error_logger:info_msg("~s at ~p~n", [What, backtrace(1)]).
 
 backtrace(N) ->
-    try exit(foo)
-        catch _:_ ->
-            lists:nthtail(N+1, erlang:get_stacktrace())
-    end.
+    {current_stacktrace, Stacktrace} = erlang:process_info(self(), current_stacktrace),
+    lists:nthtail(N + 1, Stacktrace).
 
 %%--------------------------------------------------------------------
 %% Helpers
