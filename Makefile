@@ -4,19 +4,19 @@ REBAR = ./rebar3
 
 all: compile
 
-compile:
+compile: rebar3
 	$(REBAR) compile
 
-test:
+test: rebar3
 	$(REBAR) eunit
 
-clean:
+clean: rebar3
 	$(REBAR) clean
 
-ct:
+ct: rebar3
 	$(REBAR) ct
 
-dialyzer:
+dialyzer: rebar3
 	$(REBAR) dialyzer
 
 mongooseim-start:
@@ -25,3 +25,7 @@ mongooseim-start:
 
 mongooseim-stop:
 	docker stop mongooseim-escalus-test-1
+
+rebar3:
+	wget https://github.com/erlang/rebar3/releases/download/3.13.2/rebar3 &&\
+	chmod u+x rebar3

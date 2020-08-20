@@ -4,7 +4,7 @@
  {<<"cowlib">>,{pkg,<<"cowlib">>,<<"2.6.0">>},1},
  {<<"exml">>,
   {git,"https://github.com/esl/exml.git",
-       {ref,"0a136156bc71ef2d6a8bbb801185ad9c1962aa20"}},
+       {ref,"078499f8b2d36ba9957bc931321f41c0a48c4a05"}},
   0},
  {<<"fast_scram">>,
   {git,"https://github.com/esl/fast_scram.git",
