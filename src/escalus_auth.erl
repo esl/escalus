@@ -126,27 +126,27 @@ auth_sasl_scram(#{plus_variant := PlusVariant,
                   xmpp_method := XMPPMethod},
                 Conn, Props) ->
     Username = get_property(username, Props),
-    Nonce = base64:encode(crypto:strong_rand_bytes(16)),
-    ClientFirstMessageBare = csvkv:format([{<<"n">>, Username}, {<<"r">>, Nonce}], false),
-    GS2Header = scram_sha_auth_payload(proplists:get_value(tls_module, Props, ssl), PlusVariant),
-    Payload = <<GS2Header/binary, ClientFirstMessageBare/binary>>,
-    Stanza = escalus_stanza:auth(XMPPMethod, [base64_cdata(Payload)]),
-    ok = escalus_connection:send(Conn, Stanza),
+    Password = get_property(password, Props),
+    ChannelBinding = scram_sha_auth_payload(
+                       proplists:get_value(tls_module, Props, ssl), PlusVariant, Conn),
+    {ok, ClientState1} = fast_scram:mech_new(
+        #{entity => client, username => Username, hash_method => HashMethod, nonce_size => 16,
+          channel_binding => ChannelBinding, auth_data => #{password => Password}}),
 
-    {Response, SaltedPassword, AuthMessage} =
-        scram_sha_response(PlusVariant, HashMethod, Conn, GS2Header, ClientFirstMessageBare, Props),
+    {continue, ClientFirst, ClientState3} = fast_scram:mech_step(ClientState1, <<>>),
+    AuthStanza = escalus_stanza:auth(XMPPMethod, [base64_cdata(ClientFirst)]),
+    ok = escalus_connection:send(Conn, AuthStanza),
 
-    ResponseStanza = escalus_stanza:auth_response([Response]),
-    ok = escalus_connection:send(Conn, ResponseStanza),
+    Challenge = get_challenge(Conn, challenge, false),
 
-    AuthReply = escalus_connection:get_stanza(Conn, auth_reply),
-    case AuthReply of
-        #xmlel{name = <<"success">>, children = [#xmlcdata{content = CData}]} ->
-            V = get_property(<<"v">>, csvkv:parse(base64:decode(CData))),
-            Decoded = base64:decode(V),
-            ok = scram_sha_validate_server(HashMethod, SaltedPassword, AuthMessage, Decoded);
-        #xmlel{name = <<"failure">>} ->
-            throw({auth_failed, Username, AuthReply})
+    {continue, ClientFinal, ClientState5} = fast_scram:mech_step(ClientState3, Challenge),
+    Response = escalus_stanza:auth_response([base64_cdata(ClientFinal)]),
+    ok = escalus_connection:send(Conn, Response),
+
+    Success = get_success(Conn, challenge, false),
+    case fast_scram:mech_step(ClientState5, Success) of
+        {ok, _, _} -> ok;
+        {error, _, _} -> throw({auth_failed, Username, Success})
     end.
 
 -spec auth_sasl_anon(client(), user_spec()) -> ok.
@@ -220,47 +220,14 @@ md5_digest_response(ChallengeData, Props) ->
         {<<"authzid">>, FullJid}
     ])).
 
-scram_sha_response(PlusVariant, HashMethod, Conn, GS2Headers, ClientFirstMessageBare, Props) ->
-    Challenge = get_challenge(Conn, challenge1, false),
-    ChallengeData = csvkv:parse(Challenge),
-    Password = get_property(password, Props),
-    Nonce = get_property(<<"r">>, ChallengeData),
-    Iteration = binary_to_integer(get_property(<<"i">>, ChallengeData)),
-    Salt = base64:decode(get_property(<<"s">>, ChallengeData)),
-    SaltedPassword = scram:salted_password(HashMethod, Password, Salt, Iteration),
-    ClientKey = scram:client_key(HashMethod, SaltedPassword),
-    StoredKey = scram:stored_key(HashMethod, ClientKey),
-    CAttribute = build_c_attribute(PlusVariant, GS2Headers, Conn),
-    ClientFinalMessageWithoutProof = <<CAttribute/binary, ",r=", Nonce/binary>>,
-    AuthMessage = <<ClientFirstMessageBare/binary,$,,
-                    Challenge/binary,$,,
-                    ClientFinalMessageWithoutProof/binary>>,
-    ClientSignature = scram:client_signature(HashMethod, StoredKey, AuthMessage),
-    ClientProof = base64:encode(crypto:exor(ClientKey, ClientSignature)),
-    ClientFinalMessage = <<ClientFinalMessageWithoutProof/binary,
-                           ",p=", ClientProof/binary>>,
-    {base64_cdata(ClientFinalMessage),SaltedPassword, AuthMessage}.
-
-build_c_attribute(none, GS2Headers, _Conn) ->
-    <<"c=", (base64:encode(GS2Headers))/binary>>;
-build_c_attribute(tls_unique, GS2Headers, Conn) ->
+scram_sha_auth_payload(ssl, _, _) ->
+    {undefined, <<>>};
+scram_sha_auth_payload(fast_tls, none, _) ->
+    {none, <<>>};
+scram_sha_auth_payload(fast_tls, tls_unique, Conn) ->
     {ok, FinishedTLS} = escalus_connection:get_tls_last_message(Conn),
-    B64Data = <<GS2Headers/binary, FinishedTLS/binary>>,
-    <<"c=", (base64:encode(B64Data))/binary>>.
+    {<<"tls-unique">>, FinishedTLS}.
 
-scram_sha_validate_server(HashMethod, SaltedPassword, AuthMessage, ServerSignature) ->
-    ServerKey = scram:server_key(HashMethod, SaltedPassword),
-    ServerSignatureComputed = scram:server_signature(HashMethod, ServerKey, AuthMessage),
-    case ServerSignatureComputed == ServerSignature of
-        true ->
-            ok;
-        _ ->
-            false
-    end.
-
-scram_sha_auth_payload(ssl, _) -> <<"n,,">>;
-scram_sha_auth_payload(fast_tls, none) -> <<"y,,">>;
-scram_sha_auth_payload(fast_tls, tls_unique) -> <<"p=tls-unique,,">>.
 
 hex_md5(Data) ->
     base16:encode(crypto:hash(md5, Data)).
@@ -278,15 +245,26 @@ get_challenge(Conn, Descr, DecodeCsvkv) ->
     Challenge = escalus_connection:get_stanza(Conn, Descr),
     case Challenge of
         #xmlel{name = <<"challenge">>, children=[#xmlcdata{content = CData}]} ->
-            ChallengeData = base64:decode(CData),
-            case DecodeCsvkv of
-                true ->
-                    csvkv:parse(ChallengeData);
-                _ ->
-                    ChallengeData
-            end;
+            maybe_decode(CData, DecodeCsvkv);
         _ ->
             throw({expected_challenge, got, Challenge})
+    end.
+
+get_success(Conn, Descr, DecodeCsvkv) ->
+    Stanza = escalus_connection:get_stanza(Conn, Descr),
+    case Stanza of
+        #xmlel{name = Name, children=[#xmlcdata{content = CData}]}
+          when Name =:= <<"success">>; Name =:= <<"failure">> ->
+            maybe_decode(CData, DecodeCsvkv);
+        _ ->
+            throw({expected_success, got, Stanza})
+    end.
+
+maybe_decode(CData, DecodeCsvkv) ->
+    Data = base64:decode(CData),
+    case DecodeCsvkv of
+        true -> csvkv:parse(Data);
+        _ -> Data
     end.
 
 %% Throws!
