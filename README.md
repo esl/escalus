@@ -1,4 +1,4 @@
-# Escalus [![Build Status](https://travis-ci.org/esl/escalus.svg?branch=master)](https://travis-ci.org/esl/escalus)
+# Escalus [![](https://github.com/esl/escalus/workflows/CI/badge.svg)](https://github.com/esl/escalus/actions?query=workflow%3ACI)
 
 Escalus is an Erlang XMPP client library.
 It began as a tool for convenient testing of XMPP servers,
