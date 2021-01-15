@@ -9,7 +9,7 @@
  {<<"fast_scram">>,{pkg,<<"fast_scram">>,<<"0.2.0">>},0},
  {<<"fast_tls">>,
   {git,"https://github.com/processone/fast_tls.git",
-       {ref,"ceb277f5b172d94ec2a0c8b13cfb7e887961b55a"}},
+       {ref,"f91cc81075f320d260655bc92799d50d87b4afe9"}},
   0},
  {<<"fusco">>,
   {git,"https://github.com/esl/fusco.git",
@@ -17,7 +17,7 @@
   0},
  {<<"gun">>,{pkg,<<"gun">>,<<"1.3.2">>},0},
  {<<"meck">>,{pkg,<<"meck">>,<<"0.8.13">>},0},
- {<<"p1_utils">>,{pkg,<<"p1_utils">>,<<"1.0.18">>},1},
+ {<<"p1_utils">>,{pkg,<<"p1_utils">>,<<"1.0.21">>},1},
  {<<"quickrand">>,{pkg,<<"quickrand">>,<<"1.8.0">>},1},
  {<<"uuid">>,{pkg,<<"uuid_erl">>,<<"1.8.0">>},0},
  {<<"worker_pool">>,{pkg,<<"worker_pool">>,<<"3.2.0">>},0}]}.
@@ -29,7 +29,7 @@
  {<<"fast_scram">>, <<"1F8F467D34374D00CE4AB8D6F78430EA8ADCCD2DA6D5BA0069B9EA8A1CAC6DE1">>},
  {<<"gun">>, <<"542064CBB9F613650B8A8100B3A927505F364FBE198B7A5A112868FF43F3E477">>},
  {<<"meck">>, <<"FFEDB39F99B0B99703B8601C6F17C7F76313EE12DE6B646E671E3188401F7866">>},
- {<<"p1_utils">>, <<"3FE224DE5B2E190D730A3C5DA9D6E8540C96484CF4B4692921D1E28F0C32B01C">>},
+ {<<"p1_utils">>, <<"9D6244BBD4AF881E85AF71655E8BE5720B5B965B1BDD51A35C7871FD4142AF9A">>},
  {<<"quickrand">>, <<"E47CE597FF067385FF5836C8C7706AC7F8AA7B47DD90C6417E05B64696F872FA">>},
  {<<"uuid">>, <<"280014F8FF57FCE36EE6E91C3ECF21CBFCE78AAE9854C09597BB4C11E27B66D6">>},
  {<<"worker_pool">>, <<"54DD752BA4CA4B702124C45803AA958B36BCE77D683B87886606F1AADA3E124D">>}]}
