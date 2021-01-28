@@ -34,6 +34,8 @@
          iq/5,
 
          publish/3, publish/4, publish/5,
+         publish_with_options/4, publish_with_options/5, publish_with_options/6,
+
          retract/4,
          get_items/4,
          get_all_items/3,
@@ -43,6 +45,8 @@
 
 -type pubsub_node_id() :: {pep | binary(), binary()}.
 -export_type([pubsub_node_id/0]).
+
+-type publish_options() :: [{binary(), binary()}].
 
 -type form_field() :: {Var :: binary(), Value :: binary()}
                       | {Var :: binary(), Type :: binary(), Value :: binary()}.
@@ -210,6 +214,38 @@ publish(User, ItemId, ContentElement, Id, {NodeAddr, NodeName}) ->
     Elements = [publish_element(NodeName, ItemElement)],
     pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
 
+-spec publish_with_options(escalus_utils:jid_spec(),
+                           binary(),
+                           pubsub_node_id(),
+                           publish_options()) -> exml:element().
+publish_with_options(User, Id, {NodeAddr, NodeName}, PublishOptions) ->
+    PublishOptionsElement = publish_options_element(PublishOptions),
+    Elements = [publish_element(NodeName, undefined), PublishOptionsElement],
+    pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
+
+-spec publish_with_options(escalus_utils:jid_spec(),
+                           exml:element(),
+                           binary(),
+                           pubsub_node_id(),
+                           publish_options()) -> exml:element().
+publish_with_options(User, ContentElement, Id, {NodeAddr, NodeName}, PublishOptions) ->
+    ItemElement = item_element(ContentElement),
+    PublishOptionsElement = publish_options_element(PublishOptions),
+    Elements = [publish_element(NodeName, ItemElement), PublishOptionsElement],
+    pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
+
+-spec publish_with_options(escalus_utils:jid_spec(),
+                           binary(),
+                           exml:element(),
+                           binary(),
+                           pubsub_node_id(),
+                           publish_options()) -> exml:element().
+publish_with_options(User, ItemId, ContentElement, Id, {NodeAddr, NodeName}, PublishOptions) ->
+    ItemElement = item_element(ItemId, ContentElement),
+    PublishOptionsElement = publish_options_element(PublishOptions),
+    Elements = [publish_element(NodeName, ItemElement), PublishOptionsElement],
+    pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
+
 -spec retract(escalus_utils:jid_spec(), binary(), pubsub_node_id(), binary()) -> exml:element().
 retract(User, Id, {NodeAddr, NodeName}, ItemId) ->
     Elements = [retract_item(NodeName, ItemId)],
@@ -305,6 +341,22 @@ publish_element(NodeName, Item) ->
     #xmlel{name = <<"publish">>,
            attrs = [{<<"node">>, NodeName}],
            children = skip_undefined([Item])}.
+
+publish_options_element(Fields) ->
+    #xmlel{name = <<"publish-options">>,
+           children = x_data_form(<<"submit">>, form_type_field() ++ x_data_fields(Fields))}.
+
+x_data_form(Type, Children) ->
+    [escalus_stanza:x_data_form(Type, Children)].
+
+x_data_fields(Fields) ->
+    escalus_stanza:search_fields(Fields).
+
+form_type_field() ->
+    [#xmlel{name = <<"field">>,
+            attrs = [{<<"var">>, <<"FORM_TYPE">>}, {<<"type">>, <<"hidden">>}],
+            children = [#xmlel{name = <<"value">>,
+                               children = [{xmlcdata, ?NS_PUBSUB_PUBLISH_OPTIONS}]}]}].
 
 items_element(NodeName) ->
     #xmlel{name = <<"items">>,
