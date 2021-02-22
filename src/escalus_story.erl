@@ -74,8 +74,7 @@ story(ConfigIn, ResourceCounts, Story, Opts) ->
         post_story_checks(Config, Clients),
         escalus_server:post_story(Config),
         stop_clients(ConfigIn)
-    catch Class:Reason ->
-        Stacktrace = erlang:get_stacktrace(),
+    catch Class:Reason:Stacktrace ->
         escalus_event:print_history(ConfigIn),
         erlang:raise(Class, Reason, Stacktrace)
     after

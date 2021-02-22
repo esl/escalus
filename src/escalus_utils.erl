@@ -123,8 +123,8 @@ stanza_lines(Prefix, Stanzas) ->
 
 show_backtrace() ->
     try throw(catch_me)
-    catch _:_ ->
-        error_logger:info_msg("Backtrace:~n~p~n", [tl(erlang:get_stacktrace())])
+    catch _:_:S ->
+        error_logger:info_msg("Backtrace:~n~p~n", [tl(S)])
     end.
 
 -spec get_jid(jid_spec()) -> binary().
