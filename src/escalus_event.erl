@@ -224,9 +224,6 @@ jid(Client) ->
 jid_to_binary({User, Server, Resource}) ->
     <<User/binary,"@",Server/binary,"/",Resource/binary>>.
 
-now_to_microseconds({Mega, Secs, Micro}) ->
-    Mega * 1000000 * 1000000 + Secs * 1000000 + Micro.
-
 time_offset_binary(BaseTime, Time) ->
-    Offset = now_to_microseconds(Time) - now_to_microseconds(BaseTime),
+    Offset = Time - BaseTime,
     integer_to_binary(Offset).

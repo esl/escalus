@@ -382,7 +382,7 @@ handle_data(Socket, Data, #state{parser      = Parser,
                                  compress    = Compress,
                                  on_reply    = OnReplyFun,
                                  filter_pred = Filter} = State) ->
-    Timestamp = os:system_time(micro_seconds),
+    Timestamp = os:system_time(microsecond),
     set_active_opt(State, current_opt),
     OnReplyFun({erlang:byte_size(Data)}),
     {ok, NewParser, Stanzas} =
@@ -518,10 +518,10 @@ do_connect(#{ssl        := IsSSLConn,
              ssl_opts   := SSLOpts} = Opts) ->
     Address = host_to_inet(Host),
     SocketOpts = get_socket_opts(Opts),
-    TimeB = os:timestamp(),
+    TimeB = erlang:system_time(microsecond),
     Reply = maybe_ssl_connection(IsSSLConn, TLSMod, Address, Port, SocketOpts, SSLOpts),
-    TimeA = os:timestamp(),
-    ConnectionTime = timer:now_diff(TimeA, TimeB),
+    TimeA = erlang:system_time(microsecond),
+    ConnectionTime = TimeA - TimeB,
     case Reply of
         {ok, Socket} ->
             OnConnectFun({ok, Socket, ConnectionTime});

@@ -55,8 +55,8 @@ terminate(_, _) ->
 
 save_stanza(Type, Jid, Stanza, State=#state{events = Events}) ->
     State#state{
-        events = [{stanza, Type, Jid, now(), Stanza}|Events]}.
+        events = [{stanza, Type, Jid, erlang:system_time(microsecond), Stanza}|Events]}.
 
 save_story_event(Type, State=#state{events = Events}) ->
     State#state{
-        events = [{story, Type, now()}|Events]}.
+        events = [{story, Type, erlang:system_time(microsecond)}|Events]}.
