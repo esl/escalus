@@ -205,7 +205,7 @@ select(UserResources, FullSpecs) ->
                  FullSpecs).
 
 fresh_int_suffix() ->
-    {_, S, US} = erlang:now(),
+    {_, S, US} = erlang:timestamp(),
     L = lists:flatten([integer_to_list(S rem 100), ".", integer_to_list(US)]),
     list_to_binary(L).
 
