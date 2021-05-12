@@ -14,21 +14,18 @@ jobs:
     name: OTP ${{matrix.otp}}
     strategy:
       matrix:
-        otp: ['22.3', '23.0', '21.3']
+        otp: ['24.0', '23.3', '22.3', '21.3']
     runs-on: 'ubuntu-20.04'
+    env:
+      OTPVER: ${{ matrix.otp }}
     steps:
       - uses: actions/checkout@v2
       - uses: ErlGang/setup-erlang@v1.0.0
         with:
           otp-version: ${{ matrix.otp }}
-      - name: Install rebar3
-        run: |
-          cd "$RUNNER_TEMP"
-          mkdir bin
-          wget -O bin/rebar3 https://s3.amazonaws.com/rebar3/rebar3
-          chmod a+x bin/rebar3
-          echo "${PWD}/bin" >> "$GITHUB_PATH"
+      - run: make rebar3
       - run: make mongooseim-start
       - run: make test
       - run: make ct
-      - run: make dialyzer 
+      - run: make dialyzer
+        if: ${{ matrix.otp == '24.0' }}
