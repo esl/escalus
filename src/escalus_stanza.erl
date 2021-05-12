@@ -461,7 +461,8 @@ iq_with_type(Type, NS, Payload) ->
 iq_with_type(Type, NS, Payload, nonquery) ->
     #xmlel{name = <<"iq">>,
            attrs = [{<<"xmlns">>, NS},
-                    {<<"type">>, Type}],
+                    {<<"type">>, Type},
+                    {<<"id">>, id()}],
            children = Payload}.
 
 roster_get() ->
