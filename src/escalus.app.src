@@ -14,7 +14,8 @@
                   meck,
                   bbmustache,
                   uuid,
-                  fast_tls
+                  fast_tls,
+                  fast_scram
                  ]},
   {maintainers, ["ESL"]},
   {licenses, ["Apache 2.0"]},
