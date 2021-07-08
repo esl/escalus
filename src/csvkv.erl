@@ -73,9 +73,10 @@ join(Items, Sep) ->
 
 format_item({Key, Val}, QMark) ->
     EscVal = re:replace(Val, "\"", "\\\"", [global]),
+    EscVal2 = re:replace(EscVal, "\\\\", "\\\\\\\\", [global]),
     case QMark of
         true ->
-            [Key, $=, $", EscVal, $"];
+            [Key, $=, $", EscVal2, $"];
         _ ->
-            [Key, $=, EscVal]
+            [Key, $=, EscVal2]
     end.
