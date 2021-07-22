@@ -15,7 +15,8 @@
                   bbmustache,
                   uuid,
                   fast_tls,
-                  fast_scram
+                  fast_scram,
+                  worker_pool
                  ]},
   {maintainers, ["ESL"]},
   {licenses, ["Apache 2.0"]},
