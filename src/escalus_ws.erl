@@ -40,7 +40,7 @@
 -define(SERVER, ?MODULE).
 
 -record(state, {owner, socket, parser, legacy_ws, compress = false,
-                event_client, filter_pred}).
+                event_client, filter_pred, stream_ref}).
 -type state() :: #state{}.
 
 %%%===================================================================
@@ -190,7 +190,8 @@ init([Args, Owner]) ->
                 socket = ConnPid,
                 parser = Parser,
                 legacy_ws = LegacyWS,
-                event_client = EventClient}}.
+                event_client = EventClient,
+                stream_ref = StreamRef}}.
 
 wait_for_ws_upgrade(ConnPid, StreamRef, Timeout) ->
     receive
@@ -219,9 +220,9 @@ handle_call({set_filter_pred, Pred}, _From, State) ->
     {reply, ok, State#state{filter_pred = Pred}};
 handle_call(kill_connection, _, S) ->
     {stop, normal, ok, S};
-handle_call(stop, _From, #state{socket = ConnPid} = State) ->
+handle_call(stop, _From, #state{socket = ConnPid, stream_ref = StreamRef} = State) ->
     close_compression_streams(State#state.compress),
-    gun:ws_send(ConnPid, close),
+    gun:ws_send(ConnPid, StreamRef, close),
     {stop, normal, ok, State}.
 
 -spec handle_cast(term(), state()) -> {noreply, state()}.
@@ -230,7 +231,7 @@ handle_cast({send, Elem}, State) ->
                {zlib, {_, Zout}} -> zlib:deflate(Zout, exml:to_iolist(Elem), sync);
                false -> exml:to_iolist(Elem)
            end,
-    gun:ws_send(State#state.socket, {text, Data}),
+    gun:ws_send(State#state.socket, State#state.stream_ref, {text, Data}),
     {noreply, State};
 handle_cast(reset_parser, #state{parser = Parser} = State) ->
     {ok, NewParser} = exml_stream:reset_parser(Parser),

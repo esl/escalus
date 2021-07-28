@@ -9,3 +9,4 @@ dialyzer
 .eunit
 test/*.beam
 _build/
+rebar3
