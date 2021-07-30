@@ -23,5 +23,13 @@
   {links, [{"Github", "https://github.com/esl/escalus"}]},
   {build_tools, ["make", "rebar"]},
   {mod, {escalus_app, []}},
-  {env, [{config_file, "priv/escalus.config"}]}
+  {env, [{config_file, "priv/escalus.config"}]},
+  %% rebar3_hex ?DEFAULT_FILES: https://github.com/erlef/rebar3_hex/blob/master/src/rebar3_hex_publish.erl#L22
+  {files, ["src", "c_src", "include", "rebar.config.script",
+           "priv", "rebar.config", "rebar.lock", "CHANGELOG*",
+           "changelog*" ,"README*", "readme*" ,"LICENSE*",
+           "license*", "NOTICE",
+           %% escalus
+           "thirdparty", "script", "mongooseim-escalus-test-1"
+  ]}
  ]}.
