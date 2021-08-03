@@ -8,7 +8,6 @@
                   stdlib,
                   ssl,
                   exml,
-                  fusco,
                   base16,
                   gun,
                   meck,
