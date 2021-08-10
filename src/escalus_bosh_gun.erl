@@ -158,7 +158,7 @@ gun_options(Args) ->
     case proplists:get_value(ssl, Args, false) of
     true ->
         #{transport => tls,
-          transport_opts => SSLOpts};
+          tls_opts => SSLOpts};
     _ ->
         #{}
 end.

@@ -170,7 +170,7 @@ init([Args, Owner]) ->
     TransportOpts = case SSL of
                     true ->
                         #{transport => tls, protocols => [http],
-                          transport_opts => SSLOpts};
+                          tls_opts => SSLOpts};
                     _ ->
                         #{transport => tcp, protocols => [http]}
                 end,
