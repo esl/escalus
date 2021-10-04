@@ -2,7 +2,7 @@
 
 REBARVER = 3.15.2
 ifeq ($(OTPVER),24.0)
-	REBARVER = 3.16.1
+	REBARVER = 3.17.0
 endif
 
 REBAR = ./rebar3
