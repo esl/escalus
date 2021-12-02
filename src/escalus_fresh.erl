@@ -205,9 +205,7 @@ select(UserResources, FullSpecs) ->
                  FullSpecs).
 
 fresh_int_suffix() ->
-    {_, S, US} = erlang:timestamp(),
-    L = lists:flatten([integer_to_list(S rem 100), ".", integer_to_list(US)]),
-    list_to_binary(L).
+    integer_to_binary(erlang:unique_integer([monotonic, positive])).
 
 case_name_suffix(Config) ->
     CaseName = proplists:get_value(tc_name, Config, unnamed),
