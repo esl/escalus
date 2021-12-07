@@ -89,7 +89,8 @@ freshen_spec(Config, UserName) when is_atom(UserName) ->
 fresh_suffix(Config) ->
     CaseNameSuffix = case_name_suffix(Config),
     IntSuffix = fresh_int_suffix(),
-    <<CaseNameSuffix/binary, IntSuffix/binary>>.
+    TimeSuffix = timestamp_suffix(),
+    <<CaseNameSuffix/binary, IntSuffix/binary, ".", TimeSuffix/binary>>.
 
 -spec freshen_specs(escalus:config(), [escalus_users:resource_spec()], binary()) -> R when
       R :: [escalus_users:named_user()].
@@ -204,8 +205,15 @@ select(UserResources, FullSpecs) ->
     lists:filter(fun({Name, _}) -> lists:member(Name, UserNames) end,
                  FullSpecs).
 
+%% This is to ensure that there are no collisions between the same run
 fresh_int_suffix() ->
     integer_to_binary(erlang:unique_integer([monotonic, positive])).
+
+%% This is to ensure that there is no garbage data between runs
+timestamp_suffix() ->
+    {{_Y, M, D}, {H, Min, S}} = erlang:universaltime(),
+    iolist_to_binary(io_lib:format("~2..0w~2..0w~2..0w~2..0w~2..0w",
+                                   [M, D, H, Min, S])).
 
 case_name_suffix(Config) ->
     CaseName = proplists:get_value(tc_name, Config, unnamed),
