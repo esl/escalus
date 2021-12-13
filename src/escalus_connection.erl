@@ -486,6 +486,7 @@ default_connection_steps() ->
      bind,
      session,
      maybe_stream_management,
+     maybe_stream_resumption,
      maybe_use_carbons].
 
 -spec start_stream(client()) -> exml_stream:element().

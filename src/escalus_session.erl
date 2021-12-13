@@ -162,6 +162,10 @@ can_use_compression(Props, Features) ->
 can_use_stream_management(Props, Features) ->
     can_use(stream_management, Props, Features).
 
+-spec can_use_stream_resumption(user_spec(), features()) -> boolean().
+can_use_stream_resumption(Props, Features) ->
+    can_use(stream_resumption, Props, Features).
+
 can_use_carbons(Props, _Features) ->
     false /= proplists:get_value(carbons, Props, false).
 
@@ -240,12 +244,12 @@ maybe_stream_management(Client = #client{props = Props}, Features) ->
 stream_management(Client, Features) ->
     escalus_connection:send(Client, escalus_stanza:enable_sm()),
     Enabled = escalus_connection:get_stanza(Client, stream_management),
-    true = escalus_pred:is_sm_enabled(Enabled),
+    escalus:assert(is_sm_enabled, Enabled),
     {Client, Features}.
 
 -spec ?CONNECTION_STEP_SIG(maybe_stream_resumption).
 maybe_stream_resumption(Client = #client{props = Props}, Features) ->
-    case can_use_stream_management(Props, Features) of
+    case can_use_stream_resumption(Props, Features) of
         true ->
             stream_resumption(Client, Features);
         false ->
@@ -256,7 +260,7 @@ maybe_stream_resumption(Client = #client{props = Props}, Features) ->
 stream_resumption(Client = #client{props = Props}, Features) ->
     escalus_connection:send(Client, escalus_stanza:enable_sm([resume])),
     Enabled = escalus_connection:get_stanza(Client, stream_resumption),
-    true = escalus_pred:is_sm_enabled([resume], Enabled),
+    escalus:assert(is_sm_enabled, [[resume]], Enabled),
     SMID = exml_query:attr(Enabled, <<"id">>),
     {Client#client{props = [{smid, SMID} | Props]}, Features}.
 
