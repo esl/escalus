@@ -15,7 +15,7 @@
 %%==============================================================================
 
 %% This module contains predicates (boolean value - returning functions)
-%% That are meant to be used primarly with escalus:assert function
+%% That are meant to be used primarily with escalus:assert function
 
 -module(escalus_pred).
 

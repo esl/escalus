@@ -19,7 +19,7 @@
 
 %% @doc
 %% Run story with fresh users (non-breaking API).
-%% The genererated fresh usernames will consist of the predefined {username, U} value
+%% The generated fresh usernames will consist of the predefined {username, U} value
 %% prepended to a unique, per-story suffix.
 %% {username, <<"alice">>} -> {username, <<"alice32.632506">>}
 -spec story(escalus:config(), [escalus_users:resource_spec()], fun()) -> any().
