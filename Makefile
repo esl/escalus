@@ -1,8 +1,11 @@
 .PHONY: all compile test clean
 
 REBARVER = 3.15.2
-ifeq ($(OTPVER),24.0)
+ifeq ($(OTPVER),24.3)
 	REBARVER = 3.17.0
+endif
+ifeq ($(OTPVER),25.0)
+	REBARVER = 3.18.0
 endif
 
 REBAR = ./rebar3

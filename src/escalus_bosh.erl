@@ -289,7 +289,7 @@ get_active(Pid) ->
 set_active(Pid, Active) ->
     gen_server:call(Pid, {set_active, Active}).
 
--spec recv(escalus:client()) -> exml_stream:element() | empty.
+-spec recv(pid()) -> exml_stream:element() | empty.
 recv(Pid) ->
     gen_server:call(Pid, recv).
 
