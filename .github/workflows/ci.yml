@@ -14,7 +14,7 @@ jobs:
     name: OTP ${{matrix.otp}}
     strategy:
       matrix:
-        otp: ['24.0', '23.3', '22.3', '21.3']
+        otp: ['25.0', '24.3', '23.3', '22.3', '21.3']
     runs-on: 'ubuntu-20.04'
     env:
       OTPVER: ${{ matrix.otp }}
@@ -28,4 +28,4 @@ jobs:
       - run: make test
       - run: make ct
       - run: make dialyzer
-        if: ${{ matrix.otp == '24.0' }}
+        if: ${{ matrix.otp == '25.0' }}
