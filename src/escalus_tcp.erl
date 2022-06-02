@@ -227,9 +227,7 @@ handle_call({set_sm_h, H}, _From, #state{sm_state = {A, _OldH, S}} = State) ->
     {reply, {ok, H}, NewState};
 handle_call({upgrade_to_tls, SSLOpts}, _From, #state{socket = Socket,
                                                      tls_module = TLSMod} = State) ->
-    SSLOpts1 = [{reuse_sessions, true}],
-    SSLOpts2 = lists:keymerge(1, lists:keysort(1, SSLOpts), lists:keysort(1, SSLOpts1)),
-    case tcp_to_tls(TLSMod, Socket, SSLOpts2) of
+    case tcp_to_tls(TLSMod, Socket, SSLOpts) of
         {ok, TlsSocket} ->
             {ok, Parser} = exml_stream:new_parser(),
             {reply, TlsSocket, State#state{socket = TlsSocket, parser = Parser,

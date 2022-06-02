@@ -20,7 +20,7 @@ jobs:
       OTPVER: ${{ matrix.otp }}
     steps:
       - uses: actions/checkout@v2
-      - uses: ErlGang/setup-erlang@v1.0.0
+      - uses: erlef/setup-beam@v1
         with:
           otp-version: ${{ matrix.otp }}
       - run: make rebar3
