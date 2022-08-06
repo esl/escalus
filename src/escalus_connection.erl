@@ -484,7 +484,7 @@ default_connection_steps() ->
      authenticate,
      maybe_use_compression,
      bind,
-     session,
+     % session,
      maybe_stream_management,
      maybe_use_carbons].
 
