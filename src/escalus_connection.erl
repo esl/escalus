@@ -34,6 +34,7 @@
          get_tls_last_message/1,
          reset_parser/1,
          is_connected/1,
+         wait_for_close/1,
          wait_for_close/2,
          kill/1,
          use_zlib/1,
@@ -423,6 +424,9 @@ use_zlib(#client{module = Mod, rcv_pid = Pid}) ->
 upgrade_to_tls(#client{module = Mod, rcv_pid = Pid, props = Props}) ->
     SSLOpts = proplists:get_value(ssl_opts, Props, []),
     Mod:upgrade_to_tls(Pid, SSLOpts).
+
+wait_for_close(Client) ->
+    wait_for_close(Client, default_timeout()).
 
 %% @doc Waits at most MaxWait ms for the client to be closed.
 %% Returns true if the client was disconnected, otherwise false.
