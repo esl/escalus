@@ -110,7 +110,7 @@ handle_info(timeout, #state{free = [], busy = [],
     {ok, Pid} = connect(Destination, Options),
     {noreply, State#state{free = [Pid], total = 1}};
 handle_info(_Info, State) ->
-    ct:pal("Uknown Info in bosh_gun: ~p", [_Info]),
+    ct:pal("Unknown Info in bosh_gun: ~p", [_Info]),
     {noreply, State}.
 
 terminate(_Reason, #state{free = Free, busy = Busy}) ->
