@@ -297,7 +297,17 @@ delete_user(Config, {_Name, UserSpec}) ->
     {ok, Conn, _} = escalus_connection:start(Options),
     escalus_connection:send(Conn, escalus_stanza:remove_account()),
     Result = wait_for_result(Conn),
-    escalus_connection:stop(Conn),
+    try
+        {ok, result, _} = Result,
+        StreamError = escalus_connection:get_stanza(Conn, stream_error),
+        escalus:assert(is_stream_error, [<<"conflict">>, <<"User removed">>], StreamError),
+        StreamEnd = escalus_connection:get_stanza(Conn, stream_end),
+        escalus:assert(is_stream_end, StreamEnd),
+        escalus_connection:wait_for_close(Conn)
+    catch C:R:S ->
+            error_logger:error_msg("error when trying to delete user: ~p:~p, stacktrace: ~p~n", [C, R, S]),
+            escalus_connection:stop(Conn)
+    end,
     Result.
 
 -spec auth_type([proplists:property()]) -> {module, atom(), list()} | xmpp.
