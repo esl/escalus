@@ -53,7 +53,7 @@ is_error(Stanza, Type, Condition) ->
 % Assertion about client, not Stanza
 -spec has_no_stanzas(#client{}) -> ok | no_return().
 has_no_stanzas(Client) ->
-    case escalus_client:peek_stanzas(Client) of
+    case escalus_client:flush_stanzas(Client) of
         [] ->
             ok;
         Stanzas ->

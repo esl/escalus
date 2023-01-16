@@ -34,7 +34,8 @@
          short_jid/1,
          username/1,
          server/1,
-         resource/1
+         resource/1,
+         flush_stanzas/1
         ]).
 
 -export_type([client/0]).
@@ -103,6 +104,17 @@ peek_stanzas(#client{rcv_pid = Pid}) ->
 -spec has_stanzas(client()) -> boolean().
 has_stanzas(Client) ->
     peek_stanzas(Client) /= [].
+
+flush_stanzas(Client) ->
+    flush_stanzas(Client, []).
+
+flush_stanzas(Client, Acc) ->
+    case escalus_connection:get_stanza_safe(Client, 0) of
+        {error, timeout} ->
+            lists:reverse(Acc);
+        {Stanza, _} ->
+            flush_stanzas(Client, [Stanza | Acc])
+    end.
 
 -spec wait_for_stanzas(client(), non_neg_integer()) -> [exml:element()].
 wait_for_stanzas(Client, Count) ->
