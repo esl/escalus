@@ -6,11 +6,8 @@
 
 -module(escalus_pubsub_stanza).
 
--include("escalus.hrl").
 -include("escalus_xmlns.hrl").
--include_lib("common_test/include/ct.hrl").
 -include_lib("exml/include/exml.hrl").
--include_lib("exml/include/exml_stream.hrl").
 
 -export([
          discover_nodes/3,
@@ -18,6 +15,7 @@
          create_node/3, create_node/4, delete_node/3,
 
          get_configuration/3, set_configuration/4,
+         get_default_configuration/3,
 
          get_affiliations/3, set_affiliations/4,
 
@@ -98,6 +96,12 @@ get_configuration(User, Id, {NodeAddr, NodeName}) ->
 set_configuration(User, Id, {NodeAddr, NodeName}, ConfigFields) ->
     Elements = configure_node_form(ConfigFields, NodeName),
     pubsub_owner_iq(<<"set">>, User, Id, NodeAddr, Elements).
+
+-spec get_default_configuration(escalus_utils:jid_spec(), binary(),
+                                escalus_utils:jid_spec()) -> exml:element().
+get_default_configuration(User, Id, NodeAddr) ->
+    Elements = [default_element()],
+    pubsub_owner_iq(<<"get">>, User, Id, NodeAddr, Elements).
 
 %% ---------------- affiliations ----------------
 
@@ -412,6 +416,9 @@ set_subscription_options_form(NodeName, User, Children) ->
                               attrs = [{<<"xmlns">>, <<"jabber:x:data">>},
                                        {<<"type">>, <<"submit">>}],
                               children = Children}]}.
+
+default_element() ->
+    #xmlel{name = <<"default">>}.
 
 form_element(FormName, NodeName, FieldElements) ->
     #xmlel{name = FormName,
