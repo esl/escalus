@@ -61,7 +61,7 @@ create_users(Config, UserSpecs) ->
     FreshSpecs = freshen_specs(Config, UserSpecs, Suffix),
     FreshConfig = escalus_users:create_users(Config, FreshSpecs),
     %% The line below is not needed if we don't want to support cleaning
-    ets:insert(nasty_global_table(), {Suffix, FreshConfig}),
+    ets:insert(nasty_global_table(), {Suffix, strip_fresh_config(FreshConfig)}),
     FreshConfig.
 
 %% @doc
@@ -172,6 +172,13 @@ work_on_deleting_users(Ord, {_Suffix, Conf} = _Item, CollectingPid) ->
             CollectingPid ! {error, Ord, {Class, Error}}
     end,
     ok.
+
+%% Keep only info we would use later for cleaning
+strip_fresh_config(Config) ->
+    [Elem || Elem <- Config, lists:member(element(1, Elem), keep_keys())].
+
+keep_keys() ->
+    [escalus_users, escalus_user_db].
 
 do_delete_users(Conf) ->
     Plist = proplists:get_value(escalus_users, Conf),
