@@ -14,12 +14,6 @@
 %% limitations under the License.
 %%==============================================================================
 
-
--record(jid, {
-        user :: binary(),
-        server :: binary(),
-        resource = <<"">> :: binary()}).
-
 -record(client, {
         jid :: binary() | undefined,
         module :: atom(),
