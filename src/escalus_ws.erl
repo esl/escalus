@@ -275,14 +275,15 @@ handle_data(Data, State = #state{parser = Parser,
                                               NewState,
                                               Stanzas,
                                               fun forward_to_owner/3, Timestamp),
-    case lists:filter(fun is_stream_end/1, Stanzas) of
+    case lists:filter(fun(Stanza) -> is_stream_end(Stanza, State) end, Stanzas) of
         [] -> {noreply, NewState};
         _ -> {stop, normal, NewState}
     end.
 
--spec is_stream_end(exml_stream:element()) -> boolean().
-is_stream_end(#xmlstreamend{}) -> true;
-is_stream_end(_) -> false.
+-spec is_stream_end(exml_stream:element(), state()) -> boolean().
+is_stream_end(#xmlstreamend{}, #state{legacy_ws = true}) -> true;
+is_stream_end(#xmlel{name = <<"close">>}, #state{legacy_ws = false}) -> true;
+is_stream_end(_, _) -> false.
 
 forward_to_owner(Stanzas, #state{owner = Owner,
                                  event_client = EventClient}, Timestamp) ->
