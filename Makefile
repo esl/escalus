@@ -1,31 +1,21 @@
 .PHONY: all compile test clean
 
-REBARVER = 3.15.2
-ifeq ($(OTPVER),24.3)
-	REBARVER = 3.17.0
-endif
-ifeq ($(OTPVER),25.0)
-	REBARVER = 3.18.0
-endif
-
-REBAR = ./rebar3
-
 all: compile
 
-compile: rebar3
-	$(REBAR) compile
+compile:
+	rebar3 compile
 
-test: rebar3
-	$(REBAR) eunit
+test:
+	rebar3 eunit
 
-clean: rebar3
-	$(REBAR) clean
+clean:
+	rebar3 clean
 
-ct: rebar3
-	$(REBAR) ct
+ct:
+	rebar3 ct
 
-dialyzer: rebar3
-	$(REBAR) dialyzer
+dialyzer:
+	rebar3 dialyzer
 
 mongooseim-start:
 	docker run --rm -d -t -h mongooseim-escalus-test-1 --name mongooseim-escalus-test-1 \
@@ -33,7 +23,3 @@ mongooseim-start:
 
 mongooseim-stop:
 	docker stop mongooseim-escalus-test-1
-
-rebar3:
-	wget https://github.com/erlang/rebar3/releases/download/${REBARVER}/rebar3 &&\
-	chmod u+x rebar3

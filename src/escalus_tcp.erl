@@ -337,7 +337,7 @@ default_options() ->
       on_connect        => fun(_) -> ok end,
       event_client      => undefined,
       socket_opts       => default_socket_options(),
-      ssl_opts          => [],
+      ssl_opts          => [{verify, verify_none}],
       parser_opts       => []}.
 
 -spec default_socket_options() -> [gen_tcp:connect_option()].

@@ -11,21 +11,22 @@ on:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   test:
-    name: OTP ${{matrix.otp}}
+    name: OTP ${{matrix.otp_vsn}}
     strategy:
       matrix:
-        otp: ['25.0', '24.3', '23.3', '22.3', '21.3']
-    runs-on: 'ubuntu-20.04'
+        otp_vsn: ['26.2', '25.3', '24.3']
+        rebar_vsn: ['3.22.0']
+    runs-on: 'ubuntu-22.04'
     env:
-      OTPVER: ${{ matrix.otp }}
+      OTPVER: ${{ matrix.otp_vsn }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: ${{ matrix.otp }}
-      - run: make rebar3
+          otp-version: ${{ matrix.otp_vsn }}
+          rebar3-version: ${{ matrix.rebar_vsn }}
       - run: make mongooseim-start
       - run: make test
       - run: make ct
       - run: make dialyzer
-        if: ${{ matrix.otp == '25.0' }}
+        if: ${{ matrix.otp == '26.2' }}
