@@ -422,7 +422,7 @@ use_zlib(#client{module = Mod, rcv_pid = Pid}) ->
 
 -spec upgrade_to_tls(client()) -> ok.
 upgrade_to_tls(#client{module = Mod, rcv_pid = Pid, props = Props}) ->
-    SSLOpts = proplists:get_value(ssl_opts, Props, []),
+    SSLOpts = proplists:get_value(ssl_opts, Props, [[{verify, verify_none}]]),
     Mod:upgrade_to_tls(Pid, SSLOpts).
 
 wait_for_close(Client) ->
