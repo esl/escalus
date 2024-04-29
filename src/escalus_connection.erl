@@ -263,10 +263,9 @@ wait_forever(Client) ->
 %% @doc Receives incoming stanzas in a loop until the specified timeout passes.
 %% Whenever a stanza is received:
 %% - If there is no 'pred' in Options OR 'pred' returns 'true', the stanza is returned.
-%% - Otherwise, the handlers specified in Client#client.props are applied one by one
-%%   until one of them returns 'true'.
-%%   - If any of the handlers returns 'true', the loop continues, waiting for a new stanza.
-%%   - Otherwise, the stanza is returned.
+%% - Otherwise, the handlers specified in Client#client.props are applied one by one.
+%%   If one of them returns 'true', no more handlers are applied.
+%%   Afterwards, the main loop continues, waiting for a new stanza.
 %%
 %% Meaning of the options:
 %%   - pred - receive only specific stanzas, skipping the rest and handling them
