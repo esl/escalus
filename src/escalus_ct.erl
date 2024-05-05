@@ -83,6 +83,8 @@ get_stanza_log() ->
     case is_ct_available() of
         true ->
             case ct:get_config(stanza_log, console_and_file) of
+                false ->
+                    false;
                 true ->
                     console_and_file;
                 LogTarget when LogTarget == console_and_file;
