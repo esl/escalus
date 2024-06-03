@@ -427,7 +427,7 @@ separate_ack_requests({true, H0, inactive}, Stanzas) ->
     Enabled = [ S || S <- Stanzas, escalus_pred:is_sm_enabled(S)],
     Resumed = [ S || S <- Stanzas, escalus_pred:is_sm_resumed(S)],
 
-    case {length(Enabled),length(Resumed)} of
+    case {length(Enabled), length(Resumed)} of
         %% Enabled SM: set the H param to 0 and activate counter.
         {1,0} -> {{true, 0, active}, [], Stanzas};
 
@@ -450,12 +450,12 @@ separate_ack_requests({true, H0, active}, Stanzas) ->
 
 make_ack(H) -> {escalus_stanza:sm_ack(H), H}.
 
-reply_to_ack_requests({false,H,A}, _, _) -> {false, H, A};
-reply_to_ack_requests({true,H,inactive}, _, _) -> {true, H, inactive};
+reply_to_ack_requests({false, H, A}, _, _) -> {false, H, A};
+reply_to_ack_requests({true, H, inactive}, _, _) -> {true, H, inactive};
 reply_to_ack_requests({true, H0, active}, Acks, State) ->
     {true,
      % TODO: Maybe compress here?
-     lists:foldl(fun({Ack,H}, _) -> raw_send(exml:to_iolist(Ack), State), H end,
+     lists:foldl(fun({Ack, H}, _) -> raw_send(exml:to_iolist(Ack), State), H end,
                  H0, Acks),
      active}.
 
