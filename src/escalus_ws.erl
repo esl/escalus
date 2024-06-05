@@ -330,10 +330,14 @@ handle_data(Data, State = #state{parser = Parser,
                 exml_stream:parse(Parser, Decompressed)
         end,
     FwdState = State#state{parser = NewParser, sent_stanzas = []},
-    escalus_connection:maybe_forward_to_owner(FwdState#state.filter_pred,
-                                              FwdState,
-                                              Stanzas,
-                                              fun forward_to_owner/3, Timestamp).
+    NewState = escalus_connection:maybe_forward_to_owner(FwdState#state.filter_pred,
+                                                         FwdState,
+                                                         Stanzas,
+                                                         fun forward_to_owner/3, Timestamp),
+    case lists:filter(fun(Stanza) -> is_stream_end(Stanza, State) end, Stanzas) of
+        [] -> {noreply, NewState};
+        _ -> {stop, normal, NewState}
+    end.
 
 -spec is_stream_end(exml_stream:element(), state()) -> boolean().
 is_stream_end(#xmlstreamend{}, #state{legacy_ws = true}) -> true;
@@ -351,12 +355,7 @@ forward_to_owner(Stanzas0, #state{owner = Owner,
         Owner ! escalus_connection:stanza_msg(Stanza, #{recv_timestamp => Timestamp})
     end, StanzasNoRs),
 
-    case lists:keyfind(xmlstreamend, 1, StanzasNoRs) of
-        false -> ok;
-        _     -> gen_server:cast(self(), stop)
-    end,
-
-    {noreply, State#state{sm_state = SM1, sent_stanzas = StanzasNoRs}}.
+    State#state{sm_state = SM1, sent_stanzas = StanzasNoRs}.
 
 separate_ack_requests({false, H0, A}, Stanzas) ->
     %% Don't keep track of H
