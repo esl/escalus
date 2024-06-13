@@ -65,8 +65,9 @@
 %%%===================================================================
 
 -spec connect([proplists:property()]) -> pid().
-connect(Args) ->
-    {ok, Pid} = gen_server:start_link(?MODULE, [Args, self()], []),
+connect(Opts0) ->
+    Opts1 = opts_to_map(Opts0),
+    {ok, Pid} = gen_server:start_link(?MODULE, [Opts1, self()], []),
     Pid.
 
 -spec send(pid(), exml:element()) -> ok.
@@ -178,7 +179,7 @@ assert_stream_end(StreamEndRep, Props) ->
     end.
 
 %%%===================================================================
-%%% gen_server callbacks
+%%% Default options
 %%%===================================================================
 
 default_options() ->
@@ -193,33 +194,13 @@ default_options() ->
       stream_management  => false,
       manual_ack         => false}.
 
--spec get_stream_management_opt(opts()) -> sm_state().
-get_stream_management_opt(#{stream_management := false}) ->
-    {false, 0, inactive};
-get_stream_management_opt(#{manual_ack := true}) ->
-    {false, 0, inactive};
-get_stream_management_opt(#{stream_management := true, manual_ack := false}) ->
-    {true, 0, inactive}.
-
-overwrite_default_opts(GivenOpts, DefaultOpts) ->
-    maps:merge(DefaultOpts, GivenOpts).
-
-do_connect(#{ssl := true, ssl_opts := SSLOpts} = Opts) ->
-    TransportOpts =  #{transport => tls, protocols => [http],
-                       tls_opts => SSLOpts},
-    do_connect(Opts, TransportOpts);
-do_connect(Opts) ->
-    do_connect(Opts, #{transport => tcp, protocols => [http]}).
-
-do_connect(#{host := Host, port := Port}, TransportOpts) ->
-    Host1 = maybe_binary_to_list(Host),
-    {ok, ConnPid} = gun:open(Host1, Port, TransportOpts),
-    {ok, http} = gun:await_up(ConnPid),
-    ConnPid.
+%%%===================================================================
+%%% gen_server callbacks
+%%%===================================================================
 
 -spec init(list()) -> {ok, state()}.
 init([Opts, Owner]) ->
-    Opts1 = overwrite_default_opts(maps:from_list(Opts), default_options()),
+    Opts1 = overwrite_default_opts(Opts, default_options()),
     #{wspath := Resource,
       wslegacy := LegacyWS,
       event_client := EventClient,
@@ -318,6 +299,30 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Helpers
 %%%===================================================================
 
+-spec get_stream_management_opt(opts()) -> sm_state().
+get_stream_management_opt(#{stream_management := false}) ->
+    {false, 0, inactive};
+get_stream_management_opt(#{manual_ack := true}) ->
+    {false, 0, inactive};
+get_stream_management_opt(#{stream_management := true, manual_ack := false}) ->
+    {true, 0, inactive}.
+
+overwrite_default_opts(GivenOpts, DefaultOpts) ->
+    maps:merge(DefaultOpts, GivenOpts).
+
+do_connect(#{ssl := true, ssl_opts := SSLOpts} = Opts) ->
+    TransportOpts =  #{transport => tls, protocols => [http],
+                       tls_opts => SSLOpts},
+    do_connect(Opts, TransportOpts);
+do_connect(Opts) ->
+    do_connect(Opts, #{transport => tcp, protocols => [http]}).
+
+do_connect(#{host := Host, port := Port}, TransportOpts) ->
+    Host1 = maybe_binary_to_list(Host),
+    {ok, ConnPid} = gun:open(Host1, Port, TransportOpts),
+    {ok, http} = gun:await_up(ConnPid),
+    ConnPid.
+
 handle_data(Data, State = #state{parser = Parser,
                                  compress = Compress}) ->
     Timestamp = os:system_time(micro_seconds),
@@ -407,13 +412,6 @@ common_terminate(_Reason, #state{parser = Parser}) ->
 maybe_binary_to_list(B) when is_binary(B) -> binary_to_list(B);
 maybe_binary_to_list(S) when is_list(S) -> S.
 
--spec get_option(any(), list(), any()) -> any().
-get_option(Key, Opts, Default) ->
-    case lists:keyfind(Key, 1, Opts) of
-        false -> Default;
-        {Key, Value} -> Value
-    end.
-
 close_compression_streams(false) ->
     ok;
 close_compression_streams({zlib, {Zin, Zout}}) ->
@@ -427,3 +425,7 @@ close_compression_streams({zlib, {Zin, Zout}}) ->
         ok = zlib:close(Zin),
         ok = zlib:close(Zout)
     end.
+
+-spec opts_to_map([proplists:property()] | opts()) -> opts().
+opts_to_map(Opts) when is_map(Opts) -> Opts;
+opts_to_map(Opts) when is_list(Opts) -> maps:from_list(Opts).

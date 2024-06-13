@@ -373,12 +373,16 @@ get_stream_end(#client{rcv_pid = Pid, jid = Jid}, Timeout) ->
 -spec get_sm_h(client()) -> non_neg_integer().
 get_sm_h(#client{module = escalus_tcp, rcv_pid = Pid}) ->
     escalus_tcp:get_sm_h(Pid);
+get_sm_h(#client{module = escalus_ws, rcv_pid = Pid}) ->
+    escalus_ws:get_sm_h(Pid);
 get_sm_h(#client{module = Mod}) ->
     error({get_sm_h, {undefined_for_escalus_module, Mod}}).
 
 -spec set_sm_h(client(), non_neg_integer()) -> {ok, non_neg_integer()}.
 set_sm_h(#client{module = escalus_tcp, rcv_pid = Pid}, H) ->
     escalus_tcp:set_sm_h(Pid, H);
+set_sm_h(#client{module = escalus_ws, rcv_pid = Pid}, H) ->
+    escalus_ws:set_sm_h(Pid, H);
 set_sm_h(#client{module = Mod}, _) ->
     error({set_sm_h, {undefined_for_escalus_module, Mod}}).
 
