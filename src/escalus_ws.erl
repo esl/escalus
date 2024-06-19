@@ -86,7 +86,6 @@ get_sm_h(Pid) ->
 set_sm_h(Pid, H) ->
     gen_server:call(Pid, {set_sm_h, H}).
 
-
 -spec reset_parser(pid()) -> ok.
 reset_parser(Pid) ->
     gen_server:cast(Pid, reset_parser).
@@ -311,8 +310,8 @@ overwrite_default_opts(GivenOpts, DefaultOpts) ->
     maps:merge(DefaultOpts, GivenOpts).
 
 do_connect(#{ssl := true, ssl_opts := SSLOpts} = Opts) ->
-    TransportOpts =  #{transport => tls, protocols => [http],
-                       tls_opts => SSLOpts},
+    TransportOpts = #{transport => tls, protocols => [http],
+                      tls_opts => SSLOpts},
     do_connect(Opts, TransportOpts);
 do_connect(Opts) ->
     do_connect(Opts, #{transport => tcp, protocols => [http]}).
@@ -350,9 +349,9 @@ is_stream_end(#xmlel{name = <<"close">>}, #state{legacy_ws = false}) -> true;
 is_stream_end(_, _) -> false.
 
 forward_to_owner(Stanzas0, #state{owner = Owner,
-                                 sm_state = SM0,
-                                 event_client = EventClient} = State, Timestamp) ->
-    {SM1, AckRequests, StanzasNoRs} = separate_ack_requests(SM0, Stanzas0),
+                                  sm_state = SM0,
+                                  event_client = EventClient} = State, Timestamp) ->
+    {SM1, AckRequests, StanzasNoRs} = escalus_connection:separate_ack_requests(SM0, Stanzas0),
     reply_to_ack_requests(SM1, AckRequests, State),
 
     lists:foreach(fun(Stanza) ->
@@ -361,36 +360,6 @@ forward_to_owner(Stanzas0, #state{owner = Owner,
     end, StanzasNoRs),
 
     State#state{sm_state = SM1, sent_stanzas = StanzasNoRs}.
-
-separate_ack_requests({false, H0, A}, Stanzas) ->
-    %% Don't keep track of H
-    {{false, H0, A}, [], Stanzas};
-separate_ack_requests({true, H0, inactive}, Stanzas) ->
-    Enabled = [ S || S <- Stanzas, escalus_pred:is_sm_enabled(S)],
-    Resumed = [ S || S <- Stanzas, escalus_pred:is_sm_resumed(S)],
-
-    case {length(Enabled), length(Resumed)} of
-        %% Enabled SM: set the H param to 0 and activate counter.
-        {1,0} -> {{true, 0, active}, [], Stanzas};
-
-        %% Resumed SM: keep the H param and activate counter.
-        {0,1} -> {{true, H0, active}, [], Stanzas};
-
-        %% No new SM state: continue as usual
-        {0,0} -> {{true, H0, inactive}, [], Stanzas}
-    end;
-separate_ack_requests({true, H0, active}, Stanzas) ->
-    %% Count H and construct appropriate acks
-    F = fun(Stanza, {H, Acks, NonAckRequests}) ->
-                case escalus_pred:is_sm_ack_request(Stanza) of
-                    true -> {H, [make_ack(H)|Acks], NonAckRequests};
-                    false -> {H+1, Acks, [Stanza|NonAckRequests]}
-                end
-        end,
-    {H, Acks, Others} = lists:foldl(F, {H0, [], []}, Stanzas),
-    {{true, H, active}, lists:reverse(Acks), lists:reverse(Others)}.
-
-make_ack(H) -> {escalus_stanza:sm_ack(H), H}.
 
 reply_to_ack_requests({false, H, A}, _, _) ->
     {false, H, A};
@@ -426,6 +395,6 @@ close_compression_streams({zlib, {Zin, Zout}}) ->
         ok = zlib:close(Zout)
     end.
 
--spec opts_to_map([proplists:property()] | opts()) -> opts().
+-spec opts_to_map(proplists:proplist() | opts()) -> opts().
 opts_to_map(Opts) when is_map(Opts) -> Opts;
 opts_to_map(Opts) when is_list(Opts) -> maps:from_list(Opts).

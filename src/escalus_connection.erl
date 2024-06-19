@@ -41,7 +41,7 @@
          upgrade_to_tls/1,
          start_stream/1]).
 
--export([stanza_msg/2]).
+-export([stanza_msg/2, separate_ack_requests/2]).
 
 %% Behaviour helpers
 -export([maybe_forward_to_owner/5]).
@@ -474,9 +474,39 @@ maybe_forward_to_owner(_, State, Stanzas, Fun, Timestamp) ->
 stanza_msg(Stanza, Metadata) ->
     {stanza, self(), Stanza, Metadata}.
 
+separate_ack_requests({false, H0, A}, Stanzas) ->
+    %% Don't keep track of H
+    {{false, H0, A}, [], Stanzas};
+separate_ack_requests({true, H0, inactive}, Stanzas) ->
+    Enabled = [ S || S <- Stanzas, escalus_pred:is_sm_enabled(S)],
+    Resumed = [ S || S <- Stanzas, escalus_pred:is_sm_resumed(S)],
+
+    case {length(Enabled), length(Resumed)} of
+        %% Enabled SM: set the H param to 0 and activate counter.
+        {1,0} -> {{true, 0, active}, [], Stanzas};
+
+        %% Resumed SM: keep the H param and activate counter.
+        {0,1} -> {{true, H0, active}, [], Stanzas};
+
+        %% No new SM state: continue as usual
+        {0,0} -> {{true, H0, inactive}, [], Stanzas}
+    end;
+separate_ack_requests({true, H0, active}, Stanzas) ->
+    %% Count H and construct appropriate acks
+    F = fun(Stanza, {H, Acks, NonAckRequests}) ->
+                case escalus_pred:is_sm_ack_request(Stanza) of
+                    true -> {H, [make_ack(H)|Acks], NonAckRequests};
+                    false -> {H+1, Acks, [Stanza|NonAckRequests]}
+                end
+        end,
+    {H, Acks, Others} = lists:foldl(F, {H0, [], []}, Stanzas),
+    {{true, H, active}, lists:reverse(Acks), lists:reverse(Others)}.
+
 %%%===================================================================
 %%% Helpers
 %%%===================================================================
+
+make_ack(H) -> {escalus_stanza:sm_ack(H), H}.
 
 get_connection_steps(UserSpec) ->
     case lists:keyfind(connection_steps, 1, UserSpec) of
