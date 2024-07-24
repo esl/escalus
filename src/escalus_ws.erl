@@ -257,8 +257,9 @@ handle_call(use_zlib, _, #state{parser = Parser} = State) ->
                             compress = {zlib, {Zin, Zout}}}};
 handle_call({set_filter_pred, Pred}, _From, State) ->
     {reply, ok, State#state{filter_pred = Pred}};
-handle_call(kill_connection, _, S) ->
-    {stop, normal, ok, S};
+handle_call(kill_connection, _, #state{socket = ConnPid} = State) ->
+    gun:close(ConnPid),
+    {stop, normal, ok, State};
 handle_call(stop, _From, #state{socket = ConnPid, stream_ref = StreamRef} = State) ->
     close_compression_streams(State#state.compress),
     gun:ws_send(ConnPid, StreamRef, close),
