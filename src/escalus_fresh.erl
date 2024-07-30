@@ -121,7 +121,20 @@ start(_Config) ->
     application:ensure_all_started(worker_pool),
     ensure_table_present(nasty_global_table()).
 stop(_) ->
-    nasty_global_table() ! bye.
+    case whereis(nasty_global_table()) of
+        undefined ->
+            ok;
+        Pid ->
+            Mon = erlang:monitor(process, Pid),
+            Pid ! bye,
+            receive
+                {'DOWN', Mon, process, Pid, _Reason} ->
+                    ok
+            after 5000 ->
+                error(stop_fresh_timeout)
+            end
+    end.
+
 -spec clean() -> no_return() | ok.
 clean() ->
     wpool:start_sup_pool(unregister_pool, [{workers, ?UNREGISTER_WORKERS},
@@ -179,12 +192,23 @@ do_delete_users(Conf) ->
 
 
 ensure_table_present(T) ->
+    Parent = self(),
+    StartRef = make_ref(),
     RunDB = fun() -> ets:new(T, [named_table, public]),
+                     Parent ! {started, StartRef},
                      receive bye -> ok end end,
     case ets:info(T) of
         undefined ->
-            P = spawn(RunDB),
-            erlang:register(T, P);
+            {Pid, Mon} = spawn_monitor(RunDB),
+            receive
+                {started, StartRef} ->
+                    erlang:register(T, Pid),
+                    erlang:demonitor(Mon);
+                {'DOWN', Mon, process, Pid, _Reason} ->
+                    ok
+                after 5000 ->
+                    error(failed_to_start_fresh_table)
+            end;
         _nasty_table_is_there_well_run_with_it -> ok
     end.
 
