@@ -192,12 +192,23 @@ do_delete_users(Conf) ->
 
 
 ensure_table_present(T) ->
+    Parent = self(),
+    StartRef = make_ref(),
     RunDB = fun() -> ets:new(T, [named_table, public]),
+                     Parent ! {started, StartRef},
                      receive bye -> ok end end,
     case ets:info(T) of
         undefined ->
-            P = spawn(RunDB),
-            erlang:register(T, P);
+            {Pid, Mon} = spawn_monitor(RunDB),
+            receive
+                {started, StartRef} ->
+                    erlang:register(T, Pid),
+                    erlang:demonitor(Mon);
+                {'DOWN', Mon, process, Pid, _Reason} ->
+                    ok
+                after 5000 ->
+                    error(failed_to_start_fresh_table)
+            end;
         _nasty_table_is_there_well_run_with_it -> ok
     end.
 
