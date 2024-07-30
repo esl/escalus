@@ -121,7 +121,20 @@ start(_Config) ->
     application:ensure_all_started(worker_pool),
     ensure_table_present(nasty_global_table()).
 stop(_) ->
-    nasty_global_table() ! bye.
+    case whereis(nasty_global_table()) of
+        undefined ->
+            ok;
+        Pid ->
+            Mon = erlang:monitor(process, Pid),
+            Pid ! bye,
+            receive
+                {'DOWN', Mon, process, Pid, _Reason} ->
+                    ok
+            after 5000 ->
+                error(stop_fresh_timeout)
+            end
+    end.
+
 -spec clean() -> no_return() | ok.
 clean() ->
     wpool:start_sup_pool(unregister_pool, [{workers, ?UNREGISTER_WORKERS},
