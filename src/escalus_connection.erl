@@ -63,7 +63,7 @@
                         | fun((client(), exml_stream:element()) -> boolean()).
 -export_type([stanza_handler/0]).
 
--export_type([t/0]).
+-export_type([t/0, metadata/0]).
 
 %% Private
 -export([connection_step/2]).
