@@ -191,7 +191,7 @@ md5_digest_response(ChallengeData, Props) ->
     Server = get_property(server, Props),
     Resource = get_property(resource, Props),
     Nonce = get_property(<<"nonce">>, ChallengeData),
-    CNonce = base16:encode(crypto:strong_rand_bytes(16)),
+    CNonce = binary:encode_hex(crypto:strong_rand_bytes(16), lowercase),
     Realm = proplists:get_value(<<"realm">>, ChallengeData, <<>>),
     QOP = get_property(<<"qop">>, ChallengeData),
     NC = <<"00000001">>,
@@ -230,7 +230,7 @@ scram_sha_auth_payload(fast_tls, tls_unique, Conn) ->
 
 
 hex_md5(Data) ->
-    base16:encode(crypto:hash(md5, Data)).
+    binary:encode_hex(crypto:hash(md5, Data), lowercase).
 
 %%--------------------------------------------------------------------
 %% Helpers - actions

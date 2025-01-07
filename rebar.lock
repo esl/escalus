@@ -1,6 +1,5 @@
 {"1.2.0",
-[{<<"base16">>,{pkg,<<"base16">>,<<"2.0.1">>},0},
- {<<"bbmustache">>,{pkg,<<"bbmustache">>,<<"1.12.2">>},0},
+[{<<"bbmustache">>,{pkg,<<"bbmustache">>,<<"1.12.2">>},0},
  {<<"cowlib">>,{pkg,<<"cowlib">>,<<"2.13.0">>},1},
  {<<"exml">>,{pkg,<<"hexml">>,<<"3.4.1">>},0},
  {<<"fast_pbkdf2">>,{pkg,<<"fast_pbkdf2">>,<<"1.0.5">>},1},
@@ -14,7 +13,6 @@
  {<<"worker_pool">>,{pkg,<<"worker_pool">>,<<"6.4.0">>},0}]}.
 [
 {pkg_hash,[
- {<<"base16">>, <<"F0549F732E03BE8124ED0D19FD5EE52146CC8BE24C48CBC3F23AB44B157F11A2">>},
  {<<"bbmustache">>, <<"0CABDCE0DB9FE6D3318131174B9F2B351328A4C0AFBEB3E6E99BB0E02E9B621D">>},
  {<<"cowlib">>, <<"DB8F7505D8332D98EF50A3EF34B34C1AFDDEC7506E4EE4DD4A3A266285D282CA">>},
  {<<"exml">>, <<"9581FE6512D9772C61BBE611CD4A8E5BB90B4D4481275325EC520F7A931A9393">>},
@@ -28,7 +26,6 @@
  {<<"uuid">>, <<"B2078D2CC814F53AFA52D36C91E08962C7E7373585C623F4C0EA6DFB04B2AF94">>},
  {<<"worker_pool">>, <<"0347B805A8E5804B5676A9885FB3B9B6C1627099C449C3C67C0E8E6AF79E9AA6">>}]},
 {pkg_hash_ext,[
- {<<"base16">>, <<"06EA2D48343282E712160BA89F692B471DB8B36ABE8394F3445FF9032251D772">>},
  {<<"bbmustache">>, <<"688B33A4D5CC2D51F575ADF0B3683FC40A38314A2F150906EDCFC77F5B577B3B">>},
  {<<"cowlib">>, <<"E1E1284DC3FC030A64B1AD0D8382AE7E99DA46C3246B815318A4B848873800A4">>},
  {<<"exml">>, <<"D8E7894E2544402B4986EEB2443C15B51B14F686266F091DBF2777D1D99A2FA2">>},
