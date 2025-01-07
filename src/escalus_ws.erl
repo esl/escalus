@@ -54,7 +54,7 @@
       wslegacy           => boolean(),
       event_client       => undefined | escalus_event:event_client(),
       ssl                => boolean(),
-      ssl_opts           => [ssl:ssl_option()],
+      ssl_opts           => [ssl:tls_option()],
       ws_upgrade_timeout => pos_integer(),
       stream_management  => boolean(),
       manual_ack         => boolean()

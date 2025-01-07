@@ -425,7 +425,9 @@ use_zlib(#client{module = Mod, rcv_pid = Pid}) ->
 
 -spec upgrade_to_tls(client()) -> ok.
 upgrade_to_tls(#client{module = Mod, rcv_pid = Pid, props = Props}) ->
-    SSLOpts = proplists:get_value(ssl_opts, Props, [[{verify, verify_none}]]),
+    HibernateAfter = proplists:get_value(hibernate_after, Props, 500),
+    DefSslOpts = [[{hibernate_after, HibernateAfter}, {verify, verify_none}]],
+    SSLOpts = proplists:get_value(ssl_opts, Props, DefSslOpts),
     Mod:upgrade_to_tls(Pid, SSLOpts).
 
 wait_for_close(Client) ->
