@@ -150,7 +150,7 @@ msg() -> <<"Message">>.
 
 msg2() -> <<"Message 2">>.
 
-metadata() -> #{recv_timestamp => os:system_time(micro_seconds)}.
+metadata() -> #{recv_timestamp => os:system_time(microsecond)}.
 
 client() -> #client{jid = my_jid(), rcv_pid = self(), props = []}.
 
