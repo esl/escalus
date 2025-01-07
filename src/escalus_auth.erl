@@ -29,7 +29,7 @@
 %% Some shorthands
 -type client() :: escalus_connection:client().
 -type user_spec() :: escalus_users:user_spec().
--type hash_type() :: scram:hash_type().
+-type hash_type() :: fast_scram:sha_type().
 -type plus_variant() :: none | tls_unique.
 -type scram_options() :: #{plus_variant := plus_variant(),
                            hash_type := hash_type(),
