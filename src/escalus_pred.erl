@@ -199,12 +199,12 @@ is_chat_message(Msg, Stanza) ->
 
 -spec is_chat_message_from_to(binary(), binary(), binary(), exml:element())
                              -> boolean().
-is_chat_message_from_to(From, To, Msg, #xmlel{attrs=Attrs} = Stanza) ->
+is_chat_message_from_to(From, To, Msg, #xmlel{attrs = Attrs} = Stanza) ->
     is_chat_message(Msg, Stanza)
     andalso
-    bin(From) == proplists:get_value(<<"from">>, Attrs)
+    bin(From) == maps:get(<<"from">>, Attrs, undefined)
     andalso
-    bin(To) == proplists:get_value(<<"to">>, Attrs).
+    bin(To) == maps:get(<<"to">>, Attrs, undefined).
 
 -spec is_groupchat_message(exml:element()) -> boolean().
 is_groupchat_message(Stanza) ->
@@ -257,24 +257,24 @@ has_type(Type, Stanza) ->
 -spec is_0184_request(exml:element()) -> boolean().
 is_0184_request(#xmlel{children = Els}) ->
     #xmlel{ name = <<"request">>,
-            attrs = [{<<"xmlns">>, <<"urn:xmpp:receipts">>}],
+            attrs = #{<<"xmlns">> => <<"urn:xmpp:receipts">>},
             children = [] } =:= lists:keyfind(<<"request">>, 2, Els).
 
 -spec is_0184_receipt(exml:element(), exml:element()) -> boolean().
-is_0184_receipt(#xmlel{ attrs = ReqAttrs } = Request, Receipt) ->
-    {_, ReqTo} = lists:keyfind(<<"to">>, 1, ReqAttrs),
+is_0184_receipt(#xmlel{attrs = ReqAttrs} = Request, Receipt) ->
+    ReqTo = maps:get(<<"to">>, ReqAttrs),
     is_0184_receipt(Request, ReqTo, Receipt).
 
 -spec is_0184_receipt(exml:element(), binary(), exml:element()) -> boolean().
-is_0184_receipt(#xmlel{ attrs = ReqAttrs } = _Request,
+is_0184_receipt(#xmlel{attrs = ReqAttrs} = _Request,
                 ProperResFrom,
-                #xmlel{ attrs = ResAttrs,
-                        children = [#xmlel{ name = <<"received">>,
-                                            attrs = SubAttrs}]} = _Receipt) ->
-    {_, ResFrom} = lists:keyfind(<<"from">>, 1, ResAttrs),
-    {_, ReqID} = lists:keyfind(<<"id">>, 1, ReqAttrs),
-    {_, ResID} = lists:keyfind(<<"id">>, 1, SubAttrs),
-    {_, ResXmlns} = lists:keyfind(<<"xmlns">>, 1, SubAttrs),
+                #xmlel{attrs = ResAttrs,
+                       children = [#xmlel{name = <<"received">>,
+                                          attrs = SubAttrs}]} = _Receipt) ->
+    ResFrom = maps:get(<<"from">>, ResAttrs),
+    ReqID = maps:get(<<"id">>, ReqAttrs),
+    ResID = maps:get(<<"id">>, SubAttrs),
+    ResXmlns = maps:get(<<"xmlns">>, SubAttrs),
     binary:longest_common_prefix([ProperResFrom, ResFrom]) == byte_size(ProperResFrom)
     andalso
     ReqID == ResID

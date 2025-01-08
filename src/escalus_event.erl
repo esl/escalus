@@ -165,13 +165,13 @@ build_elem_event(BaseTime, {story, Type, Time}) ->
     build_story_event_elem(Type, BaseTime, Time).
 
 build_story_event_elem(Type, BaseTime, Time) ->
-    #xmlel{name = list_to_binary(atom_to_list(Type)),
-           attrs = [{<<"offset">>, time_offset_binary(BaseTime, Time)}]}.
+    #xmlel{name = atom_to_binary(Type),
+           attrs = #{<<"offset">> => time_offset_binary(BaseTime, Time)}}.
 
 build_stanza_event_elem(Type, JID, BaseTime, Time, Elem) ->
-    #xmlel{name = list_to_binary(atom_to_list(Type)),
-           attrs = [{<<"jid">>, jid_to_binary(JID)},
-                    {<<"offset">>, time_offset_binary(BaseTime, Time)}],
+    #xmlel{name = atom_to_binary(Type),
+           attrs = #{<<"jid">> => jid_to_binary(JID),
+                     <<"offset">> => time_offset_binary(BaseTime, Time)},
            children = [Elem || Elem =/= undefined]}.
 
 manager(Config) ->

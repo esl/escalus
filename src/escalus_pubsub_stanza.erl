@@ -59,10 +59,10 @@
 -spec discover_nodes(escalus_utils:jid_spec(), binary(), binary() | pubsub_node_id()) ->
                             exml:element().
 discover_nodes(User, Id, {NodeAddr, NodeName}) ->
-    QueryElement = escalus_stanza:query_el(?NS_DISCO_ITEMS, [{<<"node">>, NodeName}], []),
+    QueryElement = escalus_stanza:query_el(?NS_DISCO_ITEMS, #{<<"node">> => NodeName}, []),
     iq(<<"get">>, User, Id, NodeAddr, [QueryElement]);
 discover_nodes(User, Id, NodeAddr) ->
-    QueryElement = escalus_stanza:query_el(?NS_DISCO_ITEMS, [], []),
+    QueryElement = escalus_stanza:query_el(?NS_DISCO_ITEMS, #{}, []),
     iq(<<"get">>, User, Id, NodeAddr, [QueryElement]).
 
 %% ---------------- create & delete ----------------
@@ -86,8 +86,8 @@ delete_node(User, Id, {NodeAddr, NodeName}) ->
 
 -spec get_configuration(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
 get_configuration(User, Id, {NodeAddr, NodeName}) ->
-    Elements = [#xmlel{ name = <<"configure">>,
-                        attrs = [{<<"node">>, NodeName}] }],
+    Elements = [#xmlel{name = <<"configure">>,
+                       attrs = #{<<"node">> => NodeName}}],
     pubsub_owner_iq(<<"get">>, User, Id, NodeAddr, Elements).
 
 -spec set_configuration(escalus_utils:jid_spec(), binary(),
@@ -107,20 +107,20 @@ get_default_configuration(User, Id, NodeAddr) ->
 
 -spec get_affiliations(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
 get_affiliations(User, Id, {NodeAddr, NodeName}) ->
-    Elements = [#xmlel{ name = <<"affiliations">>,
-                        attrs = [{<<"node">>, NodeName}] }],
+    Elements = [#xmlel{name = <<"affiliations">>,
+                       attrs = #{<<"node">> => NodeName}}],
     pubsub_owner_iq(<<"get">>, User, Id, NodeAddr, Elements).
 
 -spec set_affiliations(escalus_utils:jid_spec(), binary(), pubsub_node_id(),
                        [{escalus_utils:jid_spec(), binary()}]) ->
     exml:element().
 set_affiliations(User, Id, {NodeAddr, NodeName}, AffChange) ->
-    AffList = [ #xmlel{ name = <<"affiliation">>,
-                        attrs = [{<<"jid">>, escalus_utils:get_short_jid(U)},
-                                 {<<"affiliation">>, A}] }
+    AffList = [ #xmlel{name = <<"affiliation">>,
+                       attrs = #{<<"jid">> => escalus_utils:get_short_jid(U),
+                                 <<"affiliation">> => A}}
                 || {U, A} <- AffChange ],
-    Affiliations = #xmlel{ name = <<"affiliations">>, attrs = [{<<"node">>, NodeName}],
-                           children = AffList },
+    Affiliations = #xmlel{name = <<"affiliations">>, attrs = #{<<"node">> => NodeName},
+                          children = AffList},
     pubsub_owner_iq(<<"set">>, User, Id, NodeAddr, [Affiliations]).
 
 %% ---------------- subscriptions ----------------
@@ -146,7 +146,7 @@ submit_subscription_response(User, Id, {NodeAddr, _NodeName}, Form) ->
     Fields = [ encode_form_field(F) || F <- Form ],
     XEl = escalus_stanza:x_data_form(<<"submit">>, Fields),
     Msg = #xmlel{ name = <<"message">>,
-                  attrs = [{<<"to">>, NodeAddr}, {<<"id">>, Id}],
+                  attrs = #{<<"to">> => NodeAddr, <<"id">> => Id},
                   children = [XEl] },
     escalus_stanza:from(Msg, escalus_utils:get_jid(User)).
 
@@ -320,31 +320,31 @@ optional_form(FormName, NodeName, Type, Fields) ->
 %% Elements
 
 create_node_element(NodeName) ->
-    #xmlel{name = <<"create">>, attrs = [{<<"node">>, NodeName}]}.
+    #xmlel{name = <<"create">>, attrs = #{<<"node">> => NodeName}}.
 
 pubsub_element(Children, NS) ->
     #xmlel{name = <<"pubsub">>,
-           attrs = [{<<"xmlns">>, NS}],
+           attrs = #{<<"xmlns">> => NS},
            children = Children}.
 
 delete_element(NodeName) ->
     #xmlel{name = <<"delete">>,
-           attrs = [{<<"node">>, NodeName}]}.
+           attrs = #{<<"node">> => NodeName}}.
 
 subscribe_element(NodeName, User) ->
     #xmlel{name = <<"subscribe">>,
-           attrs = [{<<"node">>, NodeName},
-                    {<<"jid">>, escalus_utils:get_jid(User)}]}.
+           attrs = #{<<"node">> => NodeName,
+                    <<"jid">> => escalus_utils:get_jid(User)}}.
 
 unsubscribe_element(NodeName, User) ->
     #xmlel{name = <<"unsubscribe">>,
-           attrs = [{<<"node">>, NodeName},
-                    {<<"jid">>, escalus_utils:get_jid(User)}]}.
+           attrs = #{<<"node">> => NodeName,
+                    <<"jid">> => escalus_utils:get_jid(User)}}.
 
 publish_element(NodeName, Item) ->
     #xmlel{name = <<"publish">>,
-           attrs = [{<<"node">>, NodeName}],
-           children = skip_undefined([Item])}.
+           attrs = #{<<"node">> => NodeName},
+           children = maybe_children([Item])}.
 
 publish_options_element(Fields) ->
     #xmlel{name = <<"publish-options">>,
@@ -358,63 +358,63 @@ x_data_fields(Fields) ->
 
 form_type_field() ->
     [#xmlel{name = <<"field">>,
-            attrs = [{<<"var">>, <<"FORM_TYPE">>}, {<<"type">>, <<"hidden">>}],
+            attrs = #{<<"var">> => <<"FORM_TYPE">>, <<"type">> => <<"hidden">>},
             children = [#xmlel{name = <<"value">>,
-                               children = [{xmlcdata, ?NS_PUBSUB_PUBLISH_OPTIONS}]}]}].
+                               children = [#xmlcdata{content = ?NS_PUBSUB_PUBLISH_OPTIONS}]}]}].
 
 items_element(NodeName) ->
     #xmlel{name = <<"items">>,
-           attrs = [{<<"node">>, NodeName}]}.
+           attrs = #{<<"node">> => NodeName}}.
 
 items_element(NodeName, MaxItems) ->
     #xmlel{name = <<"items">>,
-           attrs = [{<<"node">>, NodeName},
-                    {<<"max_items">>, integer_to_binary(MaxItems)}]}.
+           attrs = #{<<"node">> => NodeName,
+                     <<"max_items">> => integer_to_binary(MaxItems)}}.
 
 item_element(ContentElement) ->
     #xmlel{name = <<"item">>,
-           children = skip_undefined([ContentElement])}.
+           children = maybe_children([ContentElement])}.
 
 item_element(ItemId, ContentElement) ->
     #xmlel{name = <<"item">>,
-           attrs = [{<<"id">>, ItemId}],
-           children = skip_undefined([ContentElement])}.
+           attrs = #{<<"id">> => ItemId},
+           children = maybe_children([ContentElement])}.
 
 retract_item(NodeName, ItemId) ->
     #xmlel{name = <<"retract">>,
-           attrs = [{<<"node">>, NodeName}],
-           children = [#xmlel{ name = <<"item">>,
-                               attrs = [{<<"id">>, ItemId}] }]}.
+           attrs = #{<<"node">> => NodeName},
+           children = [#xmlel{name = <<"item">>,
+                              attrs = #{<<"id">> => ItemId} }]}.
 
 purge_element(NodeName) ->
     #xmlel{name = <<"purge">>,
-           attrs = [{<<"node">>, NodeName}]}.
+           attrs = #{<<"node">> => NodeName}}.
 
 subscriptions_element() ->
     #xmlel{name = <<"subscriptions">>}.
 
 subscriptions_element(NodeName, Children) ->
     #xmlel{name = <<"subscriptions">>,
-           attrs = [{<<"node">>, NodeName}],
+           attrs = #{<<"node">> => NodeName},
            children = Children}.
 
 subscription_element(User, SubscriptionState) ->
     #xmlel{name = <<"subscription">>,
-           attrs = [{<<"jid">>, escalus_utils:get_jid(User)},
-                    {<<"subscription">>, SubscriptionState}]}.
+           attrs = #{<<"jid">> => escalus_utils:get_jid(User),
+                     <<"subscription">> => SubscriptionState}}.
 
 subscription_options(NodeName, User) ->
     #xmlel{name = <<"options">>,
-           attrs = [{<<"node">>, NodeName},
-                    {<<"jid">>, escalus_utils:get_jid(User)}]}.
+           attrs = #{<<"node">> => NodeName,
+                     <<"jid">> => escalus_utils:get_jid(User)}}.
 
 set_subscription_options_form(NodeName, User, Children) ->
     #xmlel{name = <<"options">>,
-           attrs = [{<<"node">>, NodeName},
-                    {<<"jid">>, escalus_utils:get_jid(User)}],
+           attrs = #{<<"node">> => NodeName,
+                     <<"jid">> => escalus_utils:get_jid(User)},
            children = [#xmlel{name = <<"x">>,
-                              attrs = [{<<"xmlns">>, <<"jabber:x:data">>},
-                                       {<<"type">>, <<"submit">>}],
+                              attrs = #{<<"xmlns">> => <<"jabber:x:data">>,
+                                        <<"type">> => <<"submit">>},
                               children = Children}]}.
 
 default_element() ->
@@ -422,18 +422,18 @@ default_element() ->
 
 form_element(FormName, NodeName, FieldElements) ->
     #xmlel{name = FormName,
-           attrs = skip_undefined([{<<"node">>, NodeName}]),
+           attrs = skip_undefined(#{<<"node">> => NodeName}),
            children = [#xmlel{name = <<"x">>,
-                              attrs = [{<<"xmlns">>, <<"jabber:x:data">>},
-                                       {<<"type">>, <<"submit">>}],
+                              attrs = #{<<"xmlns">> => <<"jabber:x:data">>,
+                                        <<"type">> => <<"submit">>},
                               children = FieldElements}
                       ]}.
 
 form_type_field_element(FormType) ->
     Content = << <<"http://jabber.org/protocol/pubsub#">>/binary, FormType/binary >>,
     #xmlel{name = <<"field">>,
-           attrs = [{<<"var">>, <<"FORM_TYPE">>},
-                    {<<"type">>, <<"hidden">>}],
+           attrs = #{<<"var">> => <<"FORM_TYPE">>,
+                    <<"type">> => <<"hidden">>},
            children = [#xmlel{name = <<"value">>,
                               children = [#xmlcdata{content = Content}]}]}.
 
@@ -447,12 +447,16 @@ encode_form_field({Var, _Type, Value}) ->
 encode_form_field(Var, Values) ->
     Children = [ #xmlel{name = <<"value">>, children = [#xmlcdata{content = Content}]}
                  || Content <- Values ],
-    #xmlel{name = <<"field">>, attrs = [{<<"var">>, Var}], children = Children}.
+    #xmlel{name = <<"field">>, attrs = #{<<"var">> => Var}, children = Children}.
 
 %% Helpers
 
-skip_undefined(L) ->
+maybe_children(L) ->
     lists:filter(fun(undefined) -> false;
                     ({_, undefined}) -> false;
                     (_) -> true
                  end, L).
+
+
+skip_undefined(L) ->
+    maps:filter(fun(_, Val) -> undefined =/= Val end, L).

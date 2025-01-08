@@ -334,11 +334,11 @@ get_sasl_mechanisms(Features) ->
     exml_query:paths(Features, [{element, <<"mechanisms">>},
                                 {element, <<"mechanism">>}, cdata]).
 
--spec get_server_caps(exml:element()) -> map().
+-spec get_server_caps(exml:element()) -> undefined | map().
 get_server_caps(Features) ->
     case exml_query:subelement(Features, <<"c">>) of
         #xmlel{attrs = Attrs} ->
-            maps:from_list(Attrs);
+            Attrs;
         _ ->
             undefined
     end.

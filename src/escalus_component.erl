@@ -180,7 +180,7 @@ component_start_stream(Conn = #client{props = Props}, []) ->
     StreamStartRep = escalus_connection:get_stanza(Conn, wait_for_stream),
 
     #xmlstreamstart{attrs = Attrs} = StreamStartRep,
-    Id = proplists:get_value(<<"id">>, Attrs),
+    Id = maps:get(<<"id">>, Attrs, undefined),
 
     {Conn#client{props = [{sid, Id} | Props]}, []}.
 
@@ -205,10 +205,9 @@ component_handshake(Conn = #client{props = Props}, []) ->
 %% Stanzas
 %%--------------------------------------------------------------------
 component_stream_start(Component) ->
-    Attrs = [{<<"to">>, Component},
-             {<<"xmlns">>, <<"jabber:component:accept">>},
-             {<<"xmlns:stream">>,
-              <<"http://etherx.jabber.org/streams">>}],
+    Attrs = #{<<"to">> => Component,
+              <<"xmlns">> => <<"jabber:component:accept">>,
+              <<"xmlns:stream">> => <<"http://etherx.jabber.org/streams">>},
     #xmlstreamstart{name = <<"stream:stream">>, attrs = Attrs}.
 
 component_handshake_el(SID, Password) ->
