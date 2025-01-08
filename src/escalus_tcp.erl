@@ -74,8 +74,9 @@
         on_connect        => fun(),
         event_client      => undefined | escalus_event:event_client(),
         socket_opts       => [gen_tcp:connect_option()],
-        ssl_opts          => [ssl:ssl_option()],
-        parser_opts       => [exml_stream:parser_opt()]
+        ssl_opts          => [ssl:tls_option()],
+        parser_opts       => [exml_stream:parser_opt()],
+        hibernate_after   => timeout()
 }.
 
 %%%===================================================================
@@ -85,7 +86,9 @@
 -spec connect([proplists:property()] | opts()) -> pid().
 connect(Opts0) ->
     Opts1 = opts_to_map(Opts0),
-    {ok, Pid} = gen_server:start_link(?MODULE, [Opts1, self()], []),
+    Opts2 = overwrite_default_opts(Opts1, default_options()),
+    GenOpts = maps:to_list(maps:with([hibernate_after], Opts1)),
+    {ok, Pid} = gen_server:start_link(?MODULE, {Opts2, self()}, GenOpts),
     Pid.
 
 -spec send(pid(), exml_stream:element() | [exml_stream:element()] | binary()) -> ok.
@@ -147,7 +150,7 @@ kill(Pid) ->
             already_stopped
     end.
 
--spec upgrade_to_tls(pid(), [ssl:ssl_option()]) -> ok.
+-spec upgrade_to_tls(pid(), [ssl:tls_option()]) -> ok.
 upgrade_to_tls(Pid, SSLOpts) ->
     case gen_server:call(Pid, {upgrade_to_tls, SSLOpts}) of
         {error, Error} ->
@@ -195,18 +198,17 @@ set_active(Pid, Active) ->
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
--spec init(list()) -> {ok, state()}.
-init([Opts0, Owner]) ->
-    Opts1 = overwrite_default_opts(Opts0, default_options()),
+-spec init({opts(), pid()}) -> {ok, state()}.
+init({Opts, Owner}) ->
     #{ssl          := IsSSLConnection,
       tls_module   := TLSMod,
       on_reply     := OnReplyFun,
       on_request   := OnRequestFun,
       parser_opts  := ParserOpts,
-      event_client := EventClient} = Opts1,
-    SM = get_stream_management_opt(Opts1),
+      event_client := EventClient} = Opts,
+    SM = get_stream_management_opt(Opts),
 
-    {ok, Socket} = do_connect(Opts1),
+    {ok, Socket} = do_connect(Opts),
     {ok, Parser} = exml_stream:new_parser(ParserOpts),
     {ok, #state{owner = Owner,
                 socket = Socket,
@@ -338,7 +340,8 @@ default_options() ->
       event_client      => undefined,
       socket_opts       => default_socket_options(),
       ssl_opts          => [{verify, verify_none}],
-      parser_opts       => []}.
+      parser_opts       => [],
+      hibernate_after   => 500}.
 
 -spec default_socket_options() -> [gen_tcp:connect_option()].
 default_socket_options() ->
@@ -481,11 +484,12 @@ do_connect(#{ssl        := IsSSLConn,
              on_connect := OnConnectFun,
              host       := Host,
              port       := Port,
-             ssl_opts   := SSLOpts} = Opts) ->
+             ssl_opts   := SSLOpts,
+             hibernate_after := HibernateAfter} = Opts) ->
     Address = host_to_inet(Host),
     SocketOpts = get_socket_opts(Opts),
     TimeB = erlang:system_time(microsecond),
-    Reply = maybe_ssl_connection(IsSSLConn, TLSMod, Address, Port, SocketOpts, SSLOpts),
+    Reply = maybe_ssl_connection(IsSSLConn, TLSMod, Address, Port, SocketOpts, SSLOpts, HibernateAfter),
     TimeA = erlang:system_time(microsecond),
     ConnectionTime = TimeA - TimeB,
     case Reply of
@@ -496,12 +500,12 @@ do_connect(#{ssl        := IsSSLConn,
     end,
     Reply.
 
-maybe_ssl_connection(true, fast_tls, Address, Port, SocketOpts, SSLOpts) ->
+maybe_ssl_connection(true, fast_tls, Address, Port, SocketOpts, SSLOpts, _) ->
     {ok, GenTcpSocket} = gen_tcp:connect(Address, Port, SocketOpts),
     tcp_to_tls(fast_tls, GenTcpSocket, SSLOpts);
-maybe_ssl_connection(true, ssl, Address, Port, SocketOpts, SSLOpts) ->
-    ssl:connect(Address, Port, SocketOpts ++ SSLOpts);
-maybe_ssl_connection(_, _, Address, Port, SocketOpts, _) ->
+maybe_ssl_connection(true, ssl, Address, Port, SocketOpts, SSLOpts, HibernateAfter) ->
+    ssl:connect(Address, Port, SocketOpts ++ SSLOpts ++ [{hibernate_after, HibernateAfter}]);
+maybe_ssl_connection(_, _, Address, Port, SocketOpts, _, _) ->
     gen_tcp:connect(Address, Port, SocketOpts).
 
 tcp_to_tls(fast_tls, GenTcpSocket, SSLOpts) ->
