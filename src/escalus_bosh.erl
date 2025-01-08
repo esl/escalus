@@ -406,7 +406,7 @@ handle_info(_, #state{ terminated = true } = S) ->
     {noreply, S};
 handle_info({http_reply, Ref, Body, _Transport} = HttpReply,
             #state{ pending_replies = PendingReplies } = S0) ->
-    Timestamp = os:system_time(micro_seconds),
+    Timestamp = os:system_time(microsecond),
     {ok, #xmlel{attrs = Attrs} = XmlBody} = exml:parse(Body),
     NewS = case {queue:peek(S0#state.requests),
                  S0#state.quickfail andalso detect_type(Attrs) == streamend} of

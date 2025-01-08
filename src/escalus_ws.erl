@@ -325,7 +325,7 @@ do_connect(#{host := Host, port := Port}, TransportOpts) ->
 
 handle_data(Data, State = #state{parser = Parser,
                                  compress = Compress}) ->
-    Timestamp = os:system_time(micro_seconds),
+    Timestamp = os:system_time(microsecond),
     {ok, NewParser, Stanzas} =
         case Compress of
             false ->

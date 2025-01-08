@@ -8,7 +8,6 @@
                   stdlib,
                   ssl,
                   exml,
-                  base16,
                   gun,
                   meck,
                   bbmustache,

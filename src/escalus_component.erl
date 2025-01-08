@@ -214,4 +214,4 @@ component_stream_start(Component) ->
 component_handshake_el(SID, Password) ->
     Handshake = crypto:hash(sha, <<SID/binary, Password/binary>>),
     #xmlel{name     = <<"handshake">>,
-           children = [#xmlcdata{content = base16:encode(Handshake)}]}.
+           children = [#xmlcdata{content = binary:encode_hex(Handshake, lowercase)}]}.
