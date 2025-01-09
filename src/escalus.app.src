@@ -13,7 +13,6 @@
                   meck,
                   bbmustache,
                   uuid,
-                  fast_tls,
                   fast_scram,
                   worker_pool
                  ]},
