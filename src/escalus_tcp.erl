@@ -9,8 +9,6 @@
 -behaviour(escalus_connection).
 
 -include_lib("exml/include/exml_stream.hrl").
--include_lib("exml/include/exml.hrl").
--include("escalus.hrl").
 
 %% Escalus transport callbacks
 -export([connect/1,
@@ -26,7 +24,7 @@
          set_sm_h/2,
          is_using_compression/1,
          is_using_ssl/1,
-         get_tls_last_message/1
+         export_key_materials/5
         ]).
 %% Connection stream start and end callbacks
 -export([stream_start_req/1,
@@ -57,7 +55,6 @@
 -export_type([sm_state/0]).
 
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 1000).
--define(SERVER, ?MODULE).
 -include("escalus_tcp.hrl").
 
 -type state() :: #state{}.
@@ -65,7 +62,6 @@
         host              => binary() | inet:ip_address() | inet:hostname(),
         port              => pos_integer(),
         ssl               => boolean(),
-        tls_module        => ssl | fast_tls,
         stream_management => boolean(),
         manual_ack        => boolean(),
         iface             => inet:ip_address(),
@@ -123,9 +119,17 @@ is_using_ssl(Pid) ->
 set_filter_predicate(Pid, Pred) ->
     gen_server:call(Pid, {set_filter_pred, Pred}).
 
--spec get_tls_last_message(pid()) -> {ok, binary()} | {error, undefined_tls_message}.
-get_tls_last_message(Pid) ->
-    gen_server:call(Pid, get_tls_last_message).
+-spec export_key_materials(pid(), Labels, Contexts, WantedLengths, ConsumeSecret) ->
+    {ok, ExportKeyMaterials} |
+    {error, undefined_tls_material | exporter_master_secret_already_consumed | bad_input}
+      when
+      Labels :: [binary()],
+      Contexts :: [binary() | no_context],
+      WantedLengths :: [non_neg_integer()],
+      ConsumeSecret :: boolean(),
+      ExportKeyMaterials :: binary() | [binary()].
+export_key_materials(Pid, Labels, Contexts, WantedLengths, ConsumeSecret) ->
+    gen_server:call(Pid, {export_key_materials, {Labels, Contexts, WantedLengths, ConsumeSecret}}).
 
 -spec stop(pid()) -> ok | already_stopped.
 stop(Pid) ->
@@ -201,7 +205,6 @@ set_active(Pid, Active) ->
 -spec init({opts(), pid()}) -> {ok, state()}.
 init({Opts, Owner}) ->
     #{ssl          := IsSSLConnection,
-      tls_module   := TLSMod,
       on_reply     := OnReplyFun,
       on_request   := OnRequestFun,
       parser_opts  := ParserOpts,
@@ -214,7 +217,6 @@ init({Opts, Owner}) ->
                 socket = Socket,
                 parser = Parser,
                 ssl = IsSSLConnection,
-                tls_module = TLSMod,
                 sm_state = SM,
                 event_client = EventClient,
                 on_reply = OnReplyFun,
@@ -227,13 +229,11 @@ handle_call(get_sm_h, _From, #state{sm_state = {_, H, _}} = State) ->
 handle_call({set_sm_h, H}, _From, #state{sm_state = {A, _OldH, S}} = State) ->
     NewState = State#state{sm_state={A, H, S}},
     {reply, {ok, H}, NewState};
-handle_call({upgrade_to_tls, SSLOpts}, _From, #state{socket = Socket,
-                                                     tls_module = TLSMod} = State) ->
-    case tcp_to_tls(TLSMod, Socket, SSLOpts) of
+handle_call({upgrade_to_tls, SSLOpts}, _From, #state{socket = Socket} = State) ->
+    case ssl:connect(Socket, SSLOpts) of
         {ok, TlsSocket} ->
             {ok, Parser} = exml_stream:new_parser(),
-            {reply, TlsSocket, State#state{socket = TlsSocket, parser = Parser,
-                                           ssl = true, tls_module = TLSMod}};
+            {reply, TlsSocket, State#state{socket = TlsSocket, parser = Parser, ssl = true}};
         {error, _} = E ->
             {reply, E, State}
     end;
@@ -254,18 +254,14 @@ handle_call(get_ssl, _From, #state{ssl = false} = State) ->
 handle_call(get_ssl, _From, #state{ssl = _} = State) ->
     {reply, true, State};
 handle_call({set_active, Active}, _From, State) ->
-    {reply, ok, set_active_opt(State,Active)};
+    {reply, ok, set_active_opt(State, Active)};
 handle_call({set_filter_pred, Pred}, _From, State) ->
     {reply, ok, State#state{filter_pred = Pred}};
-handle_call(get_tls_last_message, _From,
-            #state{socket = Socket, ssl = true, tls_module = fast_tls} = S) ->
-    Reply = fast_tls:get_tls_last_message(self, Socket),
-    {reply, Reply, S};
-handle_call(get_tls_last_message, _From, #state{} = S) ->
-    {reply, {error, undefined_tls_message}, S};
-handle_call(kill_connection, _, #state{socket = Socket, ssl = SSL, tls_module = TLSMod} = S) ->
+handle_call({export_key_materials, Data}, _From, #state{socket = Socket, ssl = true} = S) ->
+    {reply, do_export_key_materials(Socket, Data), S};
+handle_call(kill_connection, _, #state{socket = Socket, ssl = SSL} = S) ->
     case SSL of
-        true -> TLSMod:close(Socket);
+        true -> ssl:close(Socket);
         false -> gen_tcp:close(Socket)
     end,
     close_compression_streams(S#state.compress),
@@ -293,13 +289,8 @@ handle_cast(stop, State) ->
 handle_info({tcp, Socket, Data}, #state{socket = Socket, ssl = false} = State) ->
     NewState = handle_data(Socket, Data, State),
     {noreply, NewState};
-handle_info({ssl, Socket, Data}, #state{socket = Socket, ssl = true, tls_module = ssl} = State) ->
+handle_info({ssl, Socket, Data}, #state{socket = Socket, ssl = true} = State) ->
     NewState = handle_data(Socket, Data, State),
-    {noreply, NewState};
-handle_info({tcp, TcpSocket, Data}, #state{socket = {tlssock, TcpSocket, _} = TlsSocket,
-                                           ssl = true, tls_module = fast_tls} = State) ->
-    {ok, NewData} = fast_tls:recv_data(TlsSocket, Data),
-    NewState = handle_data(TlsSocket, NewData, State),
     {noreply, NewState};
 handle_info({tcp_closed, _Socket}, #state{} = State) ->
     {stop, normal, State};
@@ -313,10 +304,12 @@ handle_info(_, State) ->
     {noreply, State}.
 
 -spec terminate(term(), state()) -> term().
-terminate(Reason, #state{socket = Socket, ssl = true, tls_module = TLSMod} = State) ->
-    common_terminate(TLSMod, Socket, Reason, State);
-terminate(Reason, #state{socket = Socket} = State) ->
-    common_terminate(gen_tcp, Socket, Reason, State).
+terminate(_Reason, #state{socket = Socket, ssl = true, parser = Parser}) ->
+    exml_stream:free_parser(Parser),
+    ssl:close(Socket);
+terminate(_Reason, #state{socket = Socket, parser = Parser}) ->
+    exml_stream:free_parser(Parser),
+    gen_tcp:close(Socket).
 
 -spec code_change(term(), state(), term()) -> {ok, state()}.
 code_change(_OldVsn, State, _Extra) ->
@@ -331,7 +324,6 @@ default_options() ->
     #{host              => <<"localhost">>,
       port              => 5222,
       ssl               => false,
-      tls_module        => ssl,
       stream_management => false,
       manual_ack        => false,
       on_reply          => fun(_) -> ok end,
@@ -356,26 +348,25 @@ default_socket_options() ->
 %%% Helpers
 %%%===================================================================
 set_active_opt(
-  #state{ssl = SSL, socket = Soc, tls_module = TLSMod} = State, Act) when is_boolean(Act) ->
-    set_active_opt(SSL, TLSMod, Soc, Act),
+  #state{ssl = SSL, socket = Soc} = State, Act) when is_boolean(Act) ->
+    set_active_opt(SSL, Soc, Act),
     State#state{active = Act};
 set_active_opt(
-  #state{ssl = SSL, socket = Soc, active = Act, tls_module = TLSMod} = State, current_opt) ->
-    set_active_opt(SSL, TLSMod, Soc, Act),
+  #state{ssl = SSL, socket = Soc, active = Act} = State, current_opt) ->
+    set_active_opt(SSL, Soc, Act),
     State;
-set_active_opt(#state{ssl = SSL, socket = Soc, tls_module = TLSMod} = State, once) ->
-    set_active_opt(SSL, TLSMod, Soc, true),
+set_active_opt(#state{ssl = SSL, socket = Soc} = State, once) ->
+    set_active_opt(SSL, Soc, true),
     State#state{active = false};
-set_active_opt(#state{ssl = SSL, socket = Soc, tls_module = TLSMod} = State, at_least_once) ->
-    set_active_opt(SSL, TLSMod, Soc, true),
+set_active_opt(#state{ssl = SSL, socket = Soc} = State, at_least_once) ->
+    set_active_opt(SSL, Soc, true),
     State.
 
-
-set_active_opt(true, TLSMod, Socket, true) ->
-    TLSMod:setopts(Socket, [{active, once}]);
-set_active_opt(false, _, Socket, true) ->
+set_active_opt(true, Socket, true) ->
+    ssl:setopts(Socket, [{active, once}]);
+set_active_opt(false, Socket, true) ->
     inet:setopts(Socket, [{active, once}]);
-set_active_opt(_,_,_,_) ->
+set_active_opt(_, _, _) ->
     ok.
 
 handle_data(Socket, Data, #state{parser      = Parser,
@@ -435,14 +426,10 @@ maybe_compress_and_send(Data, #state{ compress = {zlib, {_, Zout}} } = State) ->
 maybe_compress_and_send(Data, State) ->
     raw_send(Data, State).
 
-raw_send(Data, #state{socket = Socket, ssl = true, tls_module = TLSMod}) ->
-    TLSMod:send(Socket, Data);
+raw_send(Data, #state{socket = Socket, ssl = true}) ->
+    ssl:send(Socket, Data);
 raw_send(Data, #state{socket = Socket}) ->
     gen_tcp:send(Socket, Data).
-
-common_terminate(SocketModule, Socket, _Reason, #state{parser = Parser}) ->
-    exml_stream:free_parser(Parser),
-    SocketModule:close(Socket).
 
 wait_until_closed(Socket) ->
     receive
@@ -480,7 +467,6 @@ close_compression_streams({zlib, {Zin, Zout}}) ->
     end.
 
 do_connect(#{ssl        := IsSSLConn,
-             tls_module := TLSMod,
              on_connect := OnConnectFun,
              host       := Host,
              port       := Port,
@@ -489,7 +475,7 @@ do_connect(#{ssl        := IsSSLConn,
     Address = host_to_inet(Host),
     SocketOpts = get_socket_opts(Opts),
     TimeB = erlang:system_time(microsecond),
-    Reply = maybe_ssl_connection(IsSSLConn, TLSMod, Address, Port, SocketOpts, SSLOpts, HibernateAfter),
+    Reply = maybe_ssl_connection(IsSSLConn, Address, Port, SocketOpts, SSLOpts, HibernateAfter),
     TimeA = erlang:system_time(microsecond),
     ConnectionTime = TimeA - TimeB,
     case Reply of
@@ -500,29 +486,10 @@ do_connect(#{ssl        := IsSSLConn,
     end,
     Reply.
 
-maybe_ssl_connection(true, fast_tls, Address, Port, SocketOpts, SSLOpts, _) ->
-    {ok, GenTcpSocket} = gen_tcp:connect(Address, Port, SocketOpts),
-    tcp_to_tls(fast_tls, GenTcpSocket, SSLOpts);
-maybe_ssl_connection(true, ssl, Address, Port, SocketOpts, SSLOpts, HibernateAfter) ->
+maybe_ssl_connection(true, Address, Port, SocketOpts, SSLOpts, HibernateAfter) ->
     ssl:connect(Address, Port, SocketOpts ++ SSLOpts ++ [{hibernate_after, HibernateAfter}]);
-maybe_ssl_connection(_, _, Address, Port, SocketOpts, _, _) ->
+maybe_ssl_connection(_, Address, Port, SocketOpts, _, _) ->
     gen_tcp:connect(Address, Port, SocketOpts).
-
-tcp_to_tls(fast_tls, GenTcpSocket, SSLOpts) ->
-    inet:setopts(GenTcpSocket, [{active, false}]),
-    case fast_tls:tcp_to_tls(GenTcpSocket, [connect | SSLOpts]) of
-        {ok, TlsSocket} ->
-            %% fast_tls requires dummy recv_data/2 call to accomplish TLS handshake
-            fast_tls:recv(TlsSocket, 0, 100),
-            fast_tls:recv_data(TlsSocket, <<>>),
-            fast_tls:recv_data(TlsSocket, <<>>),
-            fast_tls:setopts(TlsSocket, [{active, once}]),
-            {ok, TlsSocket};
-        {error, _} = E ->
-            E
-    end;
-tcp_to_tls(ssl, GenTcpSocket, SSLOpts) ->
-    ssl:connect(GenTcpSocket, SSLOpts).
 
 %%===================================================================
 %%% Init options parsing helpers
@@ -563,3 +530,20 @@ get_socket_opts(#{socket_opts := SocketOpts}) ->
 -spec opts_to_map([proplists:property()] | opts()) -> opts().
 opts_to_map(Opts) when is_map(Opts) -> Opts;
 opts_to_map(Opts) when is_list(Opts) -> maps:from_list(Opts).
+
+-spec do_export_key_materials(ssl:sslsocket(), {Labels, Contexts, WantedLengths, ConsumeSecret}) ->
+    {ok, ExportKeyMaterials} |
+    {error, undefined_tls_material | exporter_master_secret_already_consumed | bad_input}
+      when
+      Labels :: [binary()],
+      Contexts :: [binary() | no_context],
+      WantedLengths :: [non_neg_integer()],
+      ConsumeSecret :: boolean(),
+      ExportKeyMaterials :: binary() | [binary()].
+-if(?OTP_RELEASE >= 27).
+do_export_key_materials(SslSocket, {Labels, Contexts, WantedLengths, ConsumeSecret}) ->
+    ssl:export_key_materials(SslSocket, Labels, Contexts, WantedLengths, ConsumeSecret).
+-else.
+do_export_key_materials(_SslSocket, {_, _, _, _}) ->
+    {error, undefined_tls_material}.
+-endif.
