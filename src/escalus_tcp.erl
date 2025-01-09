@@ -57,7 +57,6 @@
 -export_type([sm_state/0]).
 
 -define(WAIT_FOR_SOCKET_CLOSE_TIMEOUT, 1000).
--define(SERVER, ?MODULE).
 -include("escalus_tcp.hrl").
 
 -type state() :: #state{}.
@@ -254,7 +253,7 @@ handle_call(get_ssl, _From, #state{ssl = false} = State) ->
 handle_call(get_ssl, _From, #state{ssl = _} = State) ->
     {reply, true, State};
 handle_call({set_active, Active}, _From, State) ->
-    {reply, ok, set_active_opt(State,Active)};
+    {reply, ok, set_active_opt(State, Active)};
 handle_call({set_filter_pred, Pred}, _From, State) ->
     {reply, ok, State#state{filter_pred = Pred}};
 handle_call(get_tls_last_message, _From,
