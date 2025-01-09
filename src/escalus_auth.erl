@@ -127,8 +127,7 @@ auth_sasl_scram(#{plus_variant := PlusVariant,
                 Conn, Props) ->
     Username = get_property(username, Props),
     Password = get_property(password, Props),
-    ChannelBinding = scram_sha_auth_payload(
-                       proplists:get_value(tls_module, Props, ssl), PlusVariant, Conn),
+    ChannelBinding = scram_sha_auth_payload(PlusVariant, Conn),
     {ok, ClientState1} = fast_scram:mech_new(
         #{entity => client, username => Username, hash_method => HashMethod, nonce_size => 16,
           channel_binding => ChannelBinding, auth_data => #{password => Password}}),
@@ -220,14 +219,8 @@ md5_digest_response(ChallengeData, Props) ->
         {<<"authzid">>, FullJid}
     ])).
 
-scram_sha_auth_payload(ssl, _, _) ->
-    {undefined, <<>>};
-scram_sha_auth_payload(fast_tls, none, _) ->
-    {none, <<>>};
-scram_sha_auth_payload(fast_tls, tls_unique, Conn) ->
-    {ok, FinishedTLS} = escalus_connection:get_tls_last_message(Conn),
-    {<<"tls-unique">>, FinishedTLS}.
-
+scram_sha_auth_payload(_, _) ->
+    {none, <<>>}.
 
 hex_md5(Data) ->
     binary:encode_hex(crypto:hash(md5, Data), lowercase).
