@@ -24,7 +24,7 @@
          set_sm_h/2,
          is_using_compression/1,
          is_using_ssl/1,
-         get_tls_last_message/1
+         export_key_materials/5
         ]).
 %% Connection stream start and end callbacks
 -export([stream_start_req/1,
@@ -119,9 +119,17 @@ is_using_ssl(Pid) ->
 set_filter_predicate(Pid, Pred) ->
     gen_server:call(Pid, {set_filter_pred, Pred}).
 
--spec get_tls_last_message(pid()) -> {ok, binary()} | {error, undefined_tls_message}.
-get_tls_last_message(Pid) ->
-    gen_server:call(Pid, get_tls_last_message).
+-spec export_key_materials(pid(), Labels, Contexts, WantedLengths, ConsumeSecret) ->
+    {ok, ExportKeyMaterials} |
+    {error, undefined_tls_material | exporter_master_secret_already_consumed | bad_input}
+      when
+      Labels :: [binary()],
+      Contexts :: [binary() | no_context],
+      WantedLengths :: [non_neg_integer()],
+      ConsumeSecret :: boolean(),
+      ExportKeyMaterials :: binary() | [binary()].
+export_key_materials(Pid, Labels, Contexts, WantedLengths, ConsumeSecret) ->
+    gen_server:call(Pid, {export_key_materials, {Labels, Contexts, WantedLengths, ConsumeSecret}}).
 
 -spec stop(pid()) -> ok | already_stopped.
 stop(Pid) ->
@@ -249,8 +257,8 @@ handle_call({set_active, Active}, _From, State) ->
     {reply, ok, set_active_opt(State, Active)};
 handle_call({set_filter_pred, Pred}, _From, State) ->
     {reply, ok, State#state{filter_pred = Pred}};
-handle_call(get_tls_last_message, _From, #state{} = S) ->
-    {reply, {error, undefined_tls_message}, S};
+handle_call({export_key_materials, Data}, _From, #state{socket = Socket, ssl = true} = S) ->
+    {reply, do_export_key_materials(Socket, Data), S};
 handle_call(kill_connection, _, #state{socket = Socket, ssl = SSL} = S) ->
     case SSL of
         true -> ssl:close(Socket);
@@ -522,3 +530,20 @@ get_socket_opts(#{socket_opts := SocketOpts}) ->
 -spec opts_to_map([proplists:property()] | opts()) -> opts().
 opts_to_map(Opts) when is_map(Opts) -> Opts;
 opts_to_map(Opts) when is_list(Opts) -> maps:from_list(Opts).
+
+-spec do_export_key_materials(ssl:sslsocket(), {Labels, Contexts, WantedLengths, ConsumeSecret}) ->
+    {ok, ExportKeyMaterials} |
+    {error, undefined_tls_material | exporter_master_secret_already_consumed | bad_input}
+      when
+      Labels :: [binary()],
+      Contexts :: [binary() | no_context],
+      WantedLengths :: [non_neg_integer()],
+      ConsumeSecret :: boolean(),
+      ExportKeyMaterials :: binary() | [binary()].
+-if(?OTP_RELEASE >= 27).
+do_export_key_materials(SslSocket, {Labels, Contexts, WantedLengths, ConsumeSecret}) ->
+    ssl:export_key_materials(SslSocket, Labels, Contexts, WantedLengths, ConsumeSecret).
+-else.
+do_export_key_materials(_SslSocket, {_, _, _, _}) ->
+    {error, undefined_tls_material}.
+-endif.

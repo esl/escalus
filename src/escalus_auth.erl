@@ -38,6 +38,8 @@
 
 -include_lib("exml/include/exml.hrl").
 
+-define(CB_LABEL, <<"EXPORTER-Channel-Binding">>).
+
 %%--------------------------------------------------------------------
 %% Public API
 %%--------------------------------------------------------------------
@@ -92,31 +94,31 @@ auth_sasl_scram_sha512(Conn, Props) ->
 %% SCRAM PLUS
 -spec auth_sasl_scram_sha1_plus(client(), user_spec()) -> ok.
 auth_sasl_scram_sha1_plus(Conn, Props) ->
-    Options = #{plus_variant => tls_unique, hash_type => sha,
+    Options = #{plus_variant => tls_exporter, hash_type => sha,
                 xmpp_method => <<"SCRAM-SHA-1-PLUS">>},
     auth_sasl_scram(Options, Conn, Props).
 
 -spec auth_sasl_scram_sha224_plus(client(), user_spec()) -> ok.
 auth_sasl_scram_sha224_plus(Conn, Props) ->
-    Options = #{plus_variant => tls_unique, hash_type => sha224,
+    Options = #{plus_variant => tls_exporter, hash_type => sha224,
                 xmpp_method => <<"SCRAM-SHA-224-PLUS">>},
     auth_sasl_scram(Options, Conn, Props).
 
 -spec auth_sasl_scram_sha256_plus(client(), user_spec()) -> ok.
 auth_sasl_scram_sha256_plus(Conn, Props) ->
-    Options = #{plus_variant => tls_unique, hash_type => sha256,
+    Options = #{plus_variant => tls_exporter, hash_type => sha256,
                 xmpp_method => <<"SCRAM-SHA-256-PLUS">>},
     auth_sasl_scram(Options, Conn, Props).
 
 -spec auth_sasl_scram_sha384_plus(client(), user_spec()) -> ok.
 auth_sasl_scram_sha384_plus(Conn, Props) ->
-    Options = #{plus_variant => tls_unique, hash_type => sha384,
+    Options = #{plus_variant => tls_exporter, hash_type => sha384,
                 xmpp_method => <<"SCRAM-SHA-384-PLUS">>},
     auth_sasl_scram(Options, Conn, Props).
 
 -spec auth_sasl_scram_sha512_plus(client(), user_spec()) -> ok.
 auth_sasl_scram_sha512_plus(Conn, Props) ->
-    Options = #{plus_variant => tls_unique, hash_type => sha512,
+    Options = #{plus_variant => tls_exporter, hash_type => sha512,
                 xmpp_method => <<"SCRAM-SHA-512-PLUS">>},
     auth_sasl_scram(Options, Conn, Props).
 
@@ -222,7 +224,11 @@ md5_digest_response(ChallengeData, Props) ->
 scram_sha_auth_payload(undefined, _) ->
     {undefined, <<>>};
 scram_sha_auth_payload(none, _) ->
-    {none, <<>>}.
+    {none, <<>>};
+scram_sha_auth_payload(tls_exporter, Conn) ->
+    {ok, [Material | _]} = escalus_connection:export_key_materials(
+                       Conn, [?CB_LABEL], [no_context], [32], true),
+    {<<"tls-exporter">>, Material}.
 
 hex_md5(Data) ->
     binary:encode_hex(crypto:hash(md5, Data), lowercase).
