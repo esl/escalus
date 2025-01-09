@@ -78,15 +78,18 @@ authenticate(Client = #client{props = Props}) ->
     %% but as a default we use plain, as it incurrs lower load and better logs (no hashing)
     %% for common setups. If a different mechanism is required then it should be configured on the
     %% user specification.
-    {M, F} = proplists:get_value(auth, Props, {escalus_auth, auth_plain}),
-    PropsAfterAuth = case apply(M, F, [Client, Props]) of
-                         ok -> Props;
-                         {ok, P} when is_list(P) -> P
-                     end,
+    PropsAfterAuth = apply_auth_method(Client, Props),
     escalus_connection:reset_parser(Client),
     Client1 = escalus_session:start_stream(Client#client{props = PropsAfterAuth}),
     escalus_session:stream_features(Client1, []),
     Client1.
+
+apply_auth_method(Client, Props) ->
+    Fun = proplists:get_value(auth, Props, fun escalus_auth:auth_plain/2),
+    case apply(Fun, [Client, Props]) of
+        ok -> Props;
+        {ok, P} when is_list(P) -> P
+    end.
 
 -spec bind(client()) -> client().
 bind(Client = #client{props = Props0}) ->
