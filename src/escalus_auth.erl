@@ -23,7 +23,8 @@
          auth_sasl_oauth/2]).
 
 %% Useful helpers for writing own mechanisms
--export([get_challenge/2,
+-export([auth_sasl_scram/3,
+         get_challenge/2,
          wait_for_success/2]).
 
 %% Some shorthands
