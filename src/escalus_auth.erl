@@ -30,7 +30,7 @@
 -type client() :: escalus_connection:client().
 -type user_spec() :: escalus_users:user_spec().
 -type hash_type() :: fast_scram:sha_type().
--type plus_variant() :: none | tls_unique.
+-type plus_variant() :: undefined | none | tls_exporter.
 -type scram_options() :: #{plus_variant := plus_variant(),
                            hash_type := hash_type(),
                            xmpp_method := binary()
@@ -66,27 +66,27 @@ auth_digest_md5(Conn, Props) ->
 %% SCRAM Regular
 -spec auth_sasl_scram_sha1(client(), user_spec()) -> ok.
 auth_sasl_scram_sha1(Conn, Props) ->
-    Options = #{plus_variant => none, hash_type => sha, xmpp_method => <<"SCRAM-SHA-1">>},
+    Options = #{plus_variant => undefined, hash_type => sha, xmpp_method => <<"SCRAM-SHA-1">>},
     auth_sasl_scram(Options, Conn, Props).
 
 -spec auth_sasl_scram_sha224(client(), user_spec()) -> ok.
 auth_sasl_scram_sha224(Conn, Props) ->
-    Options = #{plus_variant => none, hash_type => sha224, xmpp_method => <<"SCRAM-SHA-224">>},
+    Options = #{plus_variant => undefined, hash_type => sha224, xmpp_method => <<"SCRAM-SHA-224">>},
     auth_sasl_scram(Options, Conn, Props).
 
 -spec auth_sasl_scram_sha256(client(), user_spec()) -> ok.
 auth_sasl_scram_sha256(Conn, Props) ->
-    Options = #{plus_variant => none, hash_type => sha256, xmpp_method => <<"SCRAM-SHA-256">>},
+    Options = #{plus_variant => undefined, hash_type => sha256, xmpp_method => <<"SCRAM-SHA-256">>},
     auth_sasl_scram(Options, Conn, Props).
 
 -spec auth_sasl_scram_sha384(client(), user_spec()) -> ok.
 auth_sasl_scram_sha384(Conn, Props) ->
-    Options = #{plus_variant => none, hash_type => sha384, xmpp_method => <<"SCRAM-SHA-384">>},
+    Options = #{plus_variant => undefined, hash_type => sha384, xmpp_method => <<"SCRAM-SHA-384">>},
     auth_sasl_scram(Options, Conn, Props).
 
 -spec auth_sasl_scram_sha512(client(), user_spec()) -> ok.
 auth_sasl_scram_sha512(Conn, Props) ->
-    Options = #{plus_variant => none, hash_type => sha512, xmpp_method => <<"SCRAM-SHA-512">>},
+    Options = #{plus_variant => undefined, hash_type => sha512, xmpp_method => <<"SCRAM-SHA-512">>},
     auth_sasl_scram(Options, Conn, Props).
 
 %% SCRAM PLUS
@@ -219,7 +219,9 @@ md5_digest_response(ChallengeData, Props) ->
         {<<"authzid">>, FullJid}
     ])).
 
-scram_sha_auth_payload(_, _) ->
+scram_sha_auth_payload(undefined, _) ->
+    {undefined, <<>>};
+scram_sha_auth_payload(none, _) ->
     {none, <<>>}.
 
 hex_md5(Data) ->
