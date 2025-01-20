@@ -31,7 +31,7 @@
          get_sm_h/1,
          set_sm_h/2,
          set_filter_predicate/2,
-         get_tls_last_message/1,
+         export_key_materials/5,
          reset_parser/1,
          is_connected/1,
          wait_for_close/1,
@@ -87,6 +87,16 @@
 -callback set_filter_predicate(pid(), filter_pred()) -> ok.
 -callback stop(pid()) -> ok | already_stopped.
 -callback kill(pid()) -> ok | already_stopped.
+-callback export_key_materials(pid(), Labels, Contexts, WantedLengths, ConsumeSecret) ->
+    {ok, ExportKeyMaterials} |
+    {error, undefined_tls_material | exporter_master_secret_already_consumed | bad_input}
+      when
+      Labels :: [binary()],
+      Contexts :: [binary() | no_context],
+      WantedLengths :: [non_neg_integer()],
+      ConsumeSecret :: boolean(),
+      ExportKeyMaterials :: binary() | [binary()].
+-optional_callbacks([export_key_materials/5]).
 
 -callback stream_start_req(user_spec()) -> exml_stream:element().
 -callback stream_end_req(user_spec()) -> exml_stream:element().
@@ -390,11 +400,19 @@ set_sm_h(#client{module = Mod}, _) ->
 set_filter_predicate(#client{module = Module, rcv_pid = Pid}, Pred) ->
     Module:set_filter_predicate(Pid, Pred).
 
--spec get_tls_last_message(client()) -> {ok, binary()} | {error, undefined_tls_message}.
-get_tls_last_message(#client{module = escalus_tcp, rcv_pid = Pid}) ->
-    escalus_tcp:get_tls_last_message(Pid);
-get_tls_last_message(#client{module = Mod}) ->
-    error({get_tls_last_message, {undefined_for_escalus_module, Mod}}).
+-spec export_key_materials(client(), Labels, Contexts, WantedLengths, ConsumeSecret) ->
+    {ok, ExportKeyMaterials} |
+    {error, undefined_tls_material | exporter_master_secret_already_consumed | bad_input}
+      when
+      Labels :: [binary()],
+      Contexts :: [binary() | no_context],
+      WantedLengths :: [non_neg_integer()],
+      ConsumeSecret :: boolean(),
+      ExportKeyMaterials :: binary() | [binary()].
+export_key_materials(#client{module = escalus_tcp, rcv_pid = Pid}, Labels, Contexts, WantedLengths, ConsumeSecret) ->
+    escalus_tcp:export_key_materials(Pid, Labels, Contexts, WantedLengths, ConsumeSecret);
+export_key_materials(#client{module = Mod}, _Labels, _Contexts, _WantedLengths, _ConsumeSecret) ->
+    error({export_key_materials, {undefined_for_escalus_module, Mod}}).
 
 -spec reset_parser(client()) -> ok.
 reset_parser(#client{module = Mod, rcv_pid = Pid}) ->
