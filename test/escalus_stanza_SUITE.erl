@@ -28,14 +28,14 @@ nullary_snippet_to_xmlel(_) ->
 unary_snippet_to_xmlel(_) ->
     M = escalus_stanza,
     ?eq(#xmlel{name = <<"el">>,
-               attrs = [{<<"attr">>, <<"value">>}]},
+               attrs = #{<<"attr">> => <<"value">>}},
         M:from_template("<el attr='{{val}}'/>",
                         [{val, "value"}])).
 
 type_matrix_accepted(_) ->
     M = escalus_stanza,
     Example = #xmlel{name = <<"el">>,
-                     attrs = [{<<"attr">>, <<"value">>}]},
+                     attrs = #{<<"attr">> => <<"value">>}},
     ?eq(Example, M:from_template("<el attr='{{val}}'/>", [{val, "value"}])),
     ?eq(Example, M:from_template(<<"<el attr='{{val}}'/>">>, [{val, "value"}])),
     ?eq(Example, M:from_template(<<"<el attr='{{val}}'/>">>, [{val, <<"value">>}])),
@@ -52,13 +52,13 @@ attribute_as_argument(_) ->
     M = escalus_stanza,
     Attr = {<<"name">>, <<"value">>},
     Example = #xmlel{name = <<"el">>,
-                     attrs = [Attr]},
+                     attrs = #{<<"name">> => <<"value">>}},
     ?eq(Example, M:from_template("<el {{{attr}}}/>", [{attr, Attr}])).
 
 numbers_as_arguments(_) ->
     M = escalus_stanza,
     Example = #xmlel{name = <<"el">>,
-                     attrs = [{<<"int">>, <<"666">>}, {<<"pi">>, <<"3.14">>}]},
+                     attrs = #{<<"int">> => <<"666">>, <<"pi">> => <<"3.14">>}},
     ?eq(Example,
         M:from_template("<el int='{{int}}' pi='{{pi}}'/>",
                         [{int, 666}, {pi, math:pi()}])).

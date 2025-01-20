@@ -169,49 +169,48 @@ session_creation_body(Rid, To) ->
     exml:element().
 session_creation_body(Wait, Version, Lang, Rid, To, nil) ->
     empty_body(Rid, nil,
-               [{<<"content">>, <<"text/xml; charset=utf-8">>},
-                {<<"xmlns:xmpp">>, ?NS_BOSH},
-                {<<"xmpp:version">>, Version},
-                {<<"ver">>, <<"1.6">>},
-                {<<"hold">>, <<"1">>},
-                {<<"wait">>, list_to_binary(integer_to_list(Wait))},
-                {<<"xml:lang">>, Lang},
-                {<<"to">>, To}]);
+               #{<<"content">> => <<"text/xml; charset=utf-8">>,
+                 <<"xmlns:xmpp">> => ?NS_BOSH,
+                 <<"xmpp:version">> => Version,
+                 <<"ver">> => <<"1.6">>,
+                 <<"hold">> => <<"1">>,
+                 <<"wait">> => list_to_binary(integer_to_list(Wait)),
+                 <<"xml:lang">> => Lang,
+                 <<"to">> => To});
 session_creation_body(_Wait, _Version, Lang, Rid, To, Sid) ->
     empty_body(Rid, Sid,
-                [{<<"xmlns:xmpp">>, ?NS_BOSH},
-                 {<<"xml:lang">>, Lang},
-                 {<<"to">>, To},
-                 {<<"xmpp:restart">>, <<"true">>}]).
+               #{<<"xmlns:xmpp">> => ?NS_BOSH,
+                 <<"xml:lang">> => Lang,
+                 <<"to">> => To,
+                 <<"xmpp:restart">> => <<"true">>}).
 
 -spec session_termination_body(Rid :: integer(), Sid :: binary() | nil) -> exml:element().
 session_termination_body(Rid, Sid) ->
-    Body = empty_body(Rid, Sid, [{<<"type">>, <<"terminate">>}]),
+    Body = empty_body(Rid, Sid, #{<<"type">> => <<"terminate">>}),
     Body#xmlel{children = [escalus_stanza:presence(<<"unavailable">>)]}.
 
 -spec empty_body(Rid :: integer(), Sid :: binary()) -> exml:element().
 empty_body(Rid, Sid) ->
-    empty_body(Rid, Sid, []).
+    empty_body(Rid, Sid, #{}).
 
--spec empty_body(Rid :: integer(), Sid :: binary() | nil, ExtraAttrs :: [exml:attr()]) ->
+-spec empty_body(Rid :: integer(), Sid :: binary() | nil, ExtraAttrs :: exml:attrs()) ->
     exml:element().
 empty_body(Rid, Sid, ExtraAttrs) ->
     #xmlel{name = <<"body">>,
-           attrs = common_attrs(Rid, Sid) ++ ExtraAttrs}.
+           attrs = maps:merge(common_attrs(Rid, Sid), ExtraAttrs)}.
 
 pause_body(Rid, Sid, Seconds) ->
     Empty = empty_body(Rid, Sid),
-    Pause = {<<"pause">>, integer_to_binary(Seconds)},
-    Empty#xmlel{attrs = Empty#xmlel.attrs ++ [Pause]}.
+    Empty#xmlel{attrs = maps:put(<<"pause">>, integer_to_binary(Seconds), Empty#xmlel.attrs)}.
 
 common_attrs(Rid) ->
-    [{<<"rid">>, pack_rid(Rid)},
-     {<<"xmlns">>, ?NS_HTTP_BIND}].
+    #{<<"rid">> => pack_rid(Rid),
+      <<"xmlns">> => ?NS_HTTP_BIND}.
 
 common_attrs(Rid, nil) ->
     common_attrs(Rid);
 common_attrs(Rid, Sid) ->
-    common_attrs(Rid) ++ [{<<"sid">>, Sid}].
+    maps:put(<<"sid">>, Sid, common_attrs(Rid)).
 
 pack_rid(Rid) ->
     integer_to_binary(Rid).
@@ -576,27 +575,27 @@ handle_recv(#state{replies = [{#xmlel{name = <<"body">>, attrs = Attrs} = Body, 
 
 wrap_elem(#xmlstreamstart{attrs = Attrs},
           #state{rid = Rid, sid = Sid, wait = Wait}) ->
-    Version = proplists:get_value(<<"version">>, Attrs, <<"1.0">>),
-    Lang = proplists:get_value(<<"xml:lang">>, Attrs, <<"en">>),
-    To = proplists:get_value(<<"to">>, Attrs, <<"localhost">>),
+    Version = maps:get(<<"version">>, Attrs, <<"1.0">>),
+    Lang = maps:get(<<"xml:lang">>, Attrs, <<"en">>),
+    To = maps:get(<<"to">>, Attrs, <<"localhost">>),
     session_creation_body(Wait, Version, Lang, Rid, To, Sid);
 wrap_elem(#xmlstreamend{}, #state{sid=Sid, rid=Rid}) ->
     session_termination_body(Rid, Sid);
 wrap_elem(Element, #state{sid = Sid, rid=Rid}) ->
     (empty_body(Rid, Sid))#xmlel{children = [Element]}.
 
-unwrap_elem(#xmlel{name = <<"body">>, children = Body, attrs=Attrs}) ->
+unwrap_elem(#xmlel{name = <<"body">>, children = Body, attrs = Attrs}) ->
     Type = detect_type(Attrs),
     case Type of
         {streamstart, Ver} ->
-            Server = proplists:get_value(<<"from">>, Attrs),
-            StreamStart = #xmlstreamstart{name = <<"stream:stream">>, attrs=[
-                        {<<"from">>, Server},
-                        {<<"version">>, Ver},
-                        {<<"xml:lang">>, <<"en">>},
-                        {<<"xmlns">>, <<"jabber:client">>},
-                        {<<"xmlns:stream">>,
-                         <<"http://etherx.jabber.org/streams">>}]},
+            Server = maps:get(<<"from">>, Attrs),
+            NewAttrs = #{<<"from">> => Server,
+                         <<"version">> => Ver,
+                         <<"xml:lang">> => <<"en">>,
+                         <<"xmlns">> => <<"jabber:client">>,
+                         <<"xmlns:stream">> => <<"http://etherx.jabber.org/streams">>},
+            StreamStart = #xmlstreamstart{name = <<"stream:stream">>,
+                                          attrs = NewAttrs},
             [StreamStart];
         streamend ->
             [escalus_stanza:stream_end()];
@@ -604,7 +603,7 @@ unwrap_elem(#xmlel{name = <<"body">>, children = Body, attrs=Attrs}) ->
     end ++ Body.
 
 detect_type(Attrs) ->
-    Get = fun(A) -> proplists:get_value(A, Attrs) end,
+    Get = fun(A) -> maps:get(A, Attrs, undefined) end,
     case {Get(<<"type">>), Get(<<"xmpp:version">>)} of
         {<<"terminate">>, _} -> streamend;
         {_, undefined} -> normal;
