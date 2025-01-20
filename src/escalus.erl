@@ -136,46 +136,60 @@ story(Config, ResourceCounts, Story) ->
 
 %% Assertions
 
+-spec assert(atom(), term()) -> ok | no_return().
 assert(PredSpec, Arg) ->
     escalus_new_assert:assert(PredSpec, Arg).
 
+-spec assert(atom(), [term()], term()) -> ok | no_return().
 assert(PredSpec, Params, Arg) ->
     escalus_new_assert:assert(PredSpec, Params, Arg).
 
+-spec assert_many([atom()], [exml:element()]) -> ok | no_return().
 assert_many(Predicates, Stanzas) ->
     escalus_new_assert:assert_many(Predicates, Stanzas).
 
 %% Client API
 
+-spec send(client(), exml:element()) -> ok.
 send(Client, Packet) ->
     escalus_client:send(Client, Packet).
 
+-spec send_and_wait(client(), exml:element()) -> exml:element().
 send_and_wait(Client, Packet) ->
     escalus_client:send_and_wait(Client, Packet).
 
+-spec wait_for_stanza(client()) -> exml:element().
 wait_for_stanza(Client) ->
     escalus_client:wait_for_stanza(Client).
 
+-spec wait_for_stanza(client(), timeout()) -> exml:element().
 wait_for_stanza(Client, Timeout) ->
     escalus_client:wait_for_stanza(Client, Timeout).
 
+-spec wait_for_stanzas(client(), non_neg_integer()) -> [exml:element()].
 wait_for_stanzas(Client, Count) ->
     escalus_client:wait_for_stanzas(Client, Count).
 
+-spec wait_for_stanzas(client(), non_neg_integer(), timeout()) -> [exml:element()].
 wait_for_stanzas(Client, Count, Timeout) ->
     escalus_client:wait_for_stanzas(Client, Count, Timeout).
 
+-spec peek_stanzas(client()) -> [exml:element()].
 peek_stanzas(Client) ->
     escalus_client:peek_stanzas(Client).
 
+-spec send_iq_and_wait_for_result(client(), exml:element()) -> exml:element() | no_return().
 send_iq_and_wait_for_result(Client, Iq) ->
     escalus_client:send_iq_and_wait_for_result(Client, Iq).
 
+-spec send_iq_and_wait_for_result(client(), exml:element(), timeout()) ->
+    exml:element() | no_return().
 send_iq_and_wait_for_result(Client, Iq, Timeout) ->
     escalus_client:send_iq_and_wait_for_result(Client, Iq, Timeout).
 
 %% Other functions
 
+-spec override(config(), atom(), {atom(), atom()}) -> config().
 override(Config, OverrideName, NewValue) ->
     escalus_overridables:override(Config, OverrideName, NewValue).
 

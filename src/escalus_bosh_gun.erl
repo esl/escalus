@@ -11,8 +11,7 @@
          handle_call/3,
          handle_cast/2,
          handle_info/2,
-         terminate/2,
-         code_change/3]).
+         terminate/2]).
 
 -record(state, {destination,
                 options,
@@ -28,9 +27,11 @@
 start_link(Args) ->
     gen_server:start_link(?MODULE, [Args], []).
 
+-spec stop(pid()) -> ok.
 stop(Pool) ->
     gen_server:cast(Pool, stop).
 
+-spec request(pid(), iodata(), gun:req_headers(), iodata()) -> term().
 request(Pool, Path, Hdrs, Body) ->
     case get_client(Pool) of
         {error, _} = Error ->
@@ -62,6 +63,8 @@ init([Args]) ->
                 queue = queue:new()
                }, 0}.
 
+-spec handle_call(get_client, gen_server:from(), state()) ->
+    {reply, term(), state()} | {noreply, state()}.
 handle_call(get_client, _From, State = #state{free = [Client | Free],
                                               busy = Busy}) ->
     {reply, Client, State#state{free = Free,
@@ -83,6 +86,8 @@ handle_call(get_client, From, State = #state{free = [],
   when M == T ->
     {noreply, State#state{queue = queue:in(From, Queue)}}.
 
+-spec handle_cast({free_client, pid()} | stop, state()) ->
+    {noreply, state()} | {stop, term(), state()}.
 handle_cast({free_client, Pid}, State = #state{free = Free,
                                                       busy = Busy,
                                                       queue = Queue}) ->
@@ -98,6 +103,7 @@ handle_cast({free_client, Pid}, State = #state{free = Free,
 handle_cast(stop, State) ->
     {stop, normal, State}.
 
+-spec handle_info(term(), state()) -> {noreply, state()}.
 handle_info({'EXIT', From, _Reason}, State = #state{free = Free,
                                                     busy = Busy,
                                                     total = Total}) ->
@@ -113,13 +119,11 @@ handle_info(_Info, State) ->
     ct:pal("Unknown Info in bosh_gun: ~p", [_Info]),
     {noreply, State}.
 
+-spec terminate(term(), state()) -> ok.
 terminate(_Reason, #state{free = Free, busy = Busy}) ->
     [gun:close(F) || F <- Free],
     [gun:close(B) || B <- Busy],
     ok.
-
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
 
 connect({Host, Port}, Options) ->
     {ok, Pid} = gun:open(Host, Port, Options#{protocols => [http]}),

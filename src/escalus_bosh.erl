@@ -412,8 +412,8 @@ handle_info({http_reply, Ref, Body, _Transport} = HttpReply,
                {_, true} ->
                    S1 = handle_http_reply(Ref, XmlBody, S0, Timestamp),
                    S1#state{ pending_replies = [] };
-               {{value, {Ref, _Rid, _Pid}}, _} ->
-                   {{value, {Ref, _Rid, _Pid}}, NewRequests} = queue:out(S0#state.requests),
+               {{value, {Ref, Rid, Pid}}, _} ->
+                   {{value, {Ref, Rid, Pid}}, NewRequests} = queue:out(S0#state.requests),
                    S1 = handle_http_reply(Ref, XmlBody, S0#state{ requests = NewRequests }, Timestamp),
                    lists:foreach(fun(PendingReply) -> self() ! PendingReply end,
                                  S1#state.pending_replies),

@@ -53,21 +53,26 @@
 %%% Business API
 %%%
 
+-spec rpc(atom(), atom(), [any()], timeout()) -> any().
 rpc(M, F, A, Timeout) ->
     Node = escalus_ct:get_config(ejabberd_node),
     Cookie = escalus_ct:get_config(ejabberd_cookie),
     escalus_rpc:call(Node, M, F, A, Timeout, Cookie).
 
+-spec rpc(atom(), atom(), [any()]) -> any().
 rpc(M, F, A) ->
     rpc(M, F, A, 3000).
 
+-spec remote_display(string()) -> true.
 remote_display(String) ->
     Line = [$\n, [$- || _ <- String], $\n],
     remote_format("~s~s~s", [Line, String, Line]).
 
+-spec remote_format(string()) -> true.
 remote_format(Format) ->
     remote_format(Format, []).
 
+-spec remote_format(string(), [any()]) -> true.
 remote_format(Format, Args) ->
     group_leader(rpc(erlang, whereis, [user]), self()),
     io:format(Format, Args),
@@ -106,14 +111,17 @@ with_local_option(Option, Value, Fun) ->
         end, lists:zip(Hosts, OldValues))
     end.
 
-get_c2s_status(#client{jid=Jid}) ->
+-spec get_c2s_status(escalus:client()) -> term().
+get_c2s_status(#client{jid = Jid}) ->
     {match, USR} = re:run(Jid, <<"([^@]*)@([^/]*)/(.*)">>, [{capture, all_but_first, list}]),
     Pid = rpc(ejabberd_sm, get_session_pid, USR),
     rpc(sys, get_status, [Pid]).
 
+-spec wait_for_session_count(escalus:config(), non_neg_integer()) -> ok | no_return().
 wait_for_session_count(Config, Count) ->
     wait_for_session_count(Config, Count, 0).
 
+-spec get_remote_sessions(escalus:config()) -> term().
 get_remote_sessions(Config) ->
     escalus_overridables:do(Config, get_remote_sessions, [],
                             {?MODULE, default_get_remote_sessions}).
@@ -203,8 +211,13 @@ reset_option({Option, _, Set, _}, Config) ->
 %% escalus_user_db callbacks
 %%--------------------------------------------------------------------
 
-start(_) -> ok.
-stop(_) -> ok.
+-spec start(_) -> ok.
+start(_) ->
+    ok.
+
+-spec stop(_) -> ok.
+stop(_) ->
+    ok.
 
 -spec create_users(escalus:config(), [escalus_users:named_user()]) -> escalus:config().
 create_users(Config, Users) ->
@@ -220,11 +233,17 @@ delete_users(Config, Users) ->
 %% escalus_server callbacks
 %%--------------------------------------------------------------------
 
-pre_story(Config) -> Config.
+-spec pre_story(escalus:config()) -> escalus:config().
+pre_story(Config) ->
+    Config.
 
-post_story(Config) -> Config.
+-spec post_story(escalus:config()) -> escalus:config().
+post_story(Config) ->
+    Config.
 
-name() -> ?MODULE.
+-spec name() -> atom().
+name() ->
+    ?MODULE.
 
 %%--------------------------------------------------------------------
 %% Helpers
@@ -245,16 +264,20 @@ unregister_user(Config, {_UserName, UserSpec}) ->
     [U, S, _P] = USP,
     rpc(ejabberd_admin, unregister, [U, S], 30000).
 
+-spec default_get_remote_sessions() -> any().
 default_get_remote_sessions() ->
     rpc(ejabberd_sm, get_full_session_list, []).
 
+-spec legacy_get_remote_sessions() -> any().
 legacy_get_remote_sessions() ->
     rpc(ejabberd_sm, dirty_get_sessions_list, []).
 
+-spec unify_str_arg(any()) -> any().
 unify_str_arg(Arg) ->
     StrFormat = escalus_ct:get_config(ejabberd_string_format),
     unify_str_arg(Arg, StrFormat).
 
+-spec unify_str_arg(any(), str | string()) -> any().
 unify_str_arg(Arg, str) when is_binary(Arg) ->
     binary_to_list(Arg);
 unify_str_arg(Arg, _) ->

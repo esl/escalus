@@ -22,7 +22,6 @@
 
 -include_lib("exml/include/exml.hrl").
 
--type config() :: escalus_config:config().
 -type event_client() :: list({atom(), any()}).
 -type manager() :: pid().
 -type resource() :: binary().
@@ -41,18 +40,23 @@ add_handler(Mgr, Handler, Args) ->
 delete_handler(Mgr, Handler, Args) ->
     gen_event:delete_handler(Mgr, Handler, Args).
 
+-spec incoming_stanza(event_client(), exml_stream:element()) -> ok.
 incoming_stanza(Client, Stanza) ->
     notify_stanza(Client, incoming_stanza, Stanza).
 
+-spec pop_incoming_stanza(event_client(), exml_stream:element()) -> ok.
 pop_incoming_stanza(Client, Stanza) ->
     notify_stanza(Client, pop_incoming_stanza, Stanza).
 
+-spec outgoing_stanza(event_client(), exml_stream:element()) -> ok.
 outgoing_stanza(Client, Stanza) ->
     notify_stanza(Client, outgoing_stanza, Stanza).
 
+-spec story_start(escalus_config:config()) -> ok.
 story_start(Config) ->
     gen_event:notify(manager(Config), story_start).
 
+-spec story_end(escalus_config:config()) -> ok.
 story_end(Config) ->
     gen_event:notify(manager(Config), story_end).
 
@@ -60,21 +64,23 @@ story_end(Config) ->
 %% ====================================================================
 
 %% @doc Start the event manager
-%% @end
+-spec start(escalus_config:config()) -> escalus_config:config().
 start(Config) ->
     {ok, Mgr} = gen_event:start_link(),
     add_handler(Mgr, escalus_history_h, []),
     [{escalus_event_mgr, Mgr} | Config].
 
 %% @doc Stop the event manager
-%% @end
+-spec stop(escalus_config:config()) -> escalus_config:config().
 stop(Config) ->
     gen_event:stop(manager(Config)),
     Config.
 
+-spec get_history(escalus_config:config()) -> [term()].
 get_history(Config) ->
     escalus_history_h:get_history(manager(Config)).
 
+-spec print_history(escalus_config:config()) -> ok.
 print_history(Config) ->
     CaseName = proplists:get_value(tc_name, Config),
     PrivDir  = proplists:get_value(priv_dir, Config),
@@ -179,7 +185,7 @@ manager(Config) ->
 
 %% @doc Create a new event emitter.
 -spec new_client(Config, User, MaybeResource) -> undefined | EventClient when
-      Config :: config(),
+      Config :: escalus_config:config(),
       User :: escalus_users:user_name() | escalus_users:user_spec(),
       MaybeResource :: undefined | resource(),
       EventClient :: event_client().
@@ -206,7 +212,6 @@ new_client_1(Mgr, UserSpec, Resource) ->
 
 %% @doc Notify the event system of an event
 %% <p>The system accepts any term as the event.</p>
-%% @end
 notify_stanza(undefined, _, _) ->
     ok;
 notify_stanza(Client, EventName, Stanza) ->

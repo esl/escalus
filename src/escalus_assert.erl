@@ -15,6 +15,7 @@
 %%==============================================================================
 
 -module(escalus_assert).
+-compile(nowarn_missing_spec).
 
 -export([is_chat_message/2,
          has_no_stanzas/1,

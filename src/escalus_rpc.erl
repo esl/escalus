@@ -19,6 +19,7 @@
 %% in a concurrent environment as it gets/sets the cookie
 %% with `erlang:get_cookie/0' and `erlang:set_cookie/1'.
 %% Interleaving these calls in concurrent processes is prone to race conditions.
+-spec call(node(), module(), atom(), [term()], timeout(), atom()) -> term().
 call(Node, Module, Function, Args, TimeOut, Cookie) ->
     call_with_cookie_match(Node, Module, Function, Args, TimeOut, Cookie).
 
@@ -43,5 +44,5 @@ set_the_cookie([]) ->
     [];
 set_the_cookie(Cookie) ->
     Cookie0 = erlang:get_cookie(),
-    erlang:set_cookie(node(),Cookie),
+    erlang:set_cookie(node(), Cookie),
     Cookie0.

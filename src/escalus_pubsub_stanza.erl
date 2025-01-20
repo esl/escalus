@@ -173,10 +173,13 @@ get_user_subscriptions(User, Id, Node) ->
       end,
     pubsub_iq(<<"get">>, User, Id, NodeAddr, [Element]).
 
+-spec get_subscription_options(escalus_utils:jid_spec(), binary(), {_, _}) -> exml:element().
 get_subscription_options(User, Id, {NodeAddr, NodeName}) ->
     Element = subscription_options(NodeName, User),
     pubsub_iq(<<"get">>, User, Id, NodeAddr, [Element]).
 
+-spec set_subscription_options(escalus_utils:jid_spec(), binary(), {_, _}, [tuple()]) ->
+    exml:element().
 set_subscription_options(User, Id, {NodeAddr, NodeName}, Options) ->
     FormType = form_type_field_element(<<"subscribe_options">>),
     EncodedOptions = [FormType | lists:map(fun encode_form_field/1, Options)],
@@ -283,22 +286,30 @@ purge_all_items(User, Id, {NodeAddr, NodeName}) ->
 
 %% Whole stanzas
 
+-spec iq(binary(), escalus_utils:jid_spec(), binary(), pep | escalus_utils:jid_spec(),
+        [exml:cdata() | exml:element()]) -> exml:element().
 iq(Type, From, Id, pep, Elements) ->
     Stanza = escalus_stanza:iq(Type, Elements),
     StanzaWithId = escalus_stanza:set_id(Stanza, Id),
-    escalus_stanza:from(StanzaWithId, escalus_utils:get_jid(From));
+    escalus_stanza:from(StanzaWithId, From);
 iq(Type, From, Id, To, Elements) ->
     Stanza = escalus_stanza:iq(To, Type, Elements),
     StanzaWithId = escalus_stanza:set_id(Stanza, Id),
-    escalus_stanza:from(StanzaWithId, escalus_utils:get_jid(From)).
+    escalus_stanza:from(StanzaWithId, From).
 
+-spec pubsub_iq(binary(), escalus_utils:jid_spec(), binary(), pep | escalus_utils:jid_spec(),
+        [exml:cdata() | exml:element()]) -> exml:element().
 pubsub_iq(Type, User, Id, NodeAddr, Elements) ->
     pubsub_iq(Type, User, Id, NodeAddr, Elements, ?NS_PUBSUB).
 
+-spec pubsub_iq(binary(), escalus_utils:jid_spec(), binary(), pep | escalus_utils:jid_spec(),
+        [exml:cdata() | exml:element()], binary()) -> exml:element().
 pubsub_iq(Type, User, Id, NodeAddr, Elements, NS) ->
     PubSubElement = pubsub_element(Elements, NS),
     iq(Type, User, Id, NodeAddr, [PubSubElement]).
 
+-spec pubsub_owner_iq(binary(), escalus_utils:jid_spec(), binary(), pep | escalus_utils:jid_spec(),
+        [exml:cdata() | exml:element()]) -> exml:element().
 pubsub_owner_iq(Type, User, Id, NodeAddr, Elements) ->
     pubsub_iq(Type, User, Id, NodeAddr, Elements, ?NS_PUBSUB_OWNER).
 
@@ -322,6 +333,7 @@ optional_form(FormName, NodeName, Type, Fields) ->
 create_node_element(NodeName) ->
     #xmlel{name = <<"create">>, attrs = #{<<"node">> => NodeName}}.
 
+-spec pubsub_element([exml:cdata() | exml:element()], binary()) -> exml:element().
 pubsub_element(Children, NS) ->
     #xmlel{name = <<"pubsub">>,
            attrs = #{<<"xmlns">> => NS},
