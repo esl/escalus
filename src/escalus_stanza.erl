@@ -86,7 +86,7 @@
          search_iq/2]).
 
 %% XEP-0280: Message Carbons
--export([carbons_disable/0,carbons_enable/0]).
+-export([carbons_disable/0, carbons_enable/0]).
 
 %% XEP-0313: Message Archive Management
 -export([mam_archive_query/1,
@@ -148,6 +148,7 @@
 %% Stream - related functions
 %%--------------------------------------------------------------------
 
+-spec stream_start(binary(), binary()) -> exml_stream:start().
 stream_start(Server, XMLNS) ->
     #xmlstreamstart{name = <<"stream:stream">>,
                     attrs = #{<<"to">> => Server,
@@ -156,43 +157,51 @@ stream_start(Server, XMLNS) ->
                              <<"xmlns">> => XMLNS,
                              <<"xmlns:stream">> => <<"http://etherx.jabber.org/streams">>}}.
 
+-spec stream_end() -> exml_stream:stop().
 stream_end() ->
     #xmlstreamend{name = <<"stream:stream">>}.
 
+-spec ws_open(binary()) -> exml:element().
 ws_open(Server) ->
     #xmlel{name= <<"open">>,
            attrs = #{<<"xmlns">> => <<"urn:ietf:params:xml:ns:xmpp-framing">>,
                      <<"to">> => Server,
                      <<"version">> => <<"1.0">>}}.
 
-ws_close()->
+-spec ws_close() -> exml:element().
+ws_close() ->
     #xmlel{name= <<"close">>,
            attrs = #{<<"xmlns">> => <<"urn:ietf:params:xml:ns:xmpp-framing">>}}.
 
+-spec starttls() -> exml:element().
 starttls() ->
     #xmlel{name = <<"starttls">>,
            attrs = #{<<"xmlns">> => <<"urn:ietf:params:xml:ns:xmpp-tls">>}}.
 
+-spec compress(binary()) -> exml:element().
 compress(Method) ->
     #xmlel{name = <<"compress">>,
            attrs = #{<<"xmlns">> => <<"http://jabber.org/protocol/compress">>},
            children = [#xmlel{name = <<"method">>,
                               children = [#xmlcdata{content = Method}]}]}.
 
--spec iq(binary(), [exml:element()]) -> exml:element().
+-spec iq(binary(), [exml:cdata() | exml:element()]) -> exml:element().
 iq(Type, Body) ->
     #xmlel{name = <<"iq">>,
            attrs = #{<<"type">> => Type, <<"id">> => id()},
            children = Body}.
 
+-spec iq(escalus_utils:jid_spec(), binary(), [exml:cdata() | exml:element()]) -> exml:element().
 iq(To, Type, Body) ->
     IQ = iq(Type, Body),
-    IQ#xmlel{attrs = maps:put(<<"to">>, To, IQ#xmlel.attrs)}.
+    to(IQ, To).
 
 %% slightly naughty, this isn't a stanza but it will go inside an <iq/>
+-spec query_el(binary(), [exml:cdata() | exml:element()]) -> exml:element().
 query_el(NS, Children) ->
     query_el(NS, #{}, Children).
 
+-spec query_el(binary(), exml:attrs(), [exml:cdata() | exml:element()]) -> exml:element().
 query_el(NS, Attrs, Children) ->
     #xmlel{name = <<"query">>,
            attrs = maps:put(<<"xmlns">>, NS, Attrs),
@@ -200,6 +209,7 @@ query_el(NS, Attrs, Children) ->
 
 %% http://xmpp.org/extensions/xep-0004.html
 %% slightly naughty - this isn't a stanza but can be a child of various stanza types
+-spec x_data_form(binary(), [exml:cdata() | exml:element()]) -> exml:element().
 x_data_form(Type, Children) ->
     #xmlel{name = <<"x">>,
            attrs = #{<<"xmlns">> => ?NS_DATA_FORMS, <<"type">> => Type},
@@ -223,27 +233,33 @@ session() ->
     iq(<<"set">>, [#xmlel{name = <<"session">>,
                           attrs = #{<<"xmlns">> => NS}}]).
 
+-spec to(exml:element(), escalus_utils:jid_spec()) -> exml:element().
 to(Stanza, Recipient) when is_binary(Recipient) ->
     setattr(Stanza, <<"to">>, Recipient);
 to(Stanza, Recipient) ->
     setattr(Stanza, <<"to">>, escalus_utils:get_jid(Recipient)).
 
+-spec from(exml:element(), escalus_utils:jid_spec()) -> exml:element().
 from(Stanza, Recipient) when is_binary(Recipient) ->
     setattr(Stanza, <<"from">>, Recipient);
 from(Stanza, Recipient) ->
     setattr(Stanza, <<"from">>, escalus_utils:get_jid(Recipient)).
 
+-spec set_id(exml:element(), binary()) -> exml:element().
 set_id(Stanza, ID) ->
     setattr(Stanza, <<"id">>, ID).
 
+-spec setattr(exml:element(), binary(), binary()) -> exml:element().
 setattr(Stanza, Key, Val) ->
     NewAttrs = maps:put(Key, Val, Stanza#xmlel.attrs),
     Stanza#xmlel{attrs = NewAttrs}.
 
+-spec tags([{binary(), binary()}]) -> [exml:element()].
 tags(KVs) ->
     [#xmlel{name = K,
             children = [#xmlcdata{content = V}]} || {K, V} <- KVs].
 
+-spec presence(binary()) -> exml:element().
 presence(Type) ->
     presence(Type, []).
 
@@ -255,9 +271,12 @@ presence(Type, Children) ->
            attrs = #{<<"type">> => bin(Type)},
            children = Children}.
 
+-spec presence_direct(escalus_utils:jid_spec(), binary()) -> exml:element().
 presence_direct(Recipient, Type) ->
     presence_direct(Recipient, Type, []).
 
+-spec presence_direct(
+        escalus_utils:jid_spec(), binary(), [exml:element() | exml:cdata()]) -> exml:element().
 presence_direct(#client{} = Recipient, Type, Body) ->
     %% FIXME: this clause is only for backwards compatibility,
     %% remove at some point
@@ -276,11 +295,13 @@ presence_direct(#client{} = Recipient, Type, Body) ->
 presence_direct(Recipient, Type, Body) ->
     to(presence(Type, Body), Recipient).
 
+-spec presence_show(binary()) -> exml:element().
 presence_show(Show) ->
     presence(<<"available">>,
              [#xmlel{name = <<"show">>,
                      children = [#xmlcdata{content = Show}]}]).
 
+-spec error_element(binary(), binary()) -> exml:element().
 error_element(Type, Condition) ->
     #xmlel{name = <<"error">>,
            attrs = #{<<"type">> => Type},
@@ -325,15 +346,18 @@ message(Text, Attrs) ->
                                         children = [#xmlcdata{content = Text}]}]},
               Attrs).
 
+-spec chat_to(escalus_utils:jid_spec(), binary()) -> exml:element().
 chat_to(Recipient, Msg) ->
     message(Msg, #{type => <<"chat">>,
                    to => Recipient}).
 
+-spec chat(escalus_utils:jid_spec(), escalus_utils:jid_spec(), binary()) -> exml:element().
 chat(Sender, Recipient, Msg) ->
     message(Msg, #{type => <<"chat">>,
                    from => Sender,
                    to => Recipient}).
 
+-spec chat_to_short_jid(escalus_utils:jid_spec(), binary()) -> exml:element().
 chat_to_short_jid(Recipient, Msg) ->
     message(Msg, #{type => <<"chat">>,
                    to => escalus_utils:get_short_jid(Recipient)}).
@@ -351,12 +375,14 @@ chat_to_with_id_and_timestamp(Recipient, Msg) ->
                    id => uuid_v4(),
                    timestamp => integer_to_binary(os:system_time(microsecond))}).
 
+-spec chat_without_carbon_to(escalus_utils:jid_spec(), binary()) -> exml:element().
 chat_without_carbon_to(Recipient, Msg) ->
     Stanza = #xmlel{children = Children} = chat_to(Recipient, Msg),
     Stanza#xmlel{children = Children ++
                   [#xmlel{name = <<"private">>,
                           attrs = #{<<"xmlns">> => ?NS_CARBONS_2}}]}.
 
+-spec receipt_req(exml:element()) -> exml:element().
 receipt_req(#xmlel{name = <<"message">>, attrs = Attrs, children = Children } = Msg) ->
     ReqStanza = receipt_req_elem(),
     Msg2 = case maps:find(<<"id">>, Attrs) of
@@ -367,6 +393,7 @@ receipt_req(#xmlel{name = <<"message">>, attrs = Attrs, children = Children } = 
     end,
     Msg2#xmlel{ children = [ReqStanza | Children] }.
 
+-spec receipt_conf(exml:element()) -> exml:element().
 receipt_conf(#xmlel{attrs = #{<<"id">> := ID, <<"from">> := From} = Attrs, children = Children}) ->
     Type = case maps:find(<<"type">>, Attrs) of
         error -> <<"chat">>;
@@ -405,26 +432,32 @@ receipt_conf_elem(ID) ->
         children = []
         }.
 
+-spec groupchat_to(escalus_utils:jid_spec(), binary()) -> exml:element().
 groupchat_to(Recipient, Msg) ->
     message(undefined, Recipient, <<"groupchat">>, Msg).
 
+-spec get_registration_fields() -> exml:element().
 get_registration_fields() ->
     iq(<<"get">>, [#xmlel{name = <<"query">>,
                           attrs = #{<<"xmlns">> => <<"jabber:iq:register">>}}]).
 
+-spec register_account([exml:cdata() | exml:element()]) -> exml:element().
 register_account(Body) ->
     iq(<<"set">>, [#xmlel{name = <<"query">>,
                           attrs = #{<<"xmlns">> => <<"jabber:iq:register">>},
                           children = Body}]).
 
+-spec remove_account() -> exml:element().
 remove_account() ->
     iq(<<"set">>, [#xmlel{name = <<"query">>,
                           attrs = #{<<"xmlns">> => <<"jabber:iq:register">>},
                           children = [#xmlel{name = <<"remove">>}]}]).
 
+-spec iq_result(exml:element()) -> exml:element().
 iq_result(Request) ->
     iq_result(Request, []).
 
+-spec iq_result(exml:element(), [exml:cdata() | exml:element()]) -> exml:element().
 iq_result(Request, Payload) ->
     ToAttr = case exml_query:attr(Request, <<"from">>) of
                  undefined ->
@@ -437,16 +470,20 @@ iq_result(Request, Payload) ->
            attrs = ToAttr#{<<"id">> => Id, <<"type">> => <<"result">>},
            children = Payload}.
 
+-spec iq_get(binary(), [exml:cdata() | exml:element()]) -> exml:element().
 iq_get(NS, Payload) ->
     iq_with_type(<<"get">>, NS, Payload).
 
+-spec iq_set(binary(), [exml:cdata() | exml:element()]) -> exml:element().
 iq_set(NS, Payload) ->
     iq_with_type(<<"set">>, NS, Payload).
 
+-spec iq_set_nonquery(binary(), [exml:cdata() | exml:element()]) -> exml:element().
 iq_set_nonquery(NS, Payload) ->
     %% Don't wrap <iq/> payload with <query/>
     iq_with_type(<<"set">>, NS, Payload, nonquery).
 
+-spec iq_with_type(binary(), binary(), [exml:cdata() | exml:element()]) -> exml:element().
 iq_with_type(Type, NS, Payload) ->
     iq(Type, [#xmlel{name = <<"query">>,
                      attrs = #{<<"xmlns">> => NS},
@@ -459,14 +496,17 @@ iq_with_type(Type, NS, Payload, nonquery) ->
                      <<"id">> => id()},
            children = Payload}.
 
+-spec roster_get() -> exml:element().
 roster_get() ->
     iq_get(?NS_ROSTER, []).
 
+-spec roster_get(binary()) -> exml:element().
 roster_get(Ver) ->
     #xmlel{children = [Query]} = Stanza = iq_get(?NS_ROSTER, []),
     NewQuery = Query#xmlel{attrs = maps:put(<<"ver">>, Ver, Query#xmlel.attrs)},
     Stanza#xmlel{children = [NewQuery]}.
 
+-spec roster_add_contacts([{escalus_utils:jid_spec(), list(), binary()}]) -> exml:element().
 roster_add_contacts(ItemSpecs) ->
     iq_set(?NS_ROSTER, lists:map(fun contact_item/1, ItemSpecs)).
 
@@ -481,47 +521,59 @@ contact_item({User, Groups, Nick}) ->
                               children = [#xmlcdata{content = bin(Group)}]}
                        || Group <- Groups]}.
 
+-spec roster_add_contact(binary(), [binary()], binary()) -> exml:element().
 roster_add_contact(User, Groups, Nick) ->
     roster_add_contacts([{User, Groups, Nick}]).
 
 %% FIXME: see contact_item/1 comment
+-spec roster_remove_contact(escalus_utils:jid_spec()) -> exml:element().
 roster_remove_contact(User) ->
     iq_set(?NS_ROSTER,
            [#xmlel{name = <<"item">>,
                    attrs = #{<<"jid">> => escalus_utils:get_short_jid(User),
                              <<"subscription">> => <<"remove">>}}]).
 
+-spec private_set(exml:element()) -> exml:element().
 private_set(Element) ->
     iq_set(?NS_PRIVATE, [Element]).
 
+-spec private_get(term(), term()) -> exml:element().
 private_get(NS, Name) ->
     Element = #xmlel{name = bin(Name),
                      attrs = #{<<"xmlns">> => bin(NS)}},
     iq_get(?NS_PRIVATE, [Element]).
 
+-spec last_activity(escalus_utils:jid_spec()) -> exml:element().
 last_activity(User) ->
     to(iq_get(?NS_LAST_ACTIVITY, []), User).
 
+-spec privacy_get_all() -> exml:element().
 privacy_get_all() ->
     iq_get(?NS_PRIVACY, []).
 
+-spec privacy_get_lists([term()]) -> exml:element().
 privacy_get_lists(ListNames) ->
     iq_get(?NS_PRIVACY, [#xmlel{name = <<"list">>,
                                 attrs = #{<<"name">> => bin(Name)}}
                          || Name <- ListNames]).
 
+-spec privacy_set_list(exml:element()) -> exml:element().
 privacy_set_list(PrivacyList) ->
     iq_set(?NS_PRIVACY, [PrivacyList]).
 
+-spec privacy_activate(term()) -> exml:element().
 privacy_activate(ListName) ->
     privacy_set(<<"active">>, #{<<"name">> => bin(ListName)}).
 
+-spec privacy_deactivate() -> exml:element().
 privacy_deactivate()->
     privacy_set(<<"active">>, #{}).
 
+-spec privacy_set_default(term()) -> exml:element().
 privacy_set_default(ListName) ->
     privacy_set(<<"default">>, #{<<"name">> => bin(ListName)}).
 
+-spec privacy_no_default() -> exml:element().
 privacy_no_default()->
     privacy_set(<<"default">>, #{}).
 
@@ -529,17 +581,20 @@ privacy_set(What, Attrs) ->
     iq_set(?NS_PRIVACY, [#xmlel{name = What, attrs = Attrs}]).
 
 %% Create empty list element with given name.
+-spec privacy_list(binary(), [exml:cdata() | exml:element()]) -> exml:element().
 privacy_list(Name, Items) ->
     #xmlel{name = <<"list">>,
            attrs = #{<<"name">> => Name},
            children = Items}.
 
+-spec privacy_list_item(binary(), binary(), [binary()]) -> exml:element().
 privacy_list_item(Order, Action, Content) ->
     #xmlel{name = <<"item">>,
            attrs = #{<<"order">> => Order,
                      <<"action">> => Action},
            children = [#xmlel{name = C} || C <- Content]}.
 
+-spec privacy_list_item(binary(), binary(), binary(), binary(), [binary()]) -> exml:element().
 privacy_list_item(Order, Action, Type, Value, Content) ->
     #xmlel{name = <<"item">>,
            attrs = #{<<"order">> => Order,
@@ -548,25 +603,33 @@ privacy_list_item(Order, Action, Type, Value, Content) ->
                      <<"action">> => Action},
            children = [#xmlel{name = C} || C <- Content]}.
 
+-spec privacy_list_jid_item(binary(), binary(), escalus_utils:jid_spec(), [binary()]) ->
+    exml:element().
 privacy_list_jid_item(Order, Action, Who, Contents) ->
     privacy_list_item(Order, Action, <<"jid">>,
                       escalus_utils:get_jid(Who), Contents).
 
+-spec disco_info(escalus_utils:jid_spec()) -> exml:element().
 disco_info(JID) ->
     Query = query_el(?NS_DISCO_INFO, []),
     iq(JID, <<"get">>, [Query]).
 
+-spec disco_info(escalus_utils:jid_spec(), binary()) -> exml:element().
 disco_info(JID, Node) ->
     Query = query_el(?NS_DISCO_INFO, #{<<"node">> => Node}, []),
     iq(JID, <<"get">>, [Query]).
 
+-spec disco_items(escalus_utils:jid_spec()) -> exml:element().
 disco_items(JID) ->
     ItemsQuery = query_el(?NS_DISCO_ITEMS, []),
     iq(JID, <<"get">>, [ItemsQuery]).
+
+-spec disco_items(escalus_utils:jid_spec(), binary()) -> exml:element().
 disco_items(JID, Node) ->
     ItemsQuery = query_el(?NS_DISCO_ITEMS, #{<<"node">> => Node}, []),
     iq(JID, <<"get">>, [ItemsQuery]).
 
+-spec search_fields([null | {binary(), binary()} | term()]) -> [exml:element()].
 search_fields([]) ->
     [];
 search_fields([null|Rest]) ->
@@ -578,24 +641,30 @@ search_fields([{Key, Val}|Rest]) ->
                                children = [#xmlcdata{content = Val}]}]}
      | search_fields(Rest)].
 
+-spec search_fields_iq(escalus_utils:jid_spec()) -> exml:element().
 search_fields_iq(JID) ->
     iq(JID, <<"get">>, [
         query_el(?NS_SEARCH, [])]).
 
+-spec search_iq(escalus_utils:jid_spec(), [exml:cdata() | exml:element()]) -> exml:element().
 search_iq(JID, Fields) ->
     Form = x_data_form(<<"submit">>, Fields),
     Query = query_el(?NS_SEARCH, [Form]),
     iq(JID, <<"set">>, [Query]).
 
+-spec vcard_request() -> exml:element().
 vcard_request() ->
     iq(<<"get">>, [vcard([])]).
 
+-spec vcard_request(binary()) -> exml:element().
 vcard_request(JID) ->
     iq(JID, <<"get">>, [vcard([])]).
 
+-spec vcard_update(list()) -> exml:element().
 vcard_update(Fields) ->
     iq(<<"set">>, [vcard(Fields)]).
 
+-spec vcard_update(binary(), list()) -> exml:element().
 vcard_update(JID, Fields) ->
     iq(JID, <<"set">>, [vcard(Fields)]).
 
@@ -620,9 +689,11 @@ tuples_to_fields([{Name, Children}|Rest]) when is_list(Children) ->
     [field(Name, tuples_to_fields(Children))
         | tuples_to_fields(Rest)].
 
+-spec adhoc_request(binary()) -> exml:element().
 adhoc_request(Node) ->
     adhoc_request(Node, []).
 
+-spec adhoc_request(binary(), [exml:cdata() | exml:element()]) -> exml:element().
 adhoc_request(Node, Payload) ->
     iq(<<"set">>, [#xmlel{name = <<"command">>,
                           attrs = #{<<"xmlns">> => ?NS_ADHOC,
@@ -630,6 +701,7 @@ adhoc_request(Node, Payload) ->
                                     <<"action">> => <<"execute">>},
                           children = Payload}]).
 
+-spec ping_request(escalus_utils:jid_spec()) -> exml:element().
 ping_request(To) ->
     IQ = iq(<<"get">>, [#xmlel{name = <<"ping">>,
                                attrs = #{<<"xmlns">> => ?NS_PING}
@@ -637,34 +709,38 @@ ping_request(To) ->
     to(IQ, To).
 
 
--spec service_discovery(binary()) -> #xmlel{}.
+-spec service_discovery(binary()) -> exml:element().
 service_discovery(Server) ->
     escalus_stanza:setattr(escalus_stanza:iq_get(?NS_DISCO_ITEMS, []), <<"to">>,
                            Server).
 
--spec auth(binary()) -> #xmlel{}.
+-spec auth(binary()) -> exml:element().
 auth(Mechanism) ->
     auth(Mechanism, []).
 
--spec auth(binary(), [#xmlcdata{}]) -> #xmlel{}.
+-spec auth(binary(), [exml:cdata() | exml:element()]) -> exml:element().
 auth(Mechanism, Children) ->
     #xmlel{name = <<"auth">>,
            attrs = #{<<"xmlns">> => ?NS_SASL,
                      <<"mechanism">> => Mechanism},
            children = Children}.
 
+-spec auth_response() -> exml:element().
 auth_response() ->
     auth_response([]).
 
+-spec auth_response([exml:cdata() | exml:element()]) -> exml:element().
 auth_response(Children) ->
     #xmlel{name = <<"response">>,
            attrs = #{<<"xmlns">> => ?NS_SASL},
            children = Children}.
 
+-spec enable_sm() -> exml:element().
 enable_sm() ->
     #xmlel{name = <<"enable">>,
            attrs = #{<<"xmlns">> => ?NS_STREAM_MGNT_3}}.
 
+-spec enable_sm(proplists:proplist()) -> exml:element().
 enable_sm(Opts) ->
     case proplists:is_defined(resume, Opts) of
         true ->
@@ -674,15 +750,18 @@ enable_sm(Opts) ->
             enable_sm()
     end.
 
+-spec sm_request() -> exml:element().
 sm_request() ->
     #xmlel{name = <<"r">>,
            attrs = #{<<"xmlns">> => ?NS_STREAM_MGNT_3}}.
 
+-spec sm_ack(integer()) -> exml:element().
 sm_ack(H) ->
     #xmlel{name = <<"a">>,
            attrs = #{<<"xmlns">> => ?NS_STREAM_MGNT_3,
                      <<"h">> => integer_to_binary(H)}}.
 
+-spec resume(binary(), integer()) -> exml:element().
 resume(SMID, PrevH) ->
     #xmlel{name = <<"resume">>,
            attrs = #{<<"xmlns">> => ?NS_STREAM_MGNT_3,
@@ -695,11 +774,11 @@ resume(SMID, PrevH) ->
 %% @TODO: move the stanza constructors from
 %% tests/mam_SUITE.erl into here.
 -spec field_el(binary(), binary(), undefined | binary() | [binary()]) ->
-    exml:element().
+    undefined | exml:element().
 field_el(_Name, _Type, undefined) ->
     undefined;
 field_el(Name, Type, Values) when is_list(Values) ->
-    Fields = lists:map(fun (E) ->
+    Fields = lists:map(fun(E) ->
                                #xmlel{name = <<"value">>,
                                       children = [#xmlcdata{content = E}]}
                        end, Values),
@@ -762,8 +841,8 @@ mam_lookup_messages_iq(QueryId, Start, End, WithJID, DirectionWMessageId) ->
 -spec mam_lookup_messages_iq(binary(), binary(), binary(), binary(), term(), boolean()) ->
     exml:element().
 mam_lookup_messages_iq(QueryId, Start, End, WithJID, DirectionWMessageId, Simple) ->
-    IQ = #xmlel{children=[Q]} = mam_lookup_messages_iq(QueryId, Start, End,
-                                                       WithJID, Simple),
+    IQ = #xmlel{children = [Q]} = mam_lookup_messages_iq(QueryId, Start, End,
+                                                         WithJID, Simple),
     RSM  = defined([fmapM(fun rsm_after_or_before/1, DirectionWMessageId)]),
     Other = Q#xmlel.children,
     Q2 = Q#xmlel{children = Other ++ RSM},
@@ -797,9 +876,11 @@ max(_) ->
 
 %% XEP-0280 Carbons
 %%
+-spec carbons_enable() -> exml:element().
 carbons_enable() ->
     iq_set_nonquery(?NS_JABBER_CLIENT, [enable_carbons_el()]).
 
+-spec carbons_disable() -> exml:element().
 carbons_disable() ->
     iq_set_nonquery(?NS_JABBER_CLIENT, [disable_carbons_el()]).
 

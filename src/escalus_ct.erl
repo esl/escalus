@@ -163,5 +163,6 @@ ct_log_timestamp({MS, S, US}) ->
                                 "~2.10.0B:~2.10.0B:~2.10.0B.~3.10.0B",
                                 [Year, Month, Day, Hour, Min, Sec, MilliSec])).
 
+-spec log_error(term(), [any()]) -> ok.
 log_error(Format, Args) ->
     ct:pal(error, Format, Args).

@@ -33,9 +33,11 @@ pre_story(Config) ->
 post_story(Config) ->
     call_server(get_server(Config), post_story, [Config]).
 
+-spec name(escalus:config()) -> any().
 name(Config) ->
     call_server(get_server(Config), name, []).
 
+-spec get_server(escalus:config()) -> any().
 get_server(Config) ->
     escalus_config:get_config(escalus_xmpp_server, Config, undefined).
 

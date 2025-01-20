@@ -31,6 +31,7 @@
 %% Public API
 %%--------------------------------------------------------------------
 
+-spec bin(binary() | string() | atom() | integer()) -> binary() | no_return().
 bin(Arg) when is_binary(Arg) ->
     Arg;
 bin(Arg) when is_list(Arg) ->
@@ -46,17 +47,21 @@ bin(Other) ->
     type_complain("???", Other),
     error(badarg, [Other]).
 
+-spec deprecated(atom(), atom(), T) -> T.
 deprecated(Old, New, Result) ->
     error_logger:info_msg("calling deprecated function ~p, use ~p instead~n~p~n",
                           [Old, New, backtrace(1)]),
     Result.
 
+-spec unimplemented() -> no_return().
 unimplemented() ->
     throw({unimplemented, backtrace(1)}).
 
+-spec complain(term()) -> ok.
 complain(What) ->
     error_logger:info_msg("~s at ~p~n", [What, backtrace(1)]).
 
+-spec backtrace(non_neg_integer()) -> list().
 backtrace(N) ->
     {current_stacktrace, Stacktrace} = erlang:process_info(self(), current_stacktrace),
     lists:nthtail(N + 1, Stacktrace).

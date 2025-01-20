@@ -430,6 +430,7 @@ upgrade_to_tls(#client{module = Mod, rcv_pid = Pid, props = Props}) ->
     SSLOpts = proplists:get_value(ssl_opts, Props, DefSslOpts),
     Mod:upgrade_to_tls(Pid, SSLOpts).
 
+-spec wait_for_close(client()) -> boolean().
 wait_for_close(Client) ->
     wait_for_close(Client, default_timeout()).
 
@@ -476,6 +477,8 @@ maybe_forward_to_owner(_, State, Stanzas, Fun, Timestamp) ->
 stanza_msg(Stanza, Metadata) ->
     {stanza, self(), Stanza, Metadata}.
 
+-spec separate_ack_requests({boolean(), non_neg_integer(), term()}, [exml_stream:element()]) ->
+    {{boolean(), non_neg_integer(), term()}, [exml_stream:element()], [exml_stream:element()]}.
 separate_ack_requests({false, H0, A}, Stanzas) ->
     %% Don't keep track of H
     {{false, H0, A}, [], Stanzas};

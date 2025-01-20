@@ -46,16 +46,17 @@
 -type jid_spec() :: #client{} | atom() | binary() | string().
 -export_type([jid_spec/0]).
 
--spec log_stanzas(iolist(), [#xmlel{}]) -> any().
+-spec log_stanzas(iolist(), [exml:element()]) -> any().
 log_stanzas(Comment, Stanzas) ->
     error_logger:info_msg("~s:~s~n", [Comment, stanza_lines("\n  * ", Stanzas)]).
 
--spec pretty_stanza_list([#xmlel{}]) -> string().
+-spec pretty_stanza_list([exml:element()]) -> string().
 pretty_stanza_list(Stanzas) ->
     binary_to_list(list_to_binary(stanza_lines("     ", Stanzas))).
 
 %% calls Fun(A, B) on each distinct (A =/= B) pair of elements in List
 %% if Fun(A, B) was called, then Fun(B, A) won't
+-spec distinct_pairs(fun((T, T) -> any()), [T]) -> integer().
 distinct_pairs(Fun, List) ->
     K = each_with_index(fun(A, N) ->
         each_with_index(fun(B, M) ->
@@ -69,6 +70,7 @@ distinct_pairs(Fun, List) ->
     K * (K - 1) div 2.
 
 %% calls Fun(A, B) on each distinct (A =/= B) ordered pair of elements in List
+-spec distinct_ordered_pairs(fun((T, T) -> any()), [T]) -> integer().
 distinct_ordered_pairs(Fun, List) ->
     K = each_with_index(fun(A, N) ->
         each_with_index(fun(B, M) ->
@@ -82,29 +84,35 @@ distinct_ordered_pairs(Fun, List) ->
     K * (K - 1).
 
 %% Calls Fun(Element, Index) for indices (starting from Start) and elements of List
+-spec each_with_index(fun((T, integer()) -> any()), _, [T]) -> integer().
 each_with_index(Fun, Start, List) ->
     lists:foldl(fun(Element, N) ->
         Fun(Element, N),
         N + 1
     end, Start, List).
 
+-spec all_true([boolean()]) -> boolean().
 all_true(List) ->
     lists:foldl(fun erlang:'and'/2, true, List).
 
+-spec any_true([boolean()]) -> boolean().
 any_true(List) ->
     lists:foldl(fun erlang:'or'/2, false, List).
 
+-spec identity(A) -> A.
 identity(X) ->
     X.
 
 %% Does for each Case in Cases exist a Cond in Conds such that
 %% (Predgen(Cond))(Case) == true?
+-spec mix_match(fun((A) -> fun((B) -> boolean())), [A], [B]) -> boolean().
 mix_match(Predgen, Conds, Cases) ->
     [] == lists:foldl(fun(Cond, CasesLeft) ->
               Pred = Predgen(Cond),
               drop_first_such(Pred, CasesLeft)
           end, Cases, Conds).
 
+-spec drop_first_such(fun((A) -> boolean()), [A]) -> [A].
 drop_first_such(Pred, List) ->
     drop_first_such(Pred, List, []).
 
@@ -113,7 +121,7 @@ drop_first_such(_, [], Acc) ->
 drop_first_such(Pred, [H|T], Acc) ->
     case Pred(H) of
         true ->
-            lists:reverse(Acc) ++ T;
+            lists:reverse(Acc, T);
         false ->
             drop_first_such(Pred, T, [H|Acc])
     end.
@@ -121,6 +129,7 @@ drop_first_such(Pred, [H|T], Acc) ->
 stanza_lines(Prefix, Stanzas) ->
     [[Prefix, exml:to_iolist(S)] || S <- Stanzas].
 
+-spec show_backtrace() -> any().
 show_backtrace() ->
     try throw(catch_me)
     catch _:_:S ->
@@ -170,13 +179,16 @@ get_server(UserOrClient) ->
 get_resource(JID) ->
     regexp_get(JID, <<"^[^/]+/(.*)$">>).
 
+-spec is_prefix(binary(), binary()) -> boolean().
 is_prefix(Prefix, Full) when is_binary(Prefix), is_binary(Full) ->
     LCP = binary:longest_common_prefix([Prefix, Full]),
     size(Prefix) =< size(Full) andalso LCP == size(Prefix).
 
+-spec start_clients([{_, _}]) -> {pid(), list(pid())}.
 start_clients(Clients) ->
     start_clients([], Clients).
 
+-spec start_clients(escalus_config:config(), [{_, _}]) -> {pid(), list(pid())}.
 start_clients(Config0, ClientRecipes) ->
     AllCDs = escalus_config:get_config(escalus_users, Config0),
     FlatCDs = [{CD, Res} || {Username, Resources} <- ClientRecipes,
@@ -188,6 +200,7 @@ start_clients(Config0, ClientRecipes) ->
                                       {escalus_story, start_ready_clients}),
     {Cleaner, Clients}.
 
+-spec regexp_get(binary(), binary()) -> binary().
 regexp_get(Jid, Regex) ->
     {match, [ShortJid]} =
         re:run(Jid, Regex, [{capture, all_but_first, binary}]),

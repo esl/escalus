@@ -100,6 +100,7 @@ metric_type(Metric) ->
     [{_, Type, _} | _] = escalus_ejabberd:rpc(exometer, find_entries, [Metric]),
     Type.
 
+-spec check_metric_change(T, [T]) -> [T].
 check_metric_change({{Metric, {MinChange, MaxChange}}, Before, After}, Acc) ->
     Change = After - Before,
     case {Change < MinChange, Change > MaxChange} of

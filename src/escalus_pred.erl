@@ -110,8 +110,11 @@
 %% Deprecation support
 %%--------------------------------------------------------------------
 
+-spec is_presence_stanza(any()) -> any().
 ?DEPRECATED1(is_presence_stanza, is_presence).
+-spec is_presence_type(any(), any()) -> any().
 ?DEPRECATED2(is_presence_type, is_presence_with_type).
+-spec is_result(any()) -> any().
 ?DEPRECATED1(is_result, is_iq_result).
 
 %%--------------------------------------------------------------------
@@ -307,6 +310,7 @@ is_iq_set(Stanza) -> is_iq(<<"set">>, Stanza).
 -spec is_iq_get(exml:element()) -> boolean().
 is_iq_get(Stanza) -> is_iq(<<"get">>, Stanza).
 
+-spec is_iq_result_or_error(exml:element(), exml:element()) -> boolean().
 is_iq_result_or_error(QueryStanza, ResultStanza) ->
     (is_iq_error(ResultStanza) orelse is_iq_result(ResultStanza))
         andalso has_same_id(QueryStanza, ResultStanza).
@@ -540,6 +544,7 @@ has_identity(Category, Type, Stanza) ->
               Idents).
 
 %% TODO: Remove as duplicates escalus_assert:has_no_stanzas/1 functionality.
+-spec stanza_timeout(tuple()) -> boolean().
 stanza_timeout(Arg) ->
     case element(1, Arg) of
         'EXIT' ->
@@ -671,8 +676,7 @@ is_bind_result(#xmlel{} = Stanza) ->
 %% Functors
 %%--------------------------------------------------------------------
 
-%% Not supported by erlang 15 :(
-%%-spec 'not'( fun((...) -> boolean()) ) ->  fun((...) -> boolean()).
+-spec 'not'(fun((any()) -> boolean())) -> fun((any()) -> boolean()).
 'not'(Pred) when is_function(Pred, 1) ->
     fun (Arg) -> not Pred(Arg) end;
 'not'(Pred) when is_function(Pred, 2) ->

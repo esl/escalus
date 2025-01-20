@@ -39,6 +39,7 @@
 %%         end).
 %%
 %% @end
+-spec story(escalus:config(), term(), fun()) -> term().
 story(ConfigIn, ResourceCounts, Story) ->
     story(ConfigIn, ResourceCounts, Story, []).
 
@@ -59,9 +60,11 @@ story(ConfigIn, ResourceCounts, Story) ->
 %% See carboncopy_SUITE test properties for an example:
 %% https://github.com/esl/MongooseIM/blob/f0ed90a93e17f7f3d5baf4d51bbb3f8b19826dd8/test.disabled/ejabberd_tests/tests/carboncopy_SUITE.erl#L183-L185
 %% @end
+-spec story_with_client_list(escalus:config(), term(), fun()) -> term().
 story_with_client_list(ConfigIn, ResourceCounts, Story) ->
     story(ConfigIn, ResourceCounts, Story, [clients_as_list]).
 
+-spec story(escalus:config(), term(), fun(), proplists:proplist()) -> term().
 story(ConfigIn, ResourceCounts, Story, Opts) ->
     ClientDescs = clients_from_resource_counts(ConfigIn, ResourceCounts),
     try
@@ -86,6 +89,7 @@ make_everyone_friends(Config) ->
     Users = escalus_config:get_config(escalus_users, Config),
     make_everyone_friends(Config, Users).
 
+-spec make_everyone_friends(escalus:config(), [{_, _}]) -> escalus:config().
 make_everyone_friends(Config0, Users) ->
     % start the clients
     Config1 = escalus_cleaner:start(Config0),
@@ -124,6 +128,7 @@ call_start_ready_clients(Config, UserCDs) ->
     escalus_overridables:do(Config, start_ready_clients, [Config, UserCDs],
                             {?MODULE, start_ready_clients}).
 
+-spec start_ready_clients(escalus:config(), [term()]) -> [escalus:client()].
 start_ready_clients(Config, FlatCDs) ->
     {_, RClients} = lists:foldl(fun({UserSpec, BaseResource}, {N, Acc}) ->
         Resource = escalus_overridables:do(Config, modify_resource, [BaseResource],
@@ -144,6 +149,7 @@ start_ready_clients(Config, FlatCDs) ->
     ensure_all_clean(Clients),
     Clients.
 
+-spec send_initial_presence(escalus:client()) -> ok.
 send_initial_presence(Client) ->
     escalus_client:send(Client, escalus_stanza:presence(<<"available">>)).
 
