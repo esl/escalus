@@ -300,6 +300,12 @@ handle_info({tcp_error, _Socket, Reason}, #state{} = State) ->
     {stop, {error, Reason}, State};
 handle_info({ssl_error, _Socket, Reason}, #state{} = State) ->
     {stop, {error, Reason}, State};
+handle_info({ssl, session_ticket, Ticket}, #state{owner = Owner} = State) ->
+    %% If the client enables `{session_tickets, manual}' in tls_opts,
+    %% forward them the Ticket data.
+    %% See https://www.erlang.org/docs/23/apps/ssl/using_ssl#early-data-in-tls-1.3
+    Owner ! {escalus_ssl_session_ticket, self(), Ticket},
+    {noreply, State};
 handle_info(_, State) ->
     {noreply, State}.
 
