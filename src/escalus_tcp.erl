@@ -289,6 +289,9 @@ handle_cast(stop, State) ->
 handle_info({tcp, Socket, Data}, #state{socket = Socket, ssl = false} = State) ->
     NewState = handle_data(Socket, Data, State),
     {noreply, NewState};
+handle_info({ssl, _Socket, {early_data, Result}}, #state{owner = Owner} = State) ->
+    Owner ! {escalus_ssl_early_data_result, self(), Result},
+    {noreply, State};
 handle_info({ssl, Socket, Data}, #state{socket = Socket, ssl = true} = State) ->
     NewState = handle_data(Socket, Data, State),
     {noreply, NewState};
