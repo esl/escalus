@@ -289,6 +289,9 @@ handle_cast(stop, State) ->
 handle_info({tcp, Socket, Data}, #state{socket = Socket, ssl = false} = State) ->
     NewState = handle_data(Socket, Data, State),
     {noreply, NewState};
+handle_info({ssl, _Socket, {early_data, Result}}, #state{owner = Owner} = State) ->
+    Owner ! {escalus_ssl_early_data_result, self(), Result},
+    {noreply, State};
 handle_info({ssl, Socket, Data}, #state{socket = Socket, ssl = true} = State) ->
     NewState = handle_data(Socket, Data, State),
     {noreply, NewState};
@@ -300,6 +303,12 @@ handle_info({tcp_error, _Socket, Reason}, #state{} = State) ->
     {stop, {error, Reason}, State};
 handle_info({ssl_error, _Socket, Reason}, #state{} = State) ->
     {stop, {error, Reason}, State};
+handle_info({ssl, session_ticket, Ticket}, #state{owner = Owner} = State) ->
+    %% If the client enables `{session_tickets, manual}' in tls_opts,
+    %% forward them the Ticket data.
+    %% See https://www.erlang.org/doc/apps/ssl/using_ssl#session-tickets-and-session-resumption-in-tls-1-3
+    Owner ! {escalus_ssl_session_ticket, self(), Ticket},
+    {noreply, State};
 handle_info(_, State) ->
     {noreply, State}.
 
