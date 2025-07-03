@@ -34,7 +34,7 @@
          publish/3, publish/4, publish/5,
          publish_with_options/4, publish_with_options/5, publish_with_options/6,
 
-         retract/4,
+         retract/5,
          get_items/4,
          get_all_items/3,
          get_item/4,
@@ -253,9 +253,10 @@ publish_with_options(User, ItemId, ContentElement, Id, {NodeAddr, NodeName}, Pub
     Elements = [publish_element(NodeName, ItemElement), PublishOptionsElement],
     pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
 
--spec retract(escalus_utils:jid_spec(), binary(), pubsub_node_id(), binary()) -> exml:element().
-retract(User, Id, {NodeAddr, NodeName}, ItemId) ->
-    Elements = [retract_item(NodeName, ItemId)],
+-spec retract(escalus_utils:jid_spec(), binary(), pubsub_node_id(), binary(), exml:attrs()) ->
+    exml:element().
+retract(User, Id, {NodeAddr, NodeName}, ItemId, Attrs) ->
+    Elements = [retract_item(NodeName, ItemId, Attrs)],
     pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
 
 -spec get_items(escalus_utils:jid_spec(), binary(), pubsub_node_id(), pos_integer()) -> exml:element().
@@ -392,9 +393,9 @@ item_element(ItemId, ContentElement) ->
            attrs = #{<<"id">> => ItemId},
            children = maybe_children([ContentElement])}.
 
-retract_item(NodeName, ItemId) ->
+retract_item(NodeName, ItemId, Attrs) ->
     #xmlel{name = <<"retract">>,
-           attrs = #{<<"node">> => NodeName},
+           attrs = Attrs#{<<"node">> => NodeName},
            children = [#xmlel{name = <<"item">>,
                               attrs = #{<<"id">> => ItemId} }]}.
 
