@@ -555,6 +555,9 @@
 % Defined by XEP-0333: Chat Markers
 -define(NS_CHAT_MARKERS, <<"urn:xmpp:chat-markers:0">>).
 
+% Defined by XEP-0402: PEP Native Bookmarks
+-define(NS_PEP_BOOKMARKS, <<"urn:xmpp:bookmarks:1">>).
+
 % Defined by XHTML 1.0.
 -define(NS_XHTML, <<"http://www.w3.org/1999/xhtml">>).
 
