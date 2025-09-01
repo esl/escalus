@@ -372,6 +372,7 @@ is_mod_register_enabled(Config) ->
                      | 'connection_steps'  %% [escalus_session:step()]
                      | 'parser_opts' %% a list of exml parser opts,
                                      %% e.g. infinite_stream
+                     | stream_attrs  %% XML attributes for <stream:stream> or open/close elements
                      | received_stanza_handlers %% list of escalus_connection:stanza_handler()
                      | sent_stanza_handlers %% similar as above but for sent stanzas
                      .

@@ -12,6 +12,9 @@
 % Defined by XMPP Core (RFC 3920).
 -define(NS_XMPP, <<"http://etherx.jabber.org/streams">>).
 
+% Defined by XMPP Subprotocol for WebSocket (RFC 7395).
+-define(NS_FRAMING, <<"urn:ietf:params:xml:ns:xmpp-framing">>).
+
 -define(NS_STREAM_ERRORS, <<"urn:ietf:params:xml:ns:xmpp-streams">>).
 -define(NS_TLS, <<"urn:ietf:params:xml:ns:xmpp-tls">>).
 -define(NS_SASL, <<"urn:ietf:params:xml:ns:xmpp-sasl">>).
