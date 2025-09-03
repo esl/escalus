@@ -105,10 +105,13 @@
          sm_ack/1,
          resume/2]).
 
--export([stream_start/2,
+-export([stream_start/1,
+         stream_start/2,
          stream_end/0,
          ws_open/1,
+         ws_open/2,
          ws_close/0,
+         ws_close/1,
          starttls/0,
          compress/1]).
 
@@ -144,34 +147,51 @@
 -define(i2l(I), erlang:integer_to_list(I)).
 -define(io2b(IOList), erlang:iolist_to_binary(IOList)).
 
+-type attrs() :: #{binary() => binary() | undefined}.
+
 %%--------------------------------------------------------------------
 %% Stream - related functions
 %%--------------------------------------------------------------------
 
--spec stream_start(binary(), binary()) -> exml_stream:start().
-stream_start(Server, XMLNS) ->
+-spec stream_start(binary() | undefined) -> exml_stream:start().
+stream_start(To) ->
+    stream_start(To, #{}).
+
+-spec stream_start(binary() | undefined, attrs()) -> exml_stream:start().
+stream_start(To, ExtraAttrs) ->
+    BasicAttrs = #{<<"to">> => To,
+                   <<"version">> => <<"1.0">>,
+                   <<"xml:lang">> => <<"en">>,
+                   <<"xmlns">> => ?NS_JABBER_CLIENT,
+                   <<"xmlns:stream">> => ?NS_XMPP},
     #xmlstreamstart{name = <<"stream:stream">>,
-                    attrs = #{<<"to">> => Server,
-                             <<"version">> => <<"1.0">>,
-                             <<"xml:lang">> => <<"en">>,
-                             <<"xmlns">> => XMLNS,
-                             <<"xmlns:stream">> => <<"http://etherx.jabber.org/streams">>}}.
+                    attrs = skip_undefined(maps:merge(BasicAttrs, ExtraAttrs))}.
 
 -spec stream_end() -> exml_stream:stop().
 stream_end() ->
     #xmlstreamend{name = <<"stream:stream">>}.
 
--spec ws_open(binary()) -> exml:element().
-ws_open(Server) ->
-    #xmlel{name= <<"open">>,
-           attrs = #{<<"xmlns">> => <<"urn:ietf:params:xml:ns:xmpp-framing">>,
-                     <<"to">> => Server,
-                     <<"version">> => <<"1.0">>}}.
+-spec ws_open(binary() | undefined) -> exml:element().
+ws_open(To) ->
+    ws_open(To, #{}).
+
+-spec ws_open(binary() | undefined, attrs()) -> exml:element().
+ws_open(To, ExtraAttrs) ->
+    BasicAttrs = #{<<"to">> => To,
+                   <<"version">> => <<"1.0">>,
+                   <<"xmlns">> => ?NS_FRAMING},
+    #xmlel{name = <<"open">>,
+           attrs = skip_undefined(maps:merge(BasicAttrs, ExtraAttrs))}.
 
 -spec ws_close() -> exml:element().
 ws_close() ->
-    #xmlel{name= <<"close">>,
-           attrs = #{<<"xmlns">> => <<"urn:ietf:params:xml:ns:xmpp-framing">>}}.
+    ws_close(#{}).
+
+-spec ws_close(attrs()) -> exml:element().
+ws_close(ExtraAttrs) ->
+    BasicAttrs = #{<<"xmlns">> => ?NS_FRAMING},
+    #xmlel{name = <<"close">>,
+           attrs = skip_undefined(maps:merge(BasicAttrs, ExtraAttrs))}.
 
 -spec starttls() -> exml:element().
 starttls() ->
@@ -1011,3 +1031,6 @@ argument_to_string(E) when is_binary(E) -> ?b2l(E);
 argument_to_string(E) when is_list(E) -> E;
 argument_to_string(I) when is_integer(I) -> ?i2l(I);
 argument_to_string(F) when is_float(F) -> io_lib:format("~.2f", [F]).
+
+skip_undefined(Map) ->
+    maps:filter(fun(_Key, Value) -> Value =/= undefined end, Map).

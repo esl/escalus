@@ -128,19 +128,22 @@ use_zlib(Pid) ->
 -spec stream_start_req(escalus_users:user_spec()) -> exml_stream:element().
 stream_start_req(Props) ->
     {server, Server} = lists:keyfind(server, 1, Props),
+    Attrs = proplists:get_value(stream_attrs, Props, #{}),
     case proplists:get_value(wslegacy, Props, false) of
         true ->
-            NS = proplists:get_value(stream_ns, Props, <<"jabber:client">>),
-            escalus_stanza:stream_start(Server, NS);
+            escalus_stanza:stream_start(Server, Attrs);
         false ->
-            escalus_stanza:ws_open(Server)
+            escalus_stanza:ws_open(Server, Attrs)
     end.
 
 -spec stream_end_req(_) -> exml_stream:element().
 stream_end_req(Props) ->
     case proplists:get_value(wslegacy, Props, false) of
-        true -> escalus_stanza:stream_end();
-        false -> escalus_stanza:ws_close()
+        true ->
+            escalus_stanza:stream_end();
+        false ->
+            Attrs = maps:with([<<"xmlns">>], proplists:get_value(stream_attrs, Props, #{})),
+            escalus_stanza:ws_close(Attrs)
     end.
 
 -spec assert_stream_start(exml_stream:element(), _) -> exml_stream:element().

@@ -170,8 +170,8 @@ use_zlib(Pid) ->
 -spec stream_start_req(escalus_users:user_spec()) -> exml_stream:element().
 stream_start_req(Props) ->
     {server, Server} = lists:keyfind(server, 1, Props),
-    NS = proplists:get_value(stream_ns, Props, <<"jabber:client">>),
-    escalus_stanza:stream_start(Server, NS).
+    Attrs = proplists:get_value(stream_attrs, Props, #{}),
+    escalus_stanza:stream_start(Server, Attrs).
 
 -spec stream_end_req(_) -> exml_stream:element().
 stream_end_req(_) ->
