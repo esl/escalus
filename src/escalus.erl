@@ -46,7 +46,8 @@
          peek_stanzas/1]).
 
 -export_type([client/0,
-              config/0]).
+              config/0,
+              pred_spec/0]).
 
 -include("escalus.hrl").
 
@@ -56,6 +57,7 @@
 
 -type client() :: #client{}.
 -type config() :: escalus_config:config().
+-type pred_spec() :: atom() | fun((...) -> boolean()).
 
 %%--------------------------------------------------------------------
 %% Public API
@@ -136,45 +138,45 @@ story(Config, ResourceCounts, Story) ->
 
 %% Assertions
 
--spec assert(atom(), term()) -> ok | no_return().
+-spec assert(pred_spec(), term()) -> ok | no_return().
 assert(PredSpec, Arg) ->
     escalus_new_assert:assert(PredSpec, Arg).
 
--spec assert(atom(), [term()], term()) -> ok | no_return().
+-spec assert(pred_spec(), [term()], term()) -> ok | no_return().
 assert(PredSpec, Params, Arg) ->
     escalus_new_assert:assert(PredSpec, Params, Arg).
 
--spec assert_many([atom()], [exml:element()]) -> ok | no_return().
+-spec assert_many([pred_spec()], [exml:element()]) -> ok | no_return().
 assert_many(Predicates, Stanzas) ->
     escalus_new_assert:assert_many(Predicates, Stanzas).
 
 %% Client API
 
--spec send(client(), exml:element()) -> ok.
+-spec send(client(), exml_stream:element()) -> ok.
 send(Client, Packet) ->
     escalus_client:send(Client, Packet).
 
--spec send_and_wait(client(), exml:element()) -> exml:element().
+-spec send_and_wait(client(), exml_stream:element()) -> exml_stream:element().
 send_and_wait(Client, Packet) ->
     escalus_client:send_and_wait(Client, Packet).
 
--spec wait_for_stanza(client()) -> exml:element().
+-spec wait_for_stanza(client()) -> exml_stream:element().
 wait_for_stanza(Client) ->
     escalus_client:wait_for_stanza(Client).
 
--spec wait_for_stanza(client(), timeout()) -> exml:element().
+-spec wait_for_stanza(client(), timeout()) -> exml_stream:element().
 wait_for_stanza(Client, Timeout) ->
     escalus_client:wait_for_stanza(Client, Timeout).
 
--spec wait_for_stanzas(client(), non_neg_integer()) -> [exml:element()].
+-spec wait_for_stanzas(client(), non_neg_integer()) -> [exml_stream:element()].
 wait_for_stanzas(Client, Count) ->
     escalus_client:wait_for_stanzas(Client, Count).
 
--spec wait_for_stanzas(client(), non_neg_integer(), timeout()) -> [exml:element()].
+-spec wait_for_stanzas(client(), non_neg_integer(), timeout()) -> [exml_stream:element()].
 wait_for_stanzas(Client, Count, Timeout) ->
     escalus_client:wait_for_stanzas(Client, Count, Timeout).
 
--spec peek_stanzas(client()) -> [exml:element()].
+-spec peek_stanzas(client()) -> [exml_stream:element()].
 peek_stanzas(Client) ->
     escalus_client:peek_stanzas(Client).
 

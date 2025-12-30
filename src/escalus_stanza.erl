@@ -541,7 +541,7 @@ contact_item({User, Groups, Nick}) ->
                               children = [#xmlcdata{content = bin(Group)}]}
                        || Group <- Groups]}.
 
--spec roster_add_contact(binary(), [binary()], binary()) -> exml:element().
+-spec roster_add_contact(escalus_utils:jid_spec(), [binary()], binary()) -> exml:element().
 roster_add_contact(User, Groups, Nick) ->
     roster_add_contacts([{User, Groups, Nick}]).
 

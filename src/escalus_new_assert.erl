@@ -25,21 +25,21 @@
 %% API functions
 %%==============================================================================
 
--spec assert(atom(), term()) -> ok | no_return().
+-spec assert(escalus:pred_spec(), term()) -> ok | no_return().
 assert(PredSpec, Arg) ->
     Fun = predspec_to_fun(PredSpec),
     StanzaStr = arg_to_list(Arg),
     assert_true(Fun(Arg),
         {assertion_failed, assert, PredSpec, Arg, StanzaStr}).
 
--spec assert(atom(), [term()], term()) -> ok | no_return().
+-spec assert(escalus:pred_spec(), [term()], term()) -> ok | no_return().
 assert(PredSpec, Params, Arg) ->
     Fun = predspec_to_fun(PredSpec, length(Params) + 1),
     StanzaStr = arg_to_list(Arg),
     assert_true(apply(Fun, Params ++ [Arg]),
         {assertion_failed, assert, PredSpec, Params, Arg, StanzaStr}).
 
--spec assert_many([atom()], [exml:element()]) -> ok | no_return().
+-spec assert_many([escalus:pred_spec()], [exml:element()]) -> ok | no_return().
 assert_many(Predicates, Stanzas) ->
     AllStanzas = length(Predicates) == length(Stanzas),
     Ok = escalus_utils:mix_match(fun predspec_to_fun/1, Predicates, Stanzas),
@@ -52,7 +52,7 @@ assert_many(Predicates, Stanzas) ->
     assert_true(Ok and AllStanzas,
         {assertion_failed, assert_many, AllStanzas, Predicates, Stanzas, StanzasStr}).
 
--spec mix_match([atom()], [exml:element()]) -> ok | no_return().
+-spec mix_match([escalus:pred_spec()], [exml:element()]) -> ok | no_return().
 mix_match(Predicates, Stanzas) ->
     assert_many(Predicates, Stanzas).
 

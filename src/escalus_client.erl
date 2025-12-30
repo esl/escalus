@@ -50,11 +50,11 @@
 %% Public API
 %%--------------------------------------------------------------------
 
--spec start(escalus:config(), escalus_users:user_spec(), binary()) -> {ok, _}
+-spec start(escalus:config(), escalus_users:user(), binary()) -> {ok, _}
                                                                     | {error, _}.
-start(Config, UserSpec, Resource) ->
-    EventClient = escalus_event:new_client(Config, UserSpec, Resource),
-    Options = escalus_users:get_options(Config, UserSpec, Resource, EventClient),
+start(Config, User, Resource) ->
+    EventClient = escalus_event:new_client(Config, User, Resource),
+    Options = escalus_users:get_options(Config, User, Resource, EventClient),
     case escalus_connection:start(Options) of
         {ok, Conn, _} ->
             Client = Conn#client{event_client = EventClient},
@@ -64,7 +64,7 @@ start(Config, UserSpec, Resource) ->
             {error, Error}
     end.
 
--spec start_for(escalus:config(), escalus_users:user_spec(), binary()) -> {ok, _}
+-spec start_for(escalus:config(), escalus_users:user(), binary()) -> {ok, _}
                                                                         | {error, _}.
 start_for(Config, UserSpec, Resource) ->
     %% due to escalus_client:get_user_option hack,
@@ -104,11 +104,11 @@ peek_stanzas(#client{rcv_pid = Pid}) ->
 has_stanzas(Client) ->
     peek_stanzas(Client) /= [].
 
--spec wait_for_stanzas(client(), non_neg_integer()) -> [exml:element()].
+-spec wait_for_stanzas(client(), non_neg_integer()) -> [exml_stream:element()].
 wait_for_stanzas(Client, Count) ->
     wait_for_stanzas(Client, Count, ?WAIT_FOR_STANZA_TIMEOUT).
 
--spec wait_for_stanzas(client(), non_neg_integer(), non_neg_integer()) -> [exml:element()].
+-spec wait_for_stanzas(client(), non_neg_integer(), non_neg_integer()) -> [exml_stream:element()].
 wait_for_stanzas(Client, Count, Timeout) ->
     do_wait_for_stanzas(Client, Count, Timeout, []).
 
@@ -123,11 +123,11 @@ do_wait_for_stanzas(Client, Count, Timeout, Acc) ->
         %% FIXME: stream error
     end.
 
--spec wait_for_stanza(client()) -> exml:element().
+-spec wait_for_stanza(client()) -> exml_stream:element().
 wait_for_stanza(Client) ->
     wait_for_stanza(Client, ?WAIT_FOR_STANZA_TIMEOUT).
 
--spec wait_for_stanza(client(), non_neg_integer()) -> exml:element().
+-spec wait_for_stanza(client(), non_neg_integer()) -> exml_stream:element().
 wait_for_stanza(Client, Timeout) ->
     case wait_for_stanzas(Client, 1, Timeout) of
         [Stanza] ->
@@ -136,11 +136,11 @@ wait_for_stanza(Client, Timeout) ->
             error(timeout_when_waiting_for_stanza, [Client, Timeout])
     end.
 
--spec send(client(), exml:element()) -> ok.
+-spec send(client(), exml_stream:element()) -> ok.
 send(Client, Packet) ->
     escalus_connection:send(Client, Packet).
 
--spec send_and_wait(client(), exml:element()) -> exml:element().
+-spec send_and_wait(client(), exml_stream:element()) -> exml_stream:element().
 send_and_wait(Client, Packet) ->
     ok = send(Client, Packet),
     wait_for_stanza(Client).
