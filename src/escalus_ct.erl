@@ -104,7 +104,7 @@ is_ct_available() ->
       Target :: console_and_file | console | file,
       Jid :: binary(),
       Direction :: in | out,
-      Stanza :: exml:element().
+      Stanza :: exml_stream:element().
 do_log_stanza(Target, Jid, Direction, Stanza) ->
     ReportString = io_lib:format("~s ~p", [Jid, Direction]),
     PrettyStanza = try

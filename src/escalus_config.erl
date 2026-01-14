@@ -33,14 +33,14 @@
 -type config() :: [entry()].
 -export_type([config/0]).
 
--type key_path() :: key() | {key(), key()} | {key(), key(), key()}.
+-type key_path() :: key() | {key(), key()} | {key(), key(), key()} | {key(), key(), key(), key()}.
 -export_type([key_path/0]).
 
 %%--------------------------------------------------------------------
 %% Public API
 %%--------------------------------------------------------------------
 
--spec get_config(key(), config()) -> any().
+-spec get_config(key() | entry(), config()) -> any().
 get_config(Option, Config) ->
     case get_config(Option, Config, '!@#$%-fail-miserably-@#$%') of
         '!@#$%-fail-miserably-@#$%' ->
@@ -49,7 +49,7 @@ get_config(Option, Config) ->
             Value
     end.
 
--spec get_config(key(), config(), any()) -> any().
+-spec get_config(key() | entry(), config(), any()) -> any().
 get_config(Option, Config, Default) ->
     case lists:keyfind(Option, 1, Config) of
         {Option, Value} ->

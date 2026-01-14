@@ -401,7 +401,7 @@ roster_contains(Contact, Stanza) ->
 count_roster_items(Num, Stanza) ->
     Num == length(get_roster_items(Stanza)).
 
--spec is_error(stanza_type(), binary(), exml:element()) -> boolean().
+-spec is_error(stanza_type(), binary() | atom(), exml:element()) -> boolean().
 is_error(Type, Condition, Stanza) ->
     Error = exml_query:subelement(Stanza, <<"error">>),
     has_type(<<"error">>, Stanza)

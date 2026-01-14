@@ -50,6 +50,7 @@
 -export_type([user_name/0,
               user_spec/0,
               named_user/0,
+              user/0,
               resource_spec/0]).
 
 %% Public types
@@ -57,9 +58,9 @@
 -type user_spec() :: [{user_option(), any()}].
 -type named_user() :: {user_name(), user_spec()}.
 -type resource_spec() :: {user_name(), pos_integer()}.
+-type user() :: user_name() | user_spec().
 
 %% Internal types
--type user() :: user_name() | user_spec().
 -type host() :: inet:hostname() | inet:ip4_address() | binary().
 -type xmpp_domain() :: inet:hostname() | binary().
 
@@ -422,7 +423,7 @@ get_defined_option(Config, Name, Short, Long) ->
 
 -spec wait_for_result(escalus:client()) -> {ok, result, exml:element()}
                                          | {ok, conflict, exml:element()}
-                                         | {error, Error, exml:cdata()}
+                                         | {error, Error, exml:element()}
       when Error :: 'failed_to_register' | 'bad_response' | 'timeout'.
 wait_for_result(Client) ->
     case escalus_connection:get_stanza_safe(Client, 5000) of

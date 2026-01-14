@@ -17,7 +17,7 @@
 -record(client, {
         jid :: binary() | undefined,
         module :: atom(),
-        rcv_pid :: pid(),
+        rcv_pid :: pid() | undefined,
         event_client :: any(),
-        props :: list()
+        props = [] :: list()
        }).
