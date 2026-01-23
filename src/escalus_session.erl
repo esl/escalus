@@ -306,6 +306,7 @@ get_stream_features(Features) ->
      {advanced_message_processing, get_advanced_message_processing(Features)},
      {client_state_indication, get_client_state_indication(Features)},
      {sasl_mechanisms, get_sasl_mechanisms(Features)},
+     {sasl_channel_bindings, get_sasl_channel_bindings(Features)},
      {caps, get_server_caps(Features)}].
 
 -spec get_compression(exml:element()) -> boolean().
@@ -335,7 +336,14 @@ get_client_state_indication(Features) ->
 -spec get_sasl_mechanisms(exml:element()) -> [exml:element() | binary()].
 get_sasl_mechanisms(Features) ->
     exml_query:paths(Features, [{element, <<"mechanisms">>},
-                                {element, <<"mechanism">>}, cdata]).
+                                {element, <<"mechanism">>},
+                                cdata]).
+
+-spec get_sasl_channel_bindings(exml:element()) -> [exml:element() | binary()].
+get_sasl_channel_bindings(Features) ->
+    exml_query:paths(Features, [{element, <<"sasl-channel-binding">>},
+                                {element, <<"channel-binding">>},
+                                {attr, <<"type">>}]).
 
 -spec get_server_caps(exml:element()) -> undefined | map().
 get_server_caps(Features) ->
