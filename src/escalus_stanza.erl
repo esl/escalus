@@ -950,29 +950,39 @@ uuid_v4() ->
 %% It may be a string() or a binary().
 %% A parameterless snippet might look like:
 %%
+%% ```
 %%   <example_element/>
+%% '''
 %%
 %% Snippet with formatting parameters will look like:
 %%
+%% ```
 %%   <example_element some_attr="{{attr_value}}"/>
+%% '''
 %%
 %% Parameter names must be valid atoms, so if you want to use punctuation
 %% use single quotes:
 %%
+%% ```
 %%   <example_element some_attr="{{'fancy:param-name'}}"/>
+%% '''
 %%
 %% If the argument you pass as the parameter value is an xmlterm()
 %% then use triple brackets at the parameter expansion site.
 %% Otherwise, the argument term will end up HTML-encoded
 %% after expansion.
 %%
+%% ```
 %%   <example_element>
 %%      {{{argument_will_be_xmlterm}}}
 %%   </example_element>
+%% '''
 %%
 %% It's also possible to substitute whole attributes, not just their values:
 %%
+%% ```
 %%   <example_element {{myattr}}/>
+%% '''
 %%
 %% Refer to escalus_stanza_SUITE for usage examples.
 -type xml_snippet() :: string() | binary().
