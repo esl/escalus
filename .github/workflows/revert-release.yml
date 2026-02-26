@@ -1,15 +1,18 @@
-name: Publish to Hex
+name: Revert published version from Hex
 
 on:
-  release:
-    types: [ released ] # pre- and draft releases are excluded
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Package version to revert (e.g. 1.0.0)"
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 jobs:
-  publish:
+  revert:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -17,7 +20,6 @@ jobs:
         with:
           otp-version: "27"
           rebar3-version: "3.26"
-      - run: rebar3 compile
-      - run: rebar3 hex publish -r hexpm --yes
+      - run: rebar3 hex publish --revert ${{ inputs.version }} -r hexpm --yes
         env:
           HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
