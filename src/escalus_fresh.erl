@@ -21,7 +21,10 @@
 %% Run story with fresh users (non-breaking API).
 %% The generated fresh usernames will consist of the predefined {username, U} value
 %% prepended to a unique, per-story suffix.
+%%
+%% ```
 %% {username, <<"alice">>} -> {username, <<"alice32.632506">>}
+%% '''
 -spec story(escalus:config(), [escalus_users:resource_spec()], fun()) -> any().
 story(Config, UserSpecs, StoryFun) ->
     escalus:story(create_users(Config, UserSpecs), UserSpecs, StoryFun).
@@ -40,9 +43,15 @@ story_with_client_list(Config, UserSpecs, StoryFun) ->
 %% as it will differ from the fresh config actually used by the story.
 %% The story arguments can be changed from
 %%
+%% ```
 %% fresh_story(C,[..],fun(Alice, Bob) ->
+%% '''
+%%
 %% to
+%%
+%% ```
 %% fresh_story_with_config(C,[..],fun(FreshConfig, Alice, Bob) ->
+%% '''
 %%
 %% and any queries rewritten to use FreshConfig within this scope
 -spec story_with_config(escalus:config(), [escalus_users:resource_spec()], fun()) -> any().

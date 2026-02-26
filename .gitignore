@@ -10,3 +10,4 @@ dialyzer
 test/*.beam
 _build/
 rebar3
+doc/

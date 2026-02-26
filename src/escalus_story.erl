@@ -34,9 +34,11 @@
 %% TODO: this doc sucks - what is "the standard format"?
 %% @doc Run an test story using the standard format:
 %%
+%% ```
 %%   story(Config, [{alice, 2}, {bob, 1}], fun (Alice1, Alice2, Bob) ->
 %%             ...
 %%         end).
+%% '''
 %%
 %% @end
 -spec story(escalus:config(), term(), fun()) -> term().
@@ -46,16 +48,20 @@ story(ConfigIn, ResourceCounts, Story) ->
 %% @doc Run a story, but pass all the connected clients as a list.
 %% This is needed when the number of resources is variable (pseudo-Erlang!):
 %%
+%% ```
 %%   story(Config, [{alice, 2}, {bob, N}], fun (Alice1, Alice2, Bob1, Bob2, ..., BobN) ->
 %%             ...
 %%         end).
+%% '''
 %%
 %% The closest we can get is:
 %%
+%% ```
 %%   story(Config, [{alice, 2}, {bob, N}], fun (Clients) ->
 %%             [Alice1, Alice2, Bob1 | BobsUpToN] = Clients,
 %%             ...
 %%         end).
+%% '''
 %%
 %% See carboncopy_SUITE test properties for an example:
 %% https://github.com/esl/MongooseIM/blob/f0ed90a93e17f7f3d5baf4d51bbb3f8b19826dd8/test.disabled/ejabberd_tests/tests/carboncopy_SUITE.erl#L183-L185
