@@ -230,6 +230,13 @@ Run example:
     escalus:delete_users(Config, {by_name, [alice, mike]}).
 
 
+# Releasing to Hex.pm
+
+Creating a GitHub release (non-draft, non-prerelease) automatically publishes the package to [Hex.pm](https://hex.pm/) via the **Publish to Hex** workflow. This workflow can also be triggered manually from the Actions tab — make sure to run it from the specific tag you want to publish.
+
+To revert a published version, run the **Revert published version from Hex** workflow from the Actions tab, providing the version to revert. Hex.pm only allows reverting within 1 hour of publishing — after that, the version can only be *retired*.
+
+
 # Naming
 
 According to [Wikipedia](https://en.wikipedia.org/wiki/Characters_in_Romeo_and_Juliet#House_of_Escalus), Prince Escalus, of the House Escalus, is the voice of authority in Verona, and appears only three times within the text and only to administer justice.
