@@ -132,6 +132,12 @@
 
 -export([remove_account/0]).
 
+%% XEP-0115: Entity Capabilities
+%% XEP-0390: Entity Capabilities 2.0
+-export([caps/3,
+         caps_to_node/1,
+         ns_caps/1]).
+
 %% Stanzas from inline XML
 -export([from_template/2,
          from_xml/1]).
@@ -932,6 +938,37 @@ marker_el(MarkerName, MessageId) when MarkerName =:= <<"received">> orelse
                                       MarkerName =:= <<"acknowledged">>,
                                       is_binary(MessageId) ->
     #xmlel{name = MarkerName, attrs = #{<<"xmlns">> => ?NS_CHAT_MARKERS, <<"id">> => MessageId}}.
+
+%% XEP-0115 Entity Capabilities (v1)
+%% XEP-0390 Entity Capabilities 2.0 (v2)
+%%
+-type caps_version() :: v1 | v2.
+
+-spec caps(binary(), binary(), caps_version()) -> exml:element().
+caps(HashAlg, HashValue, v1) ->
+    #xmlel{name = ~"c", attrs = #{~"xmlns" => ?NS_CAPS,
+                                  ~"hash" => HashAlg,
+                                  ~"node" => id(),
+                                  ~"ver" => HashValue}};
+caps(HashAlg, HashValue, v2) ->
+    #xmlel{name = ~"c",
+           attrs = #{~"xmlns" => ?NS_CAPS_2},
+           children = [#xmlel{name = ~"hash",
+                              attrs = #{~"xmlns" => ?NS_HASH, ~"algo" => HashAlg},
+                              children = [#xmlcdata{content = HashValue}]}]}.
+
+-spec caps_to_node(exml:element()) -> binary().
+caps_to_node(#xmlel{name = ~"c", attrs = #{~"xmlns" := ?NS_CAPS, ~"node" := Node, ~"ver" := Ver}}) ->
+    <<Node/binary, $#, Ver/binary>>;
+caps_to_node(#xmlel{name = ~"c", attrs = #{~"xmlns" := ?NS_CAPS_2}} = Caps) ->
+    [HashEl | _] = exml_query:subelements_with_name_and_ns(Caps, ~"hash", ?NS_HASH),
+    HashAlg = exml_query:attr(HashEl, ~"algo"),
+    HashVal = exml_query:cdata(HashEl),
+    <<(?NS_CAPS_2)/binary, $#, HashAlg/binary, $., HashVal/binary>>.
+
+-spec ns_caps(caps_version()) -> binary().
+ns_caps(v1) -> ?NS_CAPS;
+ns_caps(v2) -> ?NS_CAPS_2.
 
 -spec id() -> binary().
 id() ->
