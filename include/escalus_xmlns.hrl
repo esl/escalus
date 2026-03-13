@@ -552,11 +552,17 @@
 % Defined by XEP-0297: Stanza Forwarding
 -define(NS_FORWARD_0, <<"urn:xmpp:forward:0">>).
 
+% Defined by XEP-0300: Use of Cryptographic Hash Functions in XMPP
+-define(NS_HASH, <<"urn:xmpp:hashes">>).
+
 % Defined by XEP-0313: Message Archive Management (MAM)
 -define(NS_MAM, <<"urn:xmpp:mam:0">>).
 
 % Defined by XEP-0333: Chat Markers
 -define(NS_CHAT_MARKERS, <<"urn:xmpp:chat-markers:0">>).
+
+% Defined by XEP-0390: Entity Capabilities 2.0.
+-define(NS_CAPS_2, <<"urn:xmpp:caps">>).
 
 % Defined by XEP-0402: PEP Native Bookmarks
 -define(NS_PEP_BOOKMARKS, <<"urn:xmpp:bookmarks:1">>).
