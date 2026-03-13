@@ -71,10 +71,14 @@
          x_data_form/2,
          field_el/3]).
 
+%% XEP-0030: Service Discovery
 -export([disco_info/1,
          disco_info/2,
          disco_items/1,
-         disco_items/2
+         disco_items/2,
+         feature/1,
+         identity/3,
+         identity/4
         ]).
 
 -export([vcard_update/1,
@@ -635,6 +639,8 @@ privacy_list_jid_item(Order, Action, Who, Contents) ->
     privacy_list_item(Order, Action, <<"jid">>,
                       escalus_utils:get_jid(Who), Contents).
 
+%% XEP-0030 Service Discovery
+%%
 -spec disco_info(escalus_utils:jid_spec()) -> exml:element().
 disco_info(JID) ->
     Query = query_el(?NS_DISCO_INFO, []),
@@ -654,6 +660,21 @@ disco_items(JID) ->
 disco_items(JID, Node) ->
     ItemsQuery = query_el(?NS_DISCO_ITEMS, #{<<"node">> => Node}, []),
     iq(JID, <<"get">>, [ItemsQuery]).
+
+-spec feature(binary()) -> exml:element().
+feature(Feature) ->
+    #xmlel{name = ~"feature", attrs = #{~"var" => Feature}}.
+
+-spec identity(binary() | undefined, binary() | undefined, binary() | undefined) -> exml:element().
+identity(Category, Type, Name) ->
+    identity(Category, Type, Name, #{}).
+
+-spec identity(binary() | undefined, binary() | undefined, binary() | undefined,
+               #{binary() => binary()}) -> exml:element().
+identity(Category, Type, Name, ExtraAttrs) ->
+    BasicAttrs = #{~"category" => Category, ~"type" => Type, ~"name" => Name},
+    Attrs = skip_undefined(maps:merge(BasicAttrs, ExtraAttrs)),
+    #xmlel{name = ~"identity", attrs = Attrs}.
 
 -spec search_fields([null | {binary(), binary()} | term()]) -> [exml:element()].
 search_fields([]) ->
