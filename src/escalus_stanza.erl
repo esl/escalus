@@ -71,10 +71,14 @@
          x_data_form/2,
          field_el/3]).
 
+%% XEP-0030: Service Discovery
 -export([disco_info/1,
          disco_info/2,
          disco_items/1,
-         disco_items/2
+         disco_items/2,
+         feature/1,
+         identity/3,
+         identity/4
         ]).
 
 -export([vcard_update/1,
@@ -131,6 +135,12 @@
          register_account/1]).
 
 -export([remove_account/0]).
+
+%% XEP-0115: Entity Capabilities
+%% XEP-0390: Entity Capabilities 2.0
+-export([caps/3,
+         caps_to_node/1,
+         ns_caps/1]).
 
 %% Stanzas from inline XML
 -export([from_template/2,
@@ -629,6 +639,8 @@ privacy_list_jid_item(Order, Action, Who, Contents) ->
     privacy_list_item(Order, Action, <<"jid">>,
                       escalus_utils:get_jid(Who), Contents).
 
+%% XEP-0030 Service Discovery
+%%
 -spec disco_info(escalus_utils:jid_spec()) -> exml:element().
 disco_info(JID) ->
     Query = query_el(?NS_DISCO_INFO, []),
@@ -648,6 +660,21 @@ disco_items(JID) ->
 disco_items(JID, Node) ->
     ItemsQuery = query_el(?NS_DISCO_ITEMS, #{<<"node">> => Node}, []),
     iq(JID, <<"get">>, [ItemsQuery]).
+
+-spec feature(binary()) -> exml:element().
+feature(Feature) ->
+    #xmlel{name = ~"feature", attrs = #{~"var" => Feature}}.
+
+-spec identity(binary() | undefined, binary() | undefined, binary() | undefined) -> exml:element().
+identity(Category, Type, Name) ->
+    identity(Category, Type, Name, #{}).
+
+-spec identity(binary() | undefined, binary() | undefined, binary() | undefined,
+               #{binary() => binary()}) -> exml:element().
+identity(Category, Type, Name, ExtraAttrs) ->
+    BasicAttrs = #{~"category" => Category, ~"type" => Type, ~"name" => Name},
+    Attrs = skip_undefined(maps:merge(BasicAttrs, ExtraAttrs)),
+    #xmlel{name = ~"identity", attrs = Attrs}.
 
 -spec search_fields([null | {binary(), binary()} | term()]) -> [exml:element()].
 search_fields([]) ->
@@ -932,6 +959,37 @@ marker_el(MarkerName, MessageId) when MarkerName =:= <<"received">> orelse
                                       MarkerName =:= <<"acknowledged">>,
                                       is_binary(MessageId) ->
     #xmlel{name = MarkerName, attrs = #{<<"xmlns">> => ?NS_CHAT_MARKERS, <<"id">> => MessageId}}.
+
+%% XEP-0115 Entity Capabilities (v1)
+%% XEP-0390 Entity Capabilities 2.0 (v2)
+%%
+-type caps_version() :: v1 | v2.
+
+-spec caps(binary(), binary(), caps_version()) -> exml:element().
+caps(HashAlg, HashValue, v1) ->
+    #xmlel{name = ~"c", attrs = #{~"xmlns" => ?NS_CAPS,
+                                  ~"hash" => HashAlg,
+                                  ~"node" => id(),
+                                  ~"ver" => HashValue}};
+caps(HashAlg, HashValue, v2) ->
+    #xmlel{name = ~"c",
+           attrs = #{~"xmlns" => ?NS_CAPS_2},
+           children = [#xmlel{name = ~"hash",
+                              attrs = #{~"xmlns" => ?NS_HASH, ~"algo" => HashAlg},
+                              children = [#xmlcdata{content = HashValue}]}]}.
+
+-spec caps_to_node(exml:element()) -> binary().
+caps_to_node(#xmlel{name = ~"c", attrs = #{~"xmlns" := ?NS_CAPS, ~"node" := Node, ~"ver" := Ver}}) ->
+    <<Node/binary, $#, Ver/binary>>;
+caps_to_node(#xmlel{name = ~"c", attrs = #{~"xmlns" := ?NS_CAPS_2}} = Caps) ->
+    [HashEl | _] = exml_query:subelements_with_name_and_ns(Caps, ~"hash", ?NS_HASH),
+    HashAlg = exml_query:attr(HashEl, ~"algo"),
+    HashVal = exml_query:cdata(HashEl),
+    <<(?NS_CAPS_2)/binary, $#, HashAlg/binary, $., HashVal/binary>>.
+
+-spec ns_caps(caps_version()) -> binary().
+ns_caps(v1) -> ?NS_CAPS;
+ns_caps(v2) -> ?NS_CAPS_2.
 
 -spec id() -> binary().
 id() ->

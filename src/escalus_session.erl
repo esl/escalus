@@ -345,15 +345,9 @@ get_sasl_channel_bindings(Features) ->
                                 {element, <<"channel-binding">>},
                                 {attr, <<"type">>}]).
 
--spec get_server_caps(exml:element()) -> undefined | map().
+-spec get_server_caps(exml:element()) -> [exml:element()].
 get_server_caps(Features) ->
-    case exml_query:subelement(Features, <<"c">>) of
-        #xmlel{attrs = Attrs} ->
-            Attrs;
-        _ ->
-            undefined
-    end.
-
+    exml_query:subelements(Features, ~"c").
 
 -spec stream_start_to_element(exml_stream:element()) -> exml:element().
 stream_start_to_element(#xmlel{name = <<"open">>} = Open) -> Open;
