@@ -553,7 +553,8 @@
 -define(NS_FORWARD_0, <<"urn:xmpp:forward:0">>).
 
 % Defined by XEP-0300: Use of Cryptographic Hash Functions in XMPP
--define(NS_HASH, <<"urn:xmpp:hashes">>).
+-define(NS_HASH_2, <<"urn:xmpp:hashes:2">>).
+-define(NS_HASH_FUNCTION(Alg), <<"urn:xmpp:hash-function-text-names:", Alg/binary>>).
 
 % Defined by XEP-0313: Message Archive Management (MAM)
 -define(NS_MAM, <<"urn:xmpp:mam:0">>).

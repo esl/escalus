@@ -975,14 +975,14 @@ caps(HashAlg, HashValue, v2) ->
     #xmlel{name = ~"c",
            attrs = #{~"xmlns" => ?NS_CAPS_2},
            children = [#xmlel{name = ~"hash",
-                              attrs = #{~"xmlns" => ?NS_HASH, ~"algo" => HashAlg},
+                              attrs = #{~"xmlns" => ?NS_HASH_2, ~"algo" => HashAlg},
                               children = [#xmlcdata{content = HashValue}]}]}.
 
 -spec caps_to_node(exml:element()) -> binary().
 caps_to_node(#xmlel{name = ~"c", attrs = #{~"xmlns" := ?NS_CAPS, ~"node" := Node, ~"ver" := Ver}}) ->
     <<Node/binary, $#, Ver/binary>>;
 caps_to_node(#xmlel{name = ~"c", attrs = #{~"xmlns" := ?NS_CAPS_2}} = Caps) ->
-    [HashEl | _] = exml_query:subelements_with_name_and_ns(Caps, ~"hash", ?NS_HASH),
+    [HashEl | _] = exml_query:subelements_with_name_and_ns(Caps, ~"hash", ?NS_HASH_2),
     HashAlg = exml_query:attr(HashEl, ~"algo"),
     HashVal = exml_query:cdata(HashEl),
     <<(?NS_CAPS_2)/binary, $#, HashAlg/binary, $., HashVal/binary>>.
