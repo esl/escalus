@@ -820,7 +820,7 @@ resume(SMID, PrevH) ->
 %%
 %% @TODO: move the stanza constructors from
 %% tests/mam_SUITE.erl into here.
--spec field_el(binary(), binary(), undefined | binary() | [binary()]) ->
+-spec field_el(binary(), undefined | binary(), undefined | binary() | [binary()]) ->
     undefined | exml:element().
 field_el(_Name, _Type, undefined) ->
     undefined;
@@ -830,7 +830,7 @@ field_el(Name, Type, Values) when is_list(Values) ->
                                       children = [#xmlcdata{content = E}]}
                        end, Values),
     #xmlel{name = <<"field">>,
-           attrs = #{<<"type">> => Type, <<"var">> => Name},
+           attrs = skip_undefined(#{<<"type">> => Type, <<"var">> => Name}),
            children = Fields};
 field_el(Name, Type, Value) ->
     field_el(Name, Type, [Value]).

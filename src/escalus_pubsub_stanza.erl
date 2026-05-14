@@ -10,45 +10,45 @@
 -include_lib("exml/include/exml.hrl").
 
 -export([
-         discover_nodes/3,
+         discover_nodes/2,
 
-         create_node/3, create_node/4, delete_node/3,
+         create_node/2, create_node/3, delete_node/2,
 
-         get_configuration/3, set_configuration/4,
-         get_default_configuration/3,
+         get_configuration/2, set_configuration/3,
+         get_default_configuration/1,
 
-         get_affiliations/3, set_affiliations/4,
+         get_affiliations/2, set_affiliations/3,
 
          subscribe/3, subscribe/4, unsubscribe/3,
-         submit_subscription_response/4,
-         get_pending_subscriptions/3,
-         get_user_subscriptions/3,
+         submit_subscription_response/2,
+         get_pending_subscriptions/2,
+         get_user_subscriptions/2,
          get_subscription_options/3,
          set_subscription_options/4,
-         get_node_subscriptions/3,
-         set_subscriptions/4,
-         pubsub_owner_iq/5,
-         pubsub_iq/5,
-         iq/5,
+         get_node_subscriptions/2,
+         set_subscriptions/3,
+         pubsub_owner_iq/3,
+         pubsub_iq/3,
+         pubsub_iq/4,
+         iq/3,
 
-         publish/3, publish/4, publish/5,
-         publish_with_options/4, publish_with_options/5, publish_with_options/6,
+         publish/2, publish/3, publish/4, publish_raw/3,
+         publish_with_options/3, publish_with_options/4, publish_with_options/5,
 
-         retract/5,
-         get_items/4,
-         get_all_items/3,
-         get_item/4,
-         purge_all_items/3
+         retract/4,
+         get_items/3,
+         get_all_items/2,
+         get_item/3,
+         purge_all_items/2
         ]).
 
--type pubsub_node_id() :: {pep | binary(), binary()}.
--export_type([pubsub_node_id/0]).
+%% Note: Some helpers produce stanzas with missing elements/attrs when node name is undefined.
+%%       This is allowed in order to facilitate testing error conditions.
+-type pubsub_node_name() :: binary() | undefined.
 
--type publish_options() :: [{binary(), binary()}].
+-export_type([pubsub_node_name/0]).
 
--type form_field() :: {Var :: binary(), Value :: binary()}
-                      | {Var :: binary(), Type :: binary(), Value :: binary()}.
--type form() :: [form_field()].
+-type form_field() :: {Var :: binary(), Value :: binary() | [binary()]}.
 
 %%-----------------------------------------------------------------------------
 %% Request construction
@@ -56,230 +56,195 @@
 
 %% ---------------- disco ----------------
 
--spec discover_nodes(escalus_utils:jid_spec(), binary(), binary() | pubsub_node_id()) ->
-                            exml:element().
-discover_nodes(User, Id, {NodeAddr, NodeName}) ->
-    QueryElement = escalus_stanza:query_el(?NS_DISCO_ITEMS, #{<<"node">> => NodeName}, []),
-    iq(<<"get">>, User, Id, NodeAddr, [QueryElement]);
-discover_nodes(User, Id, NodeAddr) ->
-    QueryElement = escalus_stanza:query_el(?NS_DISCO_ITEMS, #{}, []),
-    iq(<<"get">>, User, Id, NodeAddr, [QueryElement]).
+-spec discover_nodes(binary(), pubsub_node_name()) -> exml:element().
+discover_nodes(Id, NodeName) ->
+    QueryElement = escalus_stanza:query_el(?NS_DISCO_ITEMS, node_attr(NodeName), []),
+    iq(<<"get">>, Id, [QueryElement]).
 
 %% ---------------- create & delete ----------------
 
--spec create_node(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
-create_node(User, Id, Node) ->
-    create_node(User, Id, Node, []).
+-spec create_node(binary(), pubsub_node_name()) -> exml:element().
+create_node(Id, Node) ->
+    create_node(Id, Node, []).
 
--spec create_node(escalus_utils:jid_spec(), binary(), pubsub_node_id(), [{binary(), binary()}]) ->
-                         exml:element().
-create_node(User, Id, {NodeAddr, NodeName}, ConfigFields) ->
+-spec create_node(binary(), pubsub_node_name(), [form_field()] | undefined) -> exml:element().
+create_node(Id, NodeName, ConfigFields) ->
     Elements = [create_node_element(NodeName) | configure_node_form(ConfigFields, undefined)],
-    pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
+    pubsub_iq(<<"set">>, Id, Elements).
 
--spec delete_node(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
-delete_node(User, Id, {NodeAddr, NodeName}) ->
+-spec delete_node(binary(), pubsub_node_name()) -> exml:element().
+delete_node(Id, NodeName) ->
     Elements = [delete_element(NodeName)],
-    pubsub_owner_iq(<<"set">>, User, Id, NodeAddr, Elements).
+    pubsub_owner_iq(<<"set">>, Id, Elements).
 
 %% ---------------- configuration ----------------
 
--spec get_configuration(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
-get_configuration(User, Id, {NodeAddr, NodeName}) ->
-    Elements = [#xmlel{name = <<"configure">>,
-                       attrs = #{<<"node">> => NodeName}}],
-    pubsub_owner_iq(<<"get">>, User, Id, NodeAddr, Elements).
+-spec get_configuration(binary(), pubsub_node_name()) -> exml:element().
+get_configuration(Id, NodeName) ->
+    Elements = [#xmlel{name = <<"configure">>, attrs = node_attr(NodeName)}],
+    pubsub_owner_iq(<<"get">>, Id, Elements).
 
--spec set_configuration(escalus_utils:jid_spec(), binary(),
-                        pubsub_node_id(), [{binary(), binary()}]) ->
-    exml:element().
-set_configuration(User, Id, {NodeAddr, NodeName}, ConfigFields) ->
+-spec set_configuration(binary(), pubsub_node_name(), [form_field()] | undefined) -> exml:element().
+set_configuration(Id, NodeName, ConfigFields) ->
     Elements = configure_node_form(ConfigFields, NodeName),
-    pubsub_owner_iq(<<"set">>, User, Id, NodeAddr, Elements).
+    pubsub_owner_iq(<<"set">>, Id, Elements).
 
--spec get_default_configuration(escalus_utils:jid_spec(), binary(),
-                                escalus_utils:jid_spec()) -> exml:element().
-get_default_configuration(User, Id, NodeAddr) ->
+-spec get_default_configuration(binary()) -> exml:element().
+get_default_configuration(Id) ->
     Elements = [default_element()],
-    pubsub_owner_iq(<<"get">>, User, Id, NodeAddr, Elements).
+    pubsub_owner_iq(<<"get">>, Id, Elements).
 
 %% ---------------- affiliations ----------------
 
--spec get_affiliations(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
-get_affiliations(User, Id, {NodeAddr, NodeName}) ->
+-spec get_affiliations(binary(), pubsub_node_name()) -> exml:element().
+get_affiliations(Id, NodeName) ->
     Elements = [#xmlel{name = <<"affiliations">>,
-                       attrs = #{<<"node">> => NodeName}}],
-    pubsub_owner_iq(<<"get">>, User, Id, NodeAddr, Elements).
+                       attrs = node_attr(NodeName)}],
+    pubsub_owner_iq(<<"get">>, Id, Elements).
 
--spec set_affiliations(escalus_utils:jid_spec(), binary(), pubsub_node_id(),
-                       [{escalus_utils:jid_spec(), binary()}]) ->
+-spec set_affiliations(binary(), pubsub_node_name(), [{escalus_utils:jid_spec(), binary()}]) ->
     exml:element().
-set_affiliations(User, Id, {NodeAddr, NodeName}, AffChange) ->
+set_affiliations(Id, NodeName, AffChange) ->
     AffList = [ #xmlel{name = <<"affiliation">>,
-                       attrs = #{<<"jid">> => escalus_utils:get_short_jid(U),
+                       attrs = #{<<"jid">> => get_short_jid(U),
                                  <<"affiliation">> => A}}
                 || {U, A} <- AffChange ],
-    Affiliations = #xmlel{name = <<"affiliations">>, attrs = #{<<"node">> => NodeName},
+    Affiliations = #xmlel{name = <<"affiliations">>,
+                          attrs = node_attr(NodeName),
                           children = AffList},
-    pubsub_owner_iq(<<"set">>, User, Id, NodeAddr, [Affiliations]).
+    pubsub_owner_iq(<<"set">>, Id, [Affiliations]).
 
 %% ---------------- subscriptions ----------------
 
--spec subscribe(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
+-spec subscribe(escalus_utils:jid_spec(), binary(), pubsub_node_name()) -> exml:element().
 subscribe(User, Id, Node) ->
     subscribe(User, Id, Node, []).
 
--spec subscribe(escalus_utils:jid_spec(), binary(), pubsub_node_id(), [{binary(), binary()}]) ->
-                         exml:element().
-subscribe(User, Id, {NodeAddr, NodeName}, ConfigFields) ->
+-spec subscribe(escalus_utils:jid_spec(), binary(), pubsub_node_name(),
+                [form_field()] | undefined) ->
+          exml:element().
+subscribe(User, Id, NodeName, ConfigFields) ->
     Elements = [subscribe_element(NodeName, User) | subscribe_options_form(ConfigFields)],
-    pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
+    pubsub_iq(<<"set">>, Id, Elements).
 
--spec unsubscribe(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
-unsubscribe(User, Id, {NodeAddr, NodeName}) ->
+-spec unsubscribe(escalus_utils:jid_spec(), binary(), pubsub_node_name()) -> exml:element().
+unsubscribe(User, Id, NodeName) ->
     Elements = [unsubscribe_element(NodeName, User)],
-    pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
+    pubsub_iq(<<"set">>, Id, Elements).
 
--spec submit_subscription_response(escalus_utils:jid_spec(), binary(), pubsub_node_id(), form()) ->
-    exml:element().
-submit_subscription_response(User, Id, {NodeAddr, _NodeName}, Form) ->
+-spec submit_subscription_response(binary(), [form_field()]) -> exml:element().
+submit_subscription_response(Id, Form) ->
     Fields = [ encode_form_field(F) || F <- Form ],
     XEl = escalus_stanza:x_data_form(<<"submit">>, Fields),
-    Msg = #xmlel{ name = <<"message">>,
-                  attrs = #{<<"to">> => NodeAddr, <<"id">> => Id},
-                  children = [XEl] },
-    escalus_stanza:from(Msg, escalus_utils:get_jid(User)).
+    #xmlel{ name = <<"message">>,
+            attrs = #{<<"id">> => Id},
+            children = [XEl] }.
 
--spec get_pending_subscriptions(escalus_utils:jid_spec(), binary(),
-                                    pubsub_node_id() | binary()) -> exml:element().
-get_pending_subscriptions(User, Id, {NodeAddr, NodeName}) ->
-    Fields = [ encode_form_field({<<"pubsub#node">>, NodeName}) ],
-    Payload = [ escalus_stanza:x_data_form(<<"submit">>, Fields) ],
+-spec get_pending_subscriptions(binary(), pubsub_node_name()) -> exml:element().
+get_pending_subscriptions(Id, NodeName) ->
+    Payload = pending_subscriptions_form(NodeName),
     Node = <<"http://jabber.org/protocol/pubsub#get-pending">>,
     CommandIQ = escalus_stanza:adhoc_request(Node, Payload),
-    escalus_stanza:from(escalus_stanza:set_id(escalus_stanza:to(CommandIQ, NodeAddr), Id), User);
-get_pending_subscriptions(User, Id, NodesAddr) ->
-    Node = <<"http://jabber.org/protocol/pubsub#get-pending">>,
-    CommandIQ = escalus_stanza:adhoc_request(Node, []),
-    escalus_stanza:from(escalus_stanza:set_id(escalus_stanza:to(CommandIQ, NodesAddr), Id), User).
+    escalus_stanza:set_id(CommandIQ, Id).
 
--spec get_user_subscriptions(escalus_utils:jid_spec(), binary(),
-                                  pubsub_node_id() | binary()) -> exml:element().
-get_user_subscriptions(User, Id, Node) ->
-    {Element, NodeAddr}
-    = case Node of
-          {NodeAddr0, NodeName} -> {subscriptions_element(NodeName, []), NodeAddr0};
-          NodeAddr0 -> {subscriptions_element(), NodeAddr0}
-      end,
-    pubsub_iq(<<"get">>, User, Id, NodeAddr, [Element]).
+-spec get_user_subscriptions(binary(), pubsub_node_name()) -> exml:element().
+get_user_subscriptions(Id, NodeName) ->
+    Element = subscriptions_element(NodeName, []),
+    pubsub_iq(<<"get">>, Id, [Element]).
 
--spec get_subscription_options(escalus_utils:jid_spec(), binary(), {_, _}) -> exml:element().
-get_subscription_options(User, Id, {NodeAddr, NodeName}) ->
-    Element = subscription_options(NodeName, User),
-    pubsub_iq(<<"get">>, User, Id, NodeAddr, [Element]).
-
--spec set_subscription_options(escalus_utils:jid_spec(), binary(), {_, _}, [tuple()]) ->
+-spec get_subscription_options(escalus_utils:jid_spec(), binary(), pubsub_node_name()) ->
     exml:element().
-set_subscription_options(User, Id, {NodeAddr, NodeName}, Options) ->
-    FormType = form_type_field_element(<<"subscribe_options">>),
-    EncodedOptions = [FormType | lists:map(fun encode_form_field/1, Options)],
-    Children = [set_subscription_options_form(NodeName, User, EncodedOptions)],
-    pubsub_iq(<<"set">>, User, Id, NodeAddr, Children).
+get_subscription_options(User, Id, NodeName) ->
+    Element = subscription_options(NodeName, User),
+    pubsub_iq(<<"get">>, Id, [Element]).
 
--spec get_node_subscriptions(escalus_utils:jid_spec(), binary(), pubsub_node_id()) ->
-                                         exml:element().
-get_node_subscriptions(User, Id, {NodeAddr, NodeName}) ->
+-spec set_subscription_options(escalus_utils:jid_spec(), binary(), pubsub_node_name(),
+                               [form_field()] | undefined) -> exml:element().
+set_subscription_options(User, Id, NodeName, Options) ->
+    Attrs = #{<<"jid">> => escalus_utils:get_jid(User)},
+    Children = form(<<"options">>, NodeName, Attrs, <<"subscribe_options">>, Options),
+    pubsub_iq(<<"set">>, Id, Children).
+
+-spec get_node_subscriptions(binary(), pubsub_node_name()) -> exml:element().
+get_node_subscriptions(Id, NodeName) ->
     Elements = [subscriptions_element(NodeName, [])],
-    pubsub_owner_iq(<<"get">>, User, Id, NodeAddr, Elements).
+    pubsub_owner_iq(<<"get">>, Id, Elements).
 
--spec set_subscriptions(escalus_utils:jid_spec(), binary(),
-                        [{escalus_utils:jid_spec(), binary()}], pubsub_node_id()) ->
-                               exml:element().
-set_subscriptions(User, Id, Subscriptions, {NodeAddr, NodeName}) ->
+-spec set_subscriptions(binary(), [{escalus_utils:jid_spec(), binary()}], pubsub_node_name()) ->
+    exml:element().
+set_subscriptions(Id, Subscriptions, NodeName) ->
     SubElements = [subscription_element(Jid, SubState) || {Jid, SubState} <- Subscriptions],
     Elements = [subscriptions_element(NodeName, SubElements)],
-    pubsub_owner_iq(<<"set">>, User, Id, NodeAddr, Elements).
+    pubsub_owner_iq(<<"set">>, Id, Elements).
 
 %% ---------------- publish & items management ----------------
 
--spec publish(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
-publish(User, Id, {NodeAddr, NodeName}) ->
-    Elements = [publish_element(NodeName, undefined)],
-    pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
+-spec publish(binary(), pubsub_node_name()) -> exml:element().
+publish(Id, Node) ->
+    publish_raw([], Id, Node).
 
--spec publish(escalus_utils:jid_spec(), exml:element(), binary(), pubsub_node_id()) ->
-                     exml:element().
-publish(User, ContentElement, Id, {NodeAddr, NodeName}) ->
-    ItemElement = item_element(ContentElement),
-    Elements = [publish_element(NodeName, ItemElement)],
-    pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
+-spec publish(exml:element(), binary(), pubsub_node_name()) -> exml:element().
+publish(ContentElement, Id, Node) ->
+    publish(undefined, ContentElement, Id, Node).
 
--spec publish(escalus_utils:jid_spec(), binary(), exml:element(), binary(), pubsub_node_id()) ->
-                     exml:element().
-publish(User, ItemId, ContentElement, Id, {NodeAddr, NodeName}) ->
-    ItemElement = item_element(ItemId, ContentElement),
-    Elements = [publish_element(NodeName, ItemElement)],
-    pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
+-spec publish(binary() | undefined, exml:element(), binary(), pubsub_node_name()) -> exml:element().
+publish(ItemId, ContentElement, Id, Node) ->
+    publish_raw([item_element(ItemId, ContentElement)], Id, Node).
 
--spec publish_with_options(escalus_utils:jid_spec(),
-                           binary(),
-                           pubsub_node_id(),
-                           publish_options()) -> exml:element().
-publish_with_options(User, Id, {NodeAddr, NodeName}, PublishOptions) ->
-    PublishOptionsElement = publish_options_element(PublishOptions),
-    Elements = [publish_element(NodeName, undefined), PublishOptionsElement],
-    pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
-
--spec publish_with_options(escalus_utils:jid_spec(),
-                           exml:element(),
-                           binary(),
-                           pubsub_node_id(),
-                           publish_options()) -> exml:element().
-publish_with_options(User, ContentElement, Id, {NodeAddr, NodeName}, PublishOptions) ->
-    ItemElement = item_element(ContentElement),
-    PublishOptionsElement = publish_options_element(PublishOptions),
-    Elements = [publish_element(NodeName, ItemElement), PublishOptionsElement],
-    pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
-
--spec publish_with_options(escalus_utils:jid_spec(),
-                           binary(),
-                           exml:element(),
-                           binary(),
-                           pubsub_node_id(),
-                           publish_options()) -> exml:element().
-publish_with_options(User, ItemId, ContentElement, Id, {NodeAddr, NodeName}, PublishOptions) ->
-    ItemElement = item_element(ItemId, ContentElement),
-    PublishOptionsElement = publish_options_element(PublishOptions),
-    Elements = [publish_element(NodeName, ItemElement), PublishOptionsElement],
-    pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
-
--spec retract(escalus_utils:jid_spec(), binary(), pubsub_node_id(), binary(), exml:attrs()) ->
+-spec publish_with_options(binary(), pubsub_node_name(), [form_field()] | undefined) ->
     exml:element().
-retract(User, Id, {NodeAddr, NodeName}, ItemId, Attrs) ->
+publish_with_options(Id, Node, PublishOptions) ->
+    publish_raw([], publish_options_form(PublishOptions), Id, Node).
+
+-spec publish_with_options(exml:element(), binary(), pubsub_node_name(),
+                           [form_field()] | undefined) -> exml:element().
+publish_with_options(ContentElement, Id, Node, PublishOptions) ->
+    publish_with_options(undefined, ContentElement, Id, Node, PublishOptions).
+
+-spec publish_with_options(binary() | undefined, exml:element(), binary(), pubsub_node_name(),
+                           [form_field()] | undefined) -> exml:element().
+publish_with_options(ItemId, ContentElement, Id, NodeName, PublishOptions) ->
+    ItemElement = item_element(ItemId, ContentElement),
+    publish_raw([ItemElement], publish_options_form(PublishOptions), Id, NodeName).
+
+-spec publish_raw([exml:element()], binary(), pubsub_node_name()) -> exml:element().
+publish_raw(Children, Id, NodeName) ->
+    Elements = [publish_element(NodeName, Children)],
+    pubsub_iq(<<"set">>, Id, Elements).
+
+-spec publish_raw([exml:element()], [exml:element()], binary(), pubsub_node_name()) ->
+          exml:element().
+publish_raw(Children, ExtraElements, Id, NodeName) ->
+    Elements = [publish_element(NodeName, Children) | ExtraElements],
+    pubsub_iq(<<"set">>, Id, Elements).
+
+-spec retract(binary(), pubsub_node_name(), binary(), exml:attrs()) ->
+    exml:element().
+retract(Id, NodeName, ItemId, Attrs) ->
     Elements = [retract_item(NodeName, ItemId, Attrs)],
-    pubsub_iq(<<"set">>, User, Id, NodeAddr, Elements).
+    pubsub_iq(<<"set">>, Id, Elements).
 
--spec get_items(escalus_utils:jid_spec(), binary(), pubsub_node_id(), pos_integer()) -> exml:element().
-get_items(User, Id, {NodeAddr, NodeName}, MaxItems) when is_integer(MaxItems), MaxItems > 0 ->
+-spec get_items(binary(), pubsub_node_name(), pos_integer()) -> exml:element().
+get_items(Id, NodeName, MaxItems) when is_integer(MaxItems), MaxItems > 0 ->
     Elements = [items_element(NodeName, MaxItems)],
-    pubsub_iq(<<"get">>, User, Id, NodeAddr, Elements).
+    pubsub_iq(<<"get">>, Id, Elements).
 
--spec get_all_items(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
-get_all_items(User, Id, {NodeAddr, NodeName}) ->
+-spec get_all_items(binary(), pubsub_node_name()) -> exml:element().
+get_all_items(Id, NodeName) ->
     Elements = [items_element(NodeName)],
-    pubsub_iq(<<"get">>, User, Id, NodeAddr, Elements).
+    pubsub_iq(<<"get">>, Id, Elements).
 
--spec get_item(escalus_utils:jid_spec(), binary(), binary(), pubsub_node_id()) -> exml:element().
-get_item(User, Id, ItemId, {NodeAddr, NodeName}) ->
+-spec get_item(binary(), binary(), pubsub_node_name()) -> exml:element().
+get_item(Id, ItemId, NodeName) ->
     BareItemsEl = items_element(NodeName),
     Item = item_element(ItemId, undefined),
     Elements = [BareItemsEl#xmlel{children = [Item]}],
-    pubsub_iq(<<"get">>, User, Id, NodeAddr, Elements).
+    pubsub_iq(<<"get">>, Id, Elements).
 
--spec purge_all_items(escalus_utils:jid_spec(), binary(), pubsub_node_id()) -> exml:element().
-purge_all_items(User, Id, {NodeAddr, NodeName}) ->
+-spec purge_all_items(binary(), pubsub_node_name()) -> exml:element().
+purge_all_items(Id, NodeName) ->
     Elements = [purge_element(NodeName)],
-    pubsub_owner_iq(<<"set">>, User, Id, NodeAddr, Elements).
+    pubsub_owner_iq(<<"set">>, Id, Elements).
 
 %%-----------------------------------------------------------------------------
 %% XML element construction
@@ -287,128 +252,104 @@ purge_all_items(User, Id, {NodeAddr, NodeName}) ->
 
 %% Whole stanzas
 
--spec iq(binary(), escalus_utils:jid_spec(), binary(), pep | escalus_utils:jid_spec(),
-        [exml:cdata() | exml:element()]) -> exml:element().
-iq(Type, From, Id, pep, Elements) ->
-    Stanza = escalus_stanza:iq(Type, Elements),
-    StanzaWithId = escalus_stanza:set_id(Stanza, Id),
-    escalus_stanza:from(StanzaWithId, From);
-iq(Type, From, Id, To, Elements) ->
-    Stanza = escalus_stanza:iq(To, Type, Elements),
-    StanzaWithId = escalus_stanza:set_id(Stanza, Id),
-    escalus_stanza:from(StanzaWithId, From).
+-spec pubsub_owner_iq(binary(), binary(), [exml:cdata() | exml:element()]) -> exml:element().
+pubsub_owner_iq(Type, Id, Elements) ->
+    pubsub_iq(Type, Id, Elements, ?NS_PUBSUB_OWNER).
 
--spec pubsub_iq(binary(), escalus_utils:jid_spec(), binary(), pep | escalus_utils:jid_spec(),
-        [exml:cdata() | exml:element()]) -> exml:element().
-pubsub_iq(Type, User, Id, NodeAddr, Elements) ->
-    pubsub_iq(Type, User, Id, NodeAddr, Elements, ?NS_PUBSUB).
+-spec pubsub_iq(binary(), binary(), [exml:cdata() | exml:element()]) -> exml:element().
+pubsub_iq(Type, Id, Elements) ->
+    pubsub_iq(Type, Id, Elements, ?NS_PUBSUB).
 
--spec pubsub_iq(binary(), escalus_utils:jid_spec(), binary(), pep | escalus_utils:jid_spec(),
-        [exml:cdata() | exml:element()], binary()) -> exml:element().
-pubsub_iq(Type, User, Id, NodeAddr, Elements, NS) ->
+-spec pubsub_iq(binary(), binary(), [exml:cdata() | exml:element()], binary()) ->
+    exml:element().
+pubsub_iq(Type, Id, Elements, NS) ->
     PubSubElement = pubsub_element(Elements, NS),
-    iq(Type, User, Id, NodeAddr, [PubSubElement]).
+    iq(Type, Id, [PubSubElement]).
 
--spec pubsub_owner_iq(binary(), escalus_utils:jid_spec(), binary(), pep | escalus_utils:jid_spec(),
-        [exml:cdata() | exml:element()]) -> exml:element().
-pubsub_owner_iq(Type, User, Id, NodeAddr, Elements) ->
-    pubsub_iq(Type, User, Id, NodeAddr, Elements, ?NS_PUBSUB_OWNER).
-
+-spec iq(binary(), binary(), [exml:cdata() | exml:element()]) -> exml:element().
+iq(Type, Id, Elements) ->
+    Stanza = escalus_stanza:iq(Type, Elements),
+    escalus_stanza:set_id(Stanza, Id).
 
 %% Form utils
 
 configure_node_form(Fields, NodeName) ->
-    optional_form(<<"configure">>, NodeName, <<"node_config">>, Fields).
+    form(<<"configure">>, NodeName, #{}, <<"node_config">>, Fields).
 
 subscribe_options_form(Fields) ->
-    optional_form(<<"options">>, undefined, <<"subscribe_options">>, Fields).
+    form(<<"options">>, undefined, #{}, <<"subscribe_options">>, Fields).
 
-optional_form(_FormName, _NodeName, _Type, []) -> [];
-optional_form(FormName, NodeName, Type, Fields) ->
+publish_options_form(Fields) ->
+    form(<<"publish-options">>, undefined, #{}, <<"publish-options">>, Fields).
+
+form(_, _, _, _, undefined) ->
+    [];
+form(FormName, NodeName, Attrs, Type, Fields) ->
     FormTypeField = form_type_field_element(Type),
     FormFields = [encode_form_field(F) || F <- Fields],
-    [form_element(FormName, NodeName, [FormTypeField | FormFields])].
+    [form_element(FormName, NodeName, Attrs, [FormTypeField | FormFields])].
+
+-spec pending_subscriptions_form(pubsub_node_name()) -> [exml:element()].
+pending_subscriptions_form(undefined) ->
+    [];
+pending_subscriptions_form(NodeName) ->
+    Fields = [encode_form_field({<<"pubsub#node">>, NodeName})],
+    [escalus_stanza:x_data_form(<<"submit">>, Fields)].
 
 %% Elements
 
 create_node_element(NodeName) ->
-    #xmlel{name = <<"create">>, attrs = #{<<"node">> => NodeName}}.
+    #xmlel{name = <<"create">>, attrs = node_attr(NodeName)}.
 
 -spec pubsub_element([exml:cdata() | exml:element()], binary()) -> exml:element().
 pubsub_element(Children, NS) ->
     #xmlel{name = <<"pubsub">>,
-           attrs = #{<<"xmlns">> => NS},
+           attrs = skip_undefined(#{<<"xmlns">> => NS}),
            children = Children}.
 
 delete_element(NodeName) ->
     #xmlel{name = <<"delete">>,
-           attrs = #{<<"node">> => NodeName}}.
+           attrs = node_attr(NodeName)}.
 
 subscribe_element(NodeName, User) ->
     #xmlel{name = <<"subscribe">>,
-           attrs = #{<<"node">> => NodeName,
-                    <<"jid">> => escalus_utils:get_jid(User)}}.
+           attrs = (node_attr(NodeName))#{<<"jid">> => escalus_utils:get_jid(User)}}.
 
 unsubscribe_element(NodeName, User) ->
     #xmlel{name = <<"unsubscribe">>,
-           attrs = #{<<"node">> => NodeName,
-                    <<"jid">> => escalus_utils:get_jid(User)}}.
+           attrs = (node_attr(NodeName))#{<<"jid">> => escalus_utils:get_jid(User)}}.
 
-publish_element(NodeName, Item) ->
+publish_element(NodeName, Children) ->
     #xmlel{name = <<"publish">>,
-           attrs = #{<<"node">> => NodeName},
-           children = maybe_children([Item])}.
-
-publish_options_element(Fields) ->
-    #xmlel{name = <<"publish-options">>,
-           children = x_data_form(<<"submit">>, form_type_field() ++ x_data_fields(Fields))}.
-
-x_data_form(Type, Children) ->
-    [escalus_stanza:x_data_form(Type, Children)].
-
-x_data_fields(Fields) ->
-    escalus_stanza:search_fields(Fields).
-
-form_type_field() ->
-    [#xmlel{name = <<"field">>,
-            attrs = #{<<"var">> => <<"FORM_TYPE">>, <<"type">> => <<"hidden">>},
-            children = [#xmlel{name = <<"value">>,
-                               children = [#xmlcdata{content = ?NS_PUBSUB_PUBLISH_OPTIONS}]}]}].
+           attrs = node_attr(NodeName),
+           children = Children}.
 
 items_element(NodeName) ->
     #xmlel{name = <<"items">>,
-           attrs = #{<<"node">> => NodeName}}.
+           attrs = node_attr(NodeName)}.
 
 items_element(NodeName, MaxItems) ->
     #xmlel{name = <<"items">>,
-           attrs = #{<<"node">> => NodeName,
-                     <<"max_items">> => integer_to_binary(MaxItems)}}.
-
-item_element(ContentElement) ->
-    #xmlel{name = <<"item">>,
-           children = maybe_children([ContentElement])}.
+           attrs = (node_attr(NodeName))#{<<"max_items">> => integer_to_binary(MaxItems)}}.
 
 item_element(ItemId, ContentElement) ->
     #xmlel{name = <<"item">>,
-           attrs = #{<<"id">> => ItemId},
+           attrs = skip_undefined(#{<<"id">> => ItemId}),
            children = maybe_children([ContentElement])}.
 
 retract_item(NodeName, ItemId, Attrs) ->
     #xmlel{name = <<"retract">>,
-           attrs = Attrs#{<<"node">> => NodeName},
+           attrs = maps:merge(Attrs, node_attr(NodeName)),
            children = [#xmlel{name = <<"item">>,
                               attrs = #{<<"id">> => ItemId} }]}.
 
 purge_element(NodeName) ->
     #xmlel{name = <<"purge">>,
-           attrs = #{<<"node">> => NodeName}}.
-
-subscriptions_element() ->
-    #xmlel{name = <<"subscriptions">>}.
+           attrs = node_attr(NodeName)}.
 
 subscriptions_element(NodeName, Children) ->
     #xmlel{name = <<"subscriptions">>,
-           attrs = #{<<"node">> => NodeName},
+           attrs = node_attr(NodeName),
            children = Children}.
 
 subscription_element(User, SubscriptionState) ->
@@ -418,49 +359,27 @@ subscription_element(User, SubscriptionState) ->
 
 subscription_options(NodeName, User) ->
     #xmlel{name = <<"options">>,
-           attrs = #{<<"node">> => NodeName,
-                     <<"jid">> => escalus_utils:get_jid(User)}}.
-
-set_subscription_options_form(NodeName, User, Children) ->
-    #xmlel{name = <<"options">>,
-           attrs = #{<<"node">> => NodeName,
-                     <<"jid">> => escalus_utils:get_jid(User)},
-           children = [#xmlel{name = <<"x">>,
-                              attrs = #{<<"xmlns">> => <<"jabber:x:data">>,
-                                        <<"type">> => <<"submit">>},
-                              children = Children}]}.
+           attrs = (node_attr(NodeName))#{<<"jid">> => escalus_utils:get_jid(User)}}.
 
 default_element() ->
     #xmlel{name = <<"default">>}.
 
-form_element(FormName, NodeName, FieldElements) ->
+form_element(FormName, NodeName, Attrs, FieldElements) ->
     #xmlel{name = FormName,
-           attrs = skip_undefined(#{<<"node">> => NodeName}),
-           children = [#xmlel{name = <<"x">>,
-                              attrs = #{<<"xmlns">> => <<"jabber:x:data">>,
-                                        <<"type">> => <<"submit">>},
-                              children = FieldElements}
-                      ]}.
+           attrs = maps:merge(node_attr(NodeName), Attrs),
+           children = [escalus_stanza:x_data_form(<<"submit">>, FieldElements)]}.
 
 form_type_field_element(FormType) ->
     Content = << <<"http://jabber.org/protocol/pubsub#">>/binary, FormType/binary >>,
-    #xmlel{name = <<"field">>,
-           attrs = #{<<"var">> => <<"FORM_TYPE">>,
-                    <<"type">> => <<"hidden">>},
-           children = [#xmlel{name = <<"value">>,
-                              children = [#xmlcdata{content = Content}]}]}.
+    escalus_stanza:field_el(<<"FORM_TYPE">>, <<"hidden">>, Content).
 
+encode_form_field({Var, Values}) when is_list(Values) ->
+    encode_form_field(Var, Values);
 encode_form_field({Var, Value}) ->
-    encode_form_field(Var, [Value]);
-encode_form_field({Var, <<"text-multi">>, Value}) ->
-    encode_form_field(Var, Value);
-encode_form_field({Var, _Type, Value}) ->
     encode_form_field(Var, [Value]).
 
 encode_form_field(Var, Values) ->
-    Children = [ #xmlel{name = <<"value">>, children = [#xmlcdata{content = Content}]}
-                 || Content <- Values ],
-    #xmlel{name = <<"field">>, attrs = #{<<"var">> => Var}, children = Children}.
+    escalus_stanza:field_el(Var, undefined, Values).
 
 %% Helpers
 
@@ -470,6 +389,16 @@ maybe_children(L) ->
                     (_) -> true
                  end, L).
 
+node_attr(NodeName) ->
+    skip_undefined(#{<<"node">> => NodeName}).
 
 skip_undefined(L) ->
     maps:filter(fun(_, Val) -> undefined =/= Val end, L).
+
+-doc "Like escalus_utils:get_short_jid/1, but accepts server JIDs".
+-spec get_short_jid(escalus_utils:jid_spec()) -> binary().
+get_short_jid(ClientOrJid) ->
+   case is_binary(ClientOrJid) andalso binary:match(ClientOrJid, ~"/") =:= nomatch of
+       true -> ClientOrJid; % already no resource
+       false -> escalus_utils:get_short_jid(ClientOrJid)
+   end.
