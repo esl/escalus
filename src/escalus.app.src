@@ -17,7 +17,7 @@
                   worker_pool
                  ]},
   {maintainers, ["ESL"]},
-  {licenses, ["Apache 2.0"]},
+  {licenses, ["Apache-2.0"]},
   {links, [{"Github", "https://github.com/esl/escalus"}]},
   {build_tools, ["make", "rebar"]},
   {mod, {escalus_app, []}},
