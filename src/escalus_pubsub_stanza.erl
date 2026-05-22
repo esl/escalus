@@ -36,9 +36,7 @@
          publish_with_options/3, publish_with_options/4, publish_with_options/5,
 
          retract/4,
-         get_items/3,
-         get_all_items/2,
-         get_item/3,
+         get_items/2, get_items/3,
          purge_all_items/2
         ]).
 
@@ -49,6 +47,7 @@
 -export_type([pubsub_node_name/0]).
 
 -type form_field() :: {Var :: binary(), Value :: binary() | [binary()]}.
+-type get_items_opts() :: #{max_items => integer(), item_ids => [binary() | undefined]}.
 
 %%-----------------------------------------------------------------------------
 %% Request construction
@@ -224,21 +223,14 @@ retract(Id, NodeName, ItemId, Attrs) ->
     Elements = [retract_item(NodeName, ItemId, Attrs)],
     pubsub_iq(<<"set">>, Id, Elements).
 
--spec get_items(binary(), pubsub_node_name(), pos_integer()) -> exml:element().
-get_items(Id, NodeName, MaxItems) when is_integer(MaxItems), MaxItems > 0 ->
-    Elements = [items_element(NodeName, MaxItems)],
-    pubsub_iq(<<"get">>, Id, Elements).
+-spec get_items(binary(), pubsub_node_name()) -> exml:element().
+get_items(Id, NodeName) ->
+    get_items(Id, NodeName, #{}).
 
--spec get_all_items(binary(), pubsub_node_name()) -> exml:element().
-get_all_items(Id, NodeName) ->
-    Elements = [items_element(NodeName)],
-    pubsub_iq(<<"get">>, Id, Elements).
-
--spec get_item(binary(), binary(), pubsub_node_name()) -> exml:element().
-get_item(Id, ItemId, NodeName) ->
-    BareItemsEl = items_element(NodeName),
-    Item = item_element(ItemId, undefined),
-    Elements = [BareItemsEl#xmlel{children = [Item]}],
+-spec get_items(binary(), pubsub_node_name(), get_items_opts()) ->
+          exml:element().
+get_items(Id, NodeName, Options) ->
+    Elements = [items_element(NodeName, Options)],
     pubsub_iq(<<"get">>, Id, Elements).
 
 -spec purge_all_items(binary(), pubsub_node_name()) -> exml:element().
@@ -324,13 +316,14 @@ publish_element(NodeName, Children) ->
            attrs = node_attr(NodeName),
            children = Children}.
 
-items_element(NodeName) ->
+-spec items_element(pubsub_node_name(), get_items_opts()) -> exml:element().
+items_element(NodeName, Options) ->
+    Attrs = #{<<"node">> => NodeName,
+              <<"max_items">> => maps:get(max_items, Options, undefined)},
+    ItemEls = [item_element(ItemId, undefined) || ItemId <- maps:get(item_ids, Options, [])],
     #xmlel{name = <<"items">>,
-           attrs = node_attr(NodeName)}.
-
-items_element(NodeName, MaxItems) ->
-    #xmlel{name = <<"items">>,
-           attrs = (node_attr(NodeName))#{<<"max_items">> => integer_to_binary(MaxItems)}}.
+           attrs = skip_undefined(Attrs),
+           children = ItemEls}.
 
 item_element(ItemId, ContentElement) ->
     #xmlel{name = <<"item">>,
