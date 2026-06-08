@@ -35,7 +35,7 @@
          publish/2, publish/3, publish/4, publish_raw/3,
          publish_with_options/3, publish_with_options/4, publish_with_options/5,
 
-         retract/4,
+         retract/4, retract_raw/4,
          get_items/2, get_items/3,
          purge_all_items/2
         ]).
@@ -43,11 +43,13 @@
 %% Note: Some helpers produce stanzas with missing elements/attrs when node name is undefined.
 %%       This is allowed in order to facilitate testing error conditions.
 -type pubsub_node_name() :: binary() | undefined.
+-type item_id() :: binary() | undefined.
 
 -export_type([pubsub_node_name/0]).
 
 -type form_field() :: {Var :: binary(), Value :: binary() | [binary()]}.
--type get_items_opts() :: #{max_items => integer(), item_ids => [binary() | undefined]}.
+-type get_items_opts() :: #{max_items => integer(), item_ids => [item_id()]}.
+-type retract_opts() :: #{notify => binary()}.
 
 %%-----------------------------------------------------------------------------
 %% Request construction
@@ -200,7 +202,7 @@ publish_with_options(Id, Node, PublishOptions) ->
 publish_with_options(ContentElement, Id, Node, PublishOptions) ->
     publish_with_options(undefined, ContentElement, Id, Node, PublishOptions).
 
--spec publish_with_options(binary() | undefined, exml:element(), binary(), pubsub_node_name(),
+-spec publish_with_options(item_id(), exml:element(), binary(), pubsub_node_name(),
                            [form_field()] | undefined) -> exml:element().
 publish_with_options(ItemId, ContentElement, Id, NodeName, PublishOptions) ->
     ItemElement = item_element(ItemId, ContentElement),
@@ -217,11 +219,14 @@ publish_raw(Children, ExtraElements, Id, NodeName) ->
     Elements = [publish_element(NodeName, Children) | ExtraElements],
     pubsub_iq(<<"set">>, Id, Elements).
 
--spec retract(binary(), pubsub_node_name(), binary(), exml:attrs()) ->
-    exml:element().
-retract(Id, NodeName, ItemId, Attrs) ->
-    Elements = [retract_item(NodeName, ItemId, Attrs)],
-    pubsub_iq(<<"set">>, Id, Elements).
+-spec retract(binary(), pubsub_node_name(), [item_id()], retract_opts()) -> exml:element().
+retract(Id, NodeName, ItemIds, Options) ->
+    ItemEls = [item_element(ItemId, undefined) || ItemId <- ItemIds],
+    retract_raw(Id, NodeName, ItemEls, Options).
+
+-spec retract_raw(binary(), pubsub_node_name(), [exml:element()], retract_opts()) -> exml:element().
+retract_raw(Id, NodeName, ItemEls, Options) ->
+    pubsub_iq(<<"set">>, Id, [retract_element(NodeName, ItemEls, Options)]).
 
 -spec get_items(binary(), pubsub_node_name()) -> exml:element().
 get_items(Id, NodeName) ->
@@ -330,11 +335,13 @@ item_element(ItemId, ContentElement) ->
            attrs = skip_undefined(#{<<"id">> => ItemId}),
            children = maybe_children([ContentElement])}.
 
-retract_item(NodeName, ItemId, Attrs) ->
+-spec retract_element(pubsub_node_name(), [exml:element()], retract_opts()) -> exml:element().
+retract_element(NodeName, ItemEls, Options) ->
+    Attrs = #{<<"node">> => NodeName,
+              <<"notify">> => maps:get(notify, Options, undefined)},
     #xmlel{name = <<"retract">>,
-           attrs = maps:merge(Attrs, node_attr(NodeName)),
-           children = [#xmlel{name = <<"item">>,
-                              attrs = #{<<"id">> => ItemId} }]}.
+           attrs = skip_undefined(Attrs),
+           children = ItemEls}.
 
 purge_element(NodeName) ->
     #xmlel{name = <<"purge">>,
