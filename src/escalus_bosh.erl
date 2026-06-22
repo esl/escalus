@@ -118,7 +118,8 @@ stop(Pid) ->
             already_stopped;
         exit:{timeout, {gen_server, call, _}} ->
             error({timeout, process_info(Pid, current_stacktrace),
-                   process_info(Pid, messages), catch sys:get_state(Pid)})
+                   process_info(Pid, messages),
+                   (try sys:get_state(Pid) catch _:Reason -> {'EXIT', Reason} end)})
     end.
 
 -spec kill(pid()) -> ok | already_stopped.

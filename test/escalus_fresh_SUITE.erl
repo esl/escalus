@@ -20,7 +20,7 @@ it_registers_fresh_user_specs_in_table(_) ->
     given_escalus_started(C),
 
     % when
-    catch(escalus_fresh:story(C, [{al, 1}], fun id/1)),
+    try escalus_fresh:story(C, [{al, 1}], fun id/1) catch _:_ -> ok end,
 
     % then
     [{Suffix, [{escalus_users, [{al, [{username, <<"A", Suffix/binary>>}, _, _]}]}, _]}]
@@ -33,7 +33,7 @@ previously_registered_users_can_be_removed_in_one_fell_swoop(_) ->
            {cat, [{username, <<"c">>}, {server, <<"0.0.0.0">>}, {password, <<"p">>}]}
           ]}] ++ empty_config(),
     given_escalus_started(C),
-    catch(escalus_fresh:story(C, [{al, 1}, {bo, 1}, {cat, 1}], fun id/1)),
+    try escalus_fresh:story(C, [{al, 1}, {bo, 1}, {cat, 1}], fun id/1) catch _:_ -> ok end,
 
     % when
     escalus_fresh:clean(),
@@ -65,7 +65,7 @@ fresh_users_can_be_created_outside_a_story(_) ->
 id(A) -> A.
 empty_config() -> [{escalus_user_db, {module, ?MODULE, []}}].
 given_escalus_started(C) ->
-    catch(escalus:end_per_suite(C)),
+    try escalus:end_per_suite(C) catch _:_ -> ok end,
     %% init_per happens in a different process that the stories
     S = self(),
     spawn(fun() -> escalus:init_per_suite(C), S ! sweet end),

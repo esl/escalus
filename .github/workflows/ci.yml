@@ -14,8 +14,8 @@ jobs:
     name: OTP ${{matrix.otp_vsn}}
     strategy:
       matrix:
-        otp_vsn: ['28', '27']
-        rebar_vsn: ['3.25']
+        otp_vsn: ['29', '28']
+        rebar_vsn: ['3.27']
     runs-on: 'ubuntu-24.04'
     env:
       OTPVER: ${{ matrix.otp_vsn }}
@@ -29,4 +29,4 @@ jobs:
       - run: make test
       - run: make ct
       - run: make dialyzer
-        if: ${{ matrix.otp_vsn == '28' }}
+        if: ${{ matrix.otp_vsn == '29' }}

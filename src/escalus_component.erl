@@ -155,7 +155,7 @@ handle_info(Info, #component_state{module = M, client = C, user_state = S} = Sta
 
 -spec terminate(atom(), state()) -> any().
 terminate(Reason, #component_state{client = C, module = M, user_state = S}) ->
-    catch escalus_connection:stop(C),
+    try escalus_connection:stop(C) catch _:_ -> ok end,
     case erlang:function_exported(M, terminate, 2) of
         false -> ok;
         true -> M:terminate(Reason, S)
