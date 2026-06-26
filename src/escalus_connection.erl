@@ -327,7 +327,8 @@ receive_stanza(Client, Options) ->
 receive_stanzas(Client, infinity, Handler) ->
     do_receive_stanzas(Client, no_timeout, Handler);
 receive_stanzas(Client, Timeout, Handler) ->
-    Tref = erlang:send_after(Timeout, self(), TimeoutMsg = {timeout, make_ref()}),
+    TimeoutMsg = {timeout, make_ref()},
+    Tref = erlang:send_after(Timeout, self(), TimeoutMsg),
     Result = do_receive_stanzas(Client, TimeoutMsg, Handler),
     erlang:cancel_timer(Tref),
     Result.

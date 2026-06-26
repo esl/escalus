@@ -28,7 +28,7 @@ user_db_module_is_started_and_stopped_test(Config) ->
           end).
 
 given_escalus_user_db_module(Config, ModuleName) ->
-    catch(meck:unload(ModuleName)),
+    try meck:unload(ModuleName) catch _:_ -> ok end,
     meck:new(ModuleName, [no_link, non_strict]),
     [{escalus_user_db, {module, ModuleName}}|Config].
 

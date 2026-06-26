@@ -18,8 +18,8 @@ jobs:
       - uses: actions/checkout@v6
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: "27"
-          rebar3-version: "3.26"
+          otp-version: "29"
+          rebar3-version: "3.27"
       - run: rebar3 hex publish --revert ${{ inputs.version }} -r hexpm --yes
         env:
           HEX_API_KEY: ${{ secrets.HEX_API_KEY }}

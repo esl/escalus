@@ -5,7 +5,6 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
 -define(a(Condition), ?assert(Condition)).
--define(eq(A, B), ?assertEqual(A, B)).
 
 -import(escalus_story, [story/3]).
 
@@ -39,20 +38,14 @@ catch_timeout_when_waiting_for_stanza(Config) ->
     escalus:create_users(Config, escalus:get_users([alice])),
     story(Config, [{alice, 1}],
           fun (Alice) ->
-                  %% when
-                  {'EXIT', ErrorReason} = (catch escalus:wait_for_stanza(Alice)),
                   %% then
-                  ?a(is_2_tuple(ErrorReason)),
-                  ?eq(timeout_when_waiting_for_stanza, element(1, ErrorReason))
+                  ?assertError(timeout_when_waiting_for_stanza,
+                               escalus:wait_for_stanza(Alice))
           end),
     escalus:delete_users(Config, escalus:get_users([alice])).
 
 catch_escalus_compat_bin_badarg(_) ->
-    %% when
-    {'EXIT', ErrorReason} = (catch escalus_compat:bin({ala, <<"ma">>, {k,o,t,a}})),
-    %% then
-    ?a(is_2_tuple(ErrorReason)),
-    ?eq(badarg, element(1, ErrorReason)).
+    ?assertError(badarg, escalus_compat:bin({ala, <<"ma">>, {k,o,t,a}})).
 
 %% `escalus_new_assert:assert_true/2` is a module-internal function with
 %% no public API, so without exporting it just for the sake of test,
@@ -62,22 +55,15 @@ catch_escalus_compat_bin_badarg(_) ->
 %% release and debug. Furthermore, rebar would have to know which to use
 %% when running `rebar ct`.
 catch_assert_false(_) ->
-    %% when
-    {'EXIT', ErrorReason} = (catch escalus_new_assert:assert_true(false, my_reason)),
-    %% then
-    ?a(is_2_tuple(ErrorReason)),
-    ?eq(my_reason, element(1, ErrorReason)).
+    ?assertError(my_reason, escalus_new_assert:assert_true(false, my_reason)).
 
 catch_escalus_user_verify_creation(_) ->
     %% given
     {M, F} = {escalus_users, verify_creation},
     RawXMPPError = escalus_stanza:error_element(<<"fake-type">>,
                                                 <<"fake-condition">>),
-    %% when
-    {'EXIT', ErrorReason} = (catch M:F({error, my_error, RawXMPPError})),
     %% then
-    ?a(is_2_tuple(ErrorReason)),
-    ?eq(my_error, element(1, ErrorReason)).
+    ?assertError(my_error, M:F({error, my_error, RawXMPPError})).
 
 test_peek_stanzas(Config) ->
     escalus:create_users(Config, escalus:get_users([alice])),
@@ -113,9 +99,6 @@ test_get_stanza_with_metadata(Config) ->
 %%--------------------------------------------------------------------
 %% Helpers
 %%--------------------------------------------------------------------
-
-is_2_tuple(T) when is_tuple(T), tuple_size(T) == 2 -> true;
-is_2_tuple(_)                                      -> false.
 
 actually_has_stanzas(Peeked) ->
     {messages, Messages} = process_info(self(), messages),
